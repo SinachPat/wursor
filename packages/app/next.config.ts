@@ -5,6 +5,13 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ['@fluentui/react-components'],
   },
+  async rewrites() {
+    return {
+      beforeFiles: [
+        { source: '/', destination: '/marketing.html' },
+      ],
+    };
+  },
 };
 
 export default nextConfig;
