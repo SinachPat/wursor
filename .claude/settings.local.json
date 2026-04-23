@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm --version)",
+      "Bash(pnpm install *)",
+      "Bash(pnpm run *)",
+      "Bash(pnpm approve-builds *)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:www.figma.com)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(curl -s \"https://github.com/features/codespaces\")",
+      "Bash(curl -s \"https://www.figma.com/draw/\")",
+      "Bash(curl -s \"https://www.figma.com/make/\")",
+      "Bash(curl -s \"https://github.githubassets.com/assets/primer-primitives-0f570a01cbe448fb.css\")",
+      "Bash(pnpm --filter @originmain/app run build)"
+    ]
+  }
+}
