@@ -12,7 +12,9 @@
       "Bash(curl -s \"https://www.figma.com/draw/\")",
       "Bash(curl -s \"https://www.figma.com/make/\")",
       "Bash(curl -s \"https://github.githubassets.com/assets/primer-primitives-0f570a01cbe448fb.css\")",
-      "Bash(pnpm --filter @originmain/app run build)"
+      "Bash(pnpm --filter @originmain/app run build)",
+      "Bash(pnpm --filter @originmain/app install)",
+      "Bash(pnpm add *)"
     ]
   }
 }

@@ -64,6 +64,9 @@ importers:
       '@fluentui/react-components':
         specifier: ^9.54.0
         version: 9.73.7(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(scheduler@0.27.0)
+      '@fluentui/react-icons':
+        specifier: ^2.0.0
+        version: 2.0.324(react@19.2.5)
       '@originmain/diff-engine':
         specifier: workspace:*
         version: link:../diff-engine

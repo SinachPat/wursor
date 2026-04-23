@@ -1,0 +1,115 @@
+'use client';
+
+import { useRef, useEffect, useCallback } from 'react';
+import { useViewport } from '@/store/viewport';
+import { useCanvas } from '@/store/canvas';
+import { Artboard } from './Artboard';
+
+const ARTBOARDS = [
+  { id: 'dashboard-card', label: 'DashboardCard', x: 120, y: 120, width: 280, height: 200 },
+  { id: 'user-profile',   label: 'UserProfile',   x: 480, y: 120, width: 240, height: 280 },
+  { id: 'nav-sidebar',    label: 'NavSidebar',    x: 120, y: 400, width: 200, height: 360 },
+  { id: 'data-table',     label: 'DataTable',     x: 400, y: 420, width: 420, height: 300 },
+];
+
+export function Canvas() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const panX = useViewport((s) => s.panX);
+  const panY = useViewport((s) => s.panY);
+  const zoom = useViewport((s) => s.zoom);
+  const { activeTool, selectArtboard } = useCanvas();
+
+  const isPanning = useRef(false);
+  const lastPos = useRef({ x: 0, y: 0 });
+  const spaceDown = useRef(false);
+
+  // Wheel: pan or zoom
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const { zoom, panX, panY, setPan, setZoom } = useViewport.getState();
+      if (e.ctrlKey || e.metaKey) {
+        const rect = el.getBoundingClientRect();
+        const ox = e.clientX - rect.left;
+        const oy = e.clientY - rect.top;
+        setZoom(zoom * (e.deltaY > 0 ? 0.92 : 1.09), ox, oy);
+      } else {
+        setPan(panX - e.deltaX, panY - e.deltaY);
+      }
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
+
+  // Space key: temporary pan mode
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => { if (e.code === 'Space' && e.target === document.body) spaceDown.current = true; };
+    const up   = (e: KeyboardEvent) => { if (e.code === 'Space') spaceDown.current = false; };
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', up);
+    return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); };
+  }, []);
+
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    const startPan = e.button === 1 || spaceDown.current || activeTool === 'pan';
+    if (startPan) {
+      e.preventDefault();
+      isPanning.current = true;
+      lastPos.current = { x: e.clientX, y: e.clientY };
+    } else if (e.target === e.currentTarget) {
+      selectArtboard(null);
+    }
+  }, [activeTool, selectArtboard]);
+
+  const onMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isPanning.current) return;
+    const dx = e.clientX - lastPos.current.x;
+    const dy = e.clientY - lastPos.current.y;
+    lastPos.current = { x: e.clientX, y: e.clientY };
+    const { panX, panY, setPan } = useViewport.getState();
+    setPan(panX + dx, panY + dy);
+  }, []);
+
+  const onMouseUp = useCallback(() => { isPanning.current = false; }, []);
+
+  const gridSize = Math.max(8, 22 * zoom);
+  const cursor = activeTool === 'pan' || isPanning.current ? 'grab' : 'default';
+
+  return (
+    <div
+      ref={containerRef}
+      style={{ gridColumn: 2, gridRow: 2, position: 'relative', overflow: 'hidden', background: '#111115', cursor }}
+      onMouseDown={onMouseDown}
+      onMouseMove={onMouseMove}
+      onMouseUp={onMouseUp}
+    >
+      {/* Dot grid — shifts with pan, scales with zoom */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.07) 1px, transparent 1px)',
+          backgroundSize: `${gridSize}px ${gridSize}px`,
+          backgroundPosition: `${panX % gridSize}px ${panY % gridSize}px`,
+          pointerEvents: 'none',
+        }}
+      />
+
+      {/* Transform layer */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          transform: `matrix(${zoom},0,0,${zoom},${panX},${panY})`,
+          transformOrigin: '0 0',
+        }}
+      >
+        {ARTBOARDS.map((ab) => (
+          <Artboard key={ab.id} {...ab} />
+        ))}
+      </div>
+    </div>
+  );
+}
