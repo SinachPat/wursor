@@ -11,11 +11,12 @@
     "test": "vitest run --coverage"
   },
   "dependencies": {
+    "@pierre/diffs": "^1.1.19",
     "zod": "^3.0.0"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^2.0.0",
     "typescript": "^5.5.0",
-    "vitest": "^2.0.0",
-    "@vitest/coverage-v8": "^2.0.0"
+    "vitest": "^2.0.0"
   }
 }

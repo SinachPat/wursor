@@ -2,6 +2,9 @@
 
 import { useState } from 'react';
 import { useCanvas } from '@/store/canvas';
+import { useDiff } from '@/hooks/useDiff';
+import { ARTBOARD_SNAPSHOTS } from '@/data/artboard-snapshots';
+import type { DiffResult, PropChange } from '@originmain/diff-engine';
 
 const PROPS = [
   { key: 'title',   val: '"Revenue Overview"', type: 's' },
@@ -9,15 +12,6 @@ const PROPS = [
   { key: 'delta',   val: '+2.4',                type: 'n' },
   { key: 'period',  val: '"monthly"',           type: 's' },
   { key: 'loading', val: 'false',               type: 'b' },
-];
-
-const DIFF = [
-  { op: 'del', text: '− borderRadius: 8px' },
-  { op: 'add', text: '+ borderRadius: 12px' },
-  { op: 'del', text: '− accentColor: #2A6CD4' },
-  { op: 'add', text: '+ accentColor: #0066FF' },
-  { op: 'del', text: '− padding: 16' },
-  { op: 'add', text: '+ padding: 20' },
 ];
 
 const TYPE_COLORS: Record<string, string> = {
@@ -44,6 +38,7 @@ const T = {
 export function Inspector() {
   const { selectedArtboardId } = useCanvas();
   const [tab, setTab] = useState<TabId>('props');
+  const diffResult = useDiff(selectedArtboardId);
 
   return (
     <div
@@ -132,37 +127,7 @@ export function Inspector() {
             </Section>
           </>
         ) : tab === 'diff' ? (
-          <Section label="Intent Diff">
-            <div
-              style={{
-                fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-                fontSize: '0.5875rem',
-                color: 'rgba(255,255,255,0.28)',
-                marginBottom: 10,
-                letterSpacing: '-0.01em',
-              }}
-            >
-              DashboardCard.tsx · 3 hunks
-            </div>
-            {DIFF.map((d, i) => (
-              <div
-                key={i}
-                style={{
-                  fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-                  fontSize: '0.625rem',
-                  padding: '4px 8px',
-                  borderRadius: 4,
-                  marginBottom: 3,
-                  lineHeight: 1.55,
-                  background: d.op === 'del' ? 'rgba(255,70,70,0.08)' : 'rgba(70,220,120,0.08)',
-                  color:      d.op === 'del' ? '#FF8080' : '#7DDBA0',
-                  borderLeft: `2px solid ${d.op === 'del' ? 'rgba(255,80,80,0.3)' : 'rgba(70,220,120,0.3)'}`,
-                }}
-              >
-                {d.text}
-              </div>
-            ))}
-          </Section>
+          <DiffTab artboardId={selectedArtboardId} diffResult={diffResult} />
         ) : (
           <Section label="Origin Graph">
             <GraphNode label="DashboardCard" depth={0} isRoot />
@@ -295,4 +260,93 @@ function GraphNode({ label, depth, isRoot }: { label: string; depth: number; isR
 
 function HSep() {
   return <div style={{ height: 1, background: 'rgba(255,255,255,0.04)', margin: '2px 0' }} />;
+}
+
+/* ── Diff tab ─────────────────────────────────────────────── */
+function DiffTab({
+  artboardId,
+  diffResult,
+}: {
+  artboardId: string | null;
+  diffResult: DiffResult | null;
+}) {
+  if (!artboardId || !diffResult) {
+    return (
+      <Section label="Intent Diff">
+        <span style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: '0.625rem', color: 'rgba(255,255,255,0.22)' }}>
+          No diff available
+        </span>
+      </Section>
+    );
+  }
+
+  const { diff } = diffResult;
+  const snapshots = ARTBOARD_SNAPSHOTS[artboardId];
+  const filename = snapshots?.after.filePath ?? `${diff.name}.tsx`;
+  const allChanges = [...diff.propChanges, ...diff.styleChanges];
+  const hunkCount = allChanges.filter(c => c.changeType !== 'unchanged').length;
+
+  return (
+    <Section label="Intent Diff">
+      <div
+        style={{
+          fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+          fontSize: '0.5875rem',
+          color: 'rgba(255,255,255,0.28)',
+          marginBottom: 10,
+          letterSpacing: '-0.01em',
+        }}
+      >
+        {filename} · {hunkCount} change{hunkCount !== 1 ? 's' : ''}
+      </div>
+      {allChanges.map((change, i) => (
+        <DiffChangeRow key={i} change={change} />
+      ))}
+      {allChanges.length === 0 && (
+        <span style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: '0.625rem', color: 'rgba(255,255,255,0.22)' }}>
+          No changes detected
+        </span>
+      )}
+    </Section>
+  );
+}
+
+function DiffChangeRow({ change }: { change: PropChange }) {
+  const isRemoved = change.changeType === 'removed';
+  const isAdded   = change.changeType === 'added';
+  const isModified = change.changeType === 'modified';
+
+  const rows: Array<{ op: 'del' | 'add'; text: string }> = [];
+
+  if (isModified) {
+    rows.push({ op: 'del', text: `− ${change.key}: ${change.before}` });
+    rows.push({ op: 'add', text: `+ ${change.key}: ${change.after}` });
+  } else if (isRemoved) {
+    rows.push({ op: 'del', text: `− ${change.key}: ${change.before}` });
+  } else if (isAdded) {
+    rows.push({ op: 'add', text: `+ ${change.key}: ${change.after}` });
+  }
+
+  return (
+    <>
+      {rows.map((r, i) => (
+        <div
+          key={i}
+          style={{
+            fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+            fontSize: '0.625rem',
+            padding: '4px 8px',
+            borderRadius: 4,
+            marginBottom: 3,
+            lineHeight: 1.55,
+            background: r.op === 'del' ? 'rgba(255,70,70,0.08)' : 'rgba(70,220,120,0.08)',
+            color:      r.op === 'del' ? '#FF8080' : '#7DDBA0',
+            borderLeft: `2px solid ${r.op === 'del' ? 'rgba(255,80,80,0.3)' : 'rgba(70,220,120,0.3)'}`,
+          }}
+        >
+          {r.text}
+        </div>
+      ))}
+    </>
+  );
 }

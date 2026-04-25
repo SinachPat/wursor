@@ -9,17 +9,19 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@originmain/ui": "workspace:*",
+    "@fluentui/react-components": "^9.54.0",
+    "@fluentui/react-icons": "^2.0.0",
     "@originmain/diff-engine": "workspace:*",
     "@originmain/origin-graph": "workspace:*",
     "@originmain/renderer": "workspace:*",
-    "@fluentui/react-components": "^9.54.0",
-    "@fluentui/react-icons": "^2.0.0",
+    "@originmain/ui": "workspace:*",
+    "@pierre/diffs": "^1.1.19",
+    "@pierre/trees": "1.0.0-beta.3",
+    "@tanstack/react-query": "^5.62.0",
     "next": "^15.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "zustand": "^5.0.0",
-    "@tanstack/react-query": "^5.62.0"
+    "zustand": "^5.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
