@@ -6,24 +6,24 @@ import { useCanvas } from '@/store/canvas';
 import { Artboard } from './Artboard';
 
 const ARTBOARDS = [
-  { id: 'dashboard-card', label: 'DashboardCard', x: 120, y: 120, width: 280, height: 200 },
-  { id: 'user-profile',   label: 'UserProfile',   x: 480, y: 120, width: 240, height: 280 },
-  { id: 'nav-sidebar',    label: 'NavSidebar',    x: 120, y: 400, width: 200, height: 360 },
-  { id: 'data-table',     label: 'DataTable',     x: 400, y: 420, width: 420, height: 300 },
+  { id: 'dashboard-card', label: 'DashboardCard', x: 120,  y: 100, width: 280, height: 200 },
+  { id: 'user-profile',   label: 'UserProfile',   x: 460,  y: 100, width: 200, height: 260 },
+  { id: 'nav-sidebar',    label: 'NavSidebar',    x: 120,  y: 360, width: 200, height: 340 },
+  { id: 'data-table',     label: 'DataTable',     x: 380,  y: 380, width: 420, height: 280 },
 ];
 
 export function Canvas() {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const panX = useViewport((s) => s.panX);
-  const panY = useViewport((s) => s.panY);
-  const zoom = useViewport((s) => s.zoom);
+  const containerRef  = useRef<HTMLDivElement>(null);
+  const panX          = useViewport((s) => s.panX);
+  const panY          = useViewport((s) => s.panY);
+  const zoom          = useViewport((s) => s.zoom);
   const { activeTool, selectArtboard } = useCanvas();
 
   const isPanning = useRef(false);
-  const lastPos = useRef({ x: 0, y: 0 });
+  const lastPos   = useRef({ x: 0, y: 0 });
   const spaceDown = useRef(false);
 
-  // Wheel: pan or zoom
+  // Wheel: pan or pinch-zoom
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -32,9 +32,7 @@ export function Canvas() {
       const { zoom, panX, panY, setPan, setZoom } = useViewport.getState();
       if (e.ctrlKey || e.metaKey) {
         const rect = el.getBoundingClientRect();
-        const ox = e.clientX - rect.left;
-        const oy = e.clientY - rect.top;
-        setZoom(zoom * (e.deltaY > 0 ? 0.92 : 1.09), ox, oy);
+        setZoom(zoom * (e.deltaY > 0 ? 0.92 : 1.09), e.clientX - rect.left, e.clientY - rect.top);
       } else {
         setPan(panX - e.deltaX, panY - e.deltaY);
       }
@@ -43,7 +41,7 @@ export function Canvas() {
     return () => el.removeEventListener('wheel', onWheel);
   }, []);
 
-  // Space key: temporary pan mode
+  // Space bar temporary pan
   useEffect(() => {
     const down = (e: KeyboardEvent) => { if (e.code === 'Space' && e.target === document.body) spaceDown.current = true; };
     const up   = (e: KeyboardEvent) => { if (e.code === 'Space') spaceDown.current = false; };
@@ -74,26 +72,45 @@ export function Canvas() {
 
   const onMouseUp = useCallback(() => { isPanning.current = false; }, []);
 
-  const gridSize = Math.max(8, 22 * zoom);
+  // Dot grid that shifts with pan and scales with zoom
+  const gridSpacing = Math.max(6, 20 * zoom);
   const cursor = activeTool === 'pan' || isPanning.current ? 'grab' : 'default';
 
   return (
     <div
       ref={containerRef}
-      style={{ gridColumn: 2, gridRow: 2, position: 'relative', overflow: 'hidden', background: '#111115', cursor }}
+      style={{
+        gridColumn: 2,
+        gridRow: 2,
+        position: 'relative',
+        overflow: 'hidden',
+        background: '#0C0C10',
+        cursor,
+      }}
       onMouseDown={onMouseDown}
       onMouseMove={onMouseMove}
       onMouseUp={onMouseUp}
     >
-      {/* Dot grid — shifts with pan, scales with zoom */}
+      {/* Dot grid — scales and shifts with viewport */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
-          backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.07) 1px, transparent 1px)',
-          backgroundSize: `${gridSize}px ${gridSize}px`,
-          backgroundPosition: `${panX % gridSize}px ${panY % gridSize}px`,
+          backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.055) 1px, transparent 1px)',
+          backgroundSize: `${gridSpacing}px ${gridSpacing}px`,
+          backgroundPosition: `${panX % gridSpacing}px ${panY % gridSpacing}px`,
           pointerEvents: 'none',
+        }}
+      />
+
+      {/* Subtle radial vignette */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'radial-gradient(ellipse 100% 100% at 50% 50%, transparent 40%, rgba(0,0,0,0.35) 100%)',
+          pointerEvents: 'none',
+          zIndex: 1,
         }}
       />
 
@@ -104,6 +121,7 @@ export function Canvas() {
           inset: 0,
           transform: `matrix(${zoom},0,0,${zoom},${panX},${panY})`,
           transformOrigin: '0 0',
+          zIndex: 2,
         }}
       >
         {ARTBOARDS.map((ab) => (

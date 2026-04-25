@@ -10,10 +10,12 @@ export function AppChrome() {
     <div
       style={{
         display: 'grid',
-        gridTemplateRows: '40px 1fr',
-        gridTemplateColumns: '240px 1fr 320px',
+        gridTemplateRows: '44px 1fr',
+        gridTemplateColumns: '220px 1fr 272px',
         height: '100dvh',
         overflow: 'hidden',
+        background: '#0C0C10',
+        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
       }}
     >
       <Toolbar />

@@ -14,7 +14,9 @@
       "Bash(curl -s \"https://github.githubassets.com/assets/primer-primitives-0f570a01cbe448fb.css\")",
       "Bash(pnpm --filter @originmain/app run build)",
       "Bash(pnpm --filter @originmain/app install)",
-      "Bash(pnpm add *)"
+      "Bash(pnpm add *)",
+      "Bash(xargs ls *)",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")"
     ]
   }
 }
