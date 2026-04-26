@@ -43,7 +43,21 @@
       "Bash(echo \"port 3000 status: $?\")",
       "Bash(curl -s http://localhost:3002)",
       "Bash(xargs ps *)",
-      "Bash(curl -s http://localhost:3000 -L)"
+      "Bash(curl -s http://localhost:3000 -L)",
+      "Bash(pnpm typecheck *)",
+      "Bash(pnpm build *)",
+      "Bash(tee /tmp/build-out.txt)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(npx next *)",
+      "Bash(echo \"EXIT_CODE:$?\")",
+      "Bash(node_modules/.bin/next build *)",
+      "Bash(./node_modules/.bin/next build *)",
+      "Bash(../../node_modules/.bin/next build *)",
+      "Bash(/Users/USER/Desktop/originmain/node_modules/.bin/next build *)",
+      "Bash(echo \"BUILD_EXIT:$?\")",
+      "Bash(node /Users/USER/Desktop/originmain/node_modules/.pnpm/next@15.5.15_@playwright+test@1.59.1_react-dom@19.2.5_react@19.2.5__react@19.2.5/node_modules/next/dist/bin/next build)",
+      "Bash(pkill -f \"next build\")",
+      "Bash(pnpm --filter @originmain/app build)"
     ]
   }
 }
