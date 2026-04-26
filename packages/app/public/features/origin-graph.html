@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Origin Graph — Originmain</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#FFFFFF;--bg-subtle:#FAFAFA;--bg-muted:#F4F4F5;--bg-strong:#EBEBEB;--bg-inv:#0A0A0A;--bg-inv-2:#141414;--bg-inv-3:#1C1C1C;--fg:#0A0A0A;--fg-2:#52525B;--fg-3:#A1A1AA;--fg-4:#D4D4D8;--fg-inv:rgba(255,255,255,0.92);--fg-inv-2:rgba(255,255,255,0.52);--fg-inv-3:rgba(255,255,255,0.28);--blue:#0066FF;--blue-dark:#0050CC;--blue-light:#3385FF;--blue-soft:rgba(0,102,255,0.07);--blue-mid:rgba(0,102,255,0.15);--purple:#7C3AED;--teal:#0891B2;--teal-dark:#0E7490;--teal-soft:rgba(8,145,178,0.07);--teal-mid:rgba(8,145,178,0.18);--border:rgba(0,0,0,0.07);--border-2:rgba(0,0,0,0.12);--border-inv:rgba(255,255,255,0.08);--border-inv-2:rgba(255,255,255,0.14);--r-1:4px;--r-2:8px;--r-3:12px;--r-4:16px;--r-5:20px;--r-6:24px;--r-full:9999px;--sh-xs:0 1px 2px rgba(0,0,0,0.05);--sh-sm:0 1px 3px rgba(0,0,0,0.07),0 1px 2px rgba(0,0,0,0.05);--sh-md:0 4px 8px rgba(0,0,0,0.06),0 2px 4px rgba(0,0,0,0.04);--sh-lg:0 10px 24px rgba(0,0,0,0.08),0 4px 8px rgba(0,0,0,0.05);--sh-xl:0 20px 40px rgba(0,0,0,0.09),0 8px 16px rgba(0,0,0,0.05);--sh-2xl:0 32px 64px rgba(0,0,0,0.11),0 16px 32px rgba(0,0,0,0.06);--font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;--mono:'JetBrains Mono','SF Mono',ui-monospace,'Cascadia Code',monospace;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{font-size:16px;scroll-behavior:smooth;-webkit-font-smoothing:antialiased;}
+body{font-family:var(--font);background:var(--bg);color:var(--fg);line-height:1.6;overflow-x:hidden;}
+img,svg{display:block;max-width:100%;}
+a{color:inherit;text-decoration:none;}
+button{font-family:inherit;cursor:pointer;border:none;background:none;}
+.wrap{max-width:1120px;margin:0 auto;padding:0 40px;}
+.section{padding:112px 0;}
+.section-muted{background:var(--bg-subtle);}
+.section-dark{background:var(--bg-inv);}
+.d1{font-size:clamp(2.5rem,6vw,4.5rem);font-weight:900;line-height:1.02;letter-spacing:-0.045em;color:var(--fg);}
+.d2{font-size:clamp(1.875rem,3.5vw,2.75rem);font-weight:800;line-height:1.1;letter-spacing:-0.038em;color:var(--fg);}
+.d3{font-size:clamp(1.25rem,2.5vw,1.625rem);font-weight:700;line-height:1.25;letter-spacing:-0.028em;color:var(--fg);}
+.subtitle{font-size:clamp(1rem,1.8vw,1.125rem);font-weight:400;line-height:1.75;color:var(--fg-2);}
+.label{font-family:var(--mono);font-size:0.6875rem;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:var(--fg-3);}
+.label-teal{color:var(--teal);}
+.btn{display:inline-flex;align-items:center;gap:8px;font-family:var(--font);font-size:0.9375rem;font-weight:600;padding:11px 22px;border-radius:var(--r-2);transition:transform 0.12s cubic-bezier(.16,1,.3,1),opacity 0.12s,box-shadow 0.12s;white-space:nowrap;letter-spacing:-0.01em;position:relative;overflow:hidden;}
+.btn::after{content:'';position:absolute;inset:0;background:rgba(255,255,255,0);transition:background 0.12s;}
+.btn:hover::after{background:rgba(255,255,255,0.06);}
+.btn:active{transform:scale(0.98)!important;}
+.btn-primary{background:var(--fg);color:var(--bg);box-shadow:var(--sh-sm);}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:var(--sh-md);}
+.btn-secondary{background:transparent;color:var(--fg);border:1px solid var(--border-2);}
+.btn-secondary:hover{background:var(--bg-muted);transform:translateY(-1px);}
+.btn-teal{background:var(--teal);color:#fff;box-shadow:0 4px 12px rgba(8,145,178,0.3);}
+.btn-teal:hover{background:var(--teal-dark);transform:translateY(-1px);}
+.btn-lg{font-size:1rem;padding:13px 28px;}
+.btn-white{background:#fff;color:#0A0A0A;box-shadow:0 4px 12px rgba(255,255,255,0.15);}
+.btn-white:hover{background:#F5F5F5;transform:translateY(-1px);}
+.btn-outline-white{background:transparent;color:rgba(255,255,255,0.72);border:1px solid rgba(255,255,255,0.18);}
+.btn-outline-white:hover{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.9);transform:translateY(-1px);}
+.divider{height:1px;background:var(--border);}
+.section-head{text-align:center;max-width:640px;margin:0 auto 72px;}
+.section-head .label{display:block;margin-bottom:16px;}
+.section-head .d2{margin-bottom:18px;}
+
+/* NAV */
+#nav{position:fixed;top:0;left:0;right:0;z-index:200;height:60px;display:flex;align-items:center;padding:0 40px;transition:background 0.2s,border-color 0.2s,box-shadow 0.2s;}
+#nav.scrolled{background:rgba(255,255,255,0.85);backdrop-filter:blur(20px) saturate(1.6);-webkit-backdrop-filter:blur(20px) saturate(1.6);border-bottom:1px solid var(--border);box-shadow:var(--sh-xs);}
+.nav-inner{max-width:1120px;margin:0 auto;width:100%;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;}
+.nav-logo{justify-self:start;font-size:1rem;font-weight:800;letter-spacing:-0.04em;color:var(--fg);display:flex;align-items:center;gap:2px;}
+.nav-logo span{color:var(--teal);}
+.nav-links{justify-self:center;display:flex;align-items:center;gap:0;list-style:none;}
+.nav-links a{font-size:0.9375rem;font-weight:500;color:var(--fg-2);padding:6px 14px;border-radius:var(--r-1);transition:color 0.12s,background 0.12s;letter-spacing:-0.01em;}
+.nav-links a:hover{color:var(--fg);}
+.nav-actions{justify-self:end;display:flex;align-items:center;gap:8px;}
+
+/* Dropdown */
+.nav-dropdown{position:relative;}
+.nav-dropdown>a{display:flex;align-items:center;gap:4px;}
+.nav-dd-caret{transition:transform 0.15s;}
+/* caret rotation handled via JS .open class */
+.nav-dropdown-menu{position:absolute;top:calc(100% + 10px);left:50%;transform:translateX(-50%) translateY(-4px);background:rgba(255,255,255,0.98);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:var(--r-3);box-shadow:var(--sh-xl);padding:8px;min-width:240px;opacity:0;visibility:hidden;transition:opacity 0.15s,transform 0.15s,visibility 0.15s;pointer-events:none;}
+.nav-dropdown-menu.open{opacity:1;visibility:visible;transform:translateX(-50%) translateY(0);pointer-events:all;}
+.nav-dropdown.open .nav-dd-caret{transform:rotate(180deg);}
+/* Mobile sub-nav */
+.nav-mobile-sub{display:none;padding:2px 0 6px 14px;flex-direction:column;}
+.nav-mobile-sub.open{display:flex;}
+.nav-mobile-sub a{font-size:0.875rem;color:rgba(255,255,255,0.4);padding:8px 4px;border-bottom:1px solid rgba(255,255,255,0.06);letter-spacing:-0.01em;transition:color 0.1s;}
+.nav-mobile-sub a:last-child{border-bottom:none;}
+.nav-mobile-sub a:hover{color:rgba(255,255,255,0.8);}
+/* Dark hero: white nav before scrolling */
+#nav:not(.scrolled) .nav-logo{color:rgba(255,255,255,0.92);}
+#nav:not(.scrolled) .nav-logo span{color:#3385FF;}
+#nav:not(.scrolled) .nav-links a{color:rgba(255,255,255,0.5);}
+#nav:not(.scrolled) .nav-links a:hover{color:rgba(255,255,255,0.9);}
+#nav:not(.scrolled) .nav-actions .btn-secondary{color:rgba(255,255,255,0.65);border-color:rgba(255,255,255,0.2);background:transparent;}
+#nav:not(.scrolled) .nav-burger span{background:rgba(255,255,255,0.8);}
+.nav-dd-item{display:flex;align-items:flex-start;gap:10px;padding:9px 10px;border-radius:var(--r-2);transition:background 0.1s;cursor:pointer;}
+.nav-dd-item:hover{background:var(--bg-muted);}
+.nav-dd-item.active{background:var(--teal-soft);}
+.nav-dd-icon{width:30px;height:30px;background:var(--teal-soft);border:1px solid var(--teal-mid);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;}
+.nav-dd-icon.blue-icon{background:var(--blue-soft);border-color:var(--blue-mid);}
+.nav-dd-text{display:flex;flex-direction:column;}
+.nav-dd-name{font-size:0.8125rem;font-weight:600;color:var(--fg);letter-spacing:-0.01em;}
+.nav-dd-desc{font-size:0.6875rem;color:var(--fg-3);margin-top:1px;line-height:1.4;}
+.nav-dd-sep{height:1px;background:var(--border);margin:4px 0;}
+.nav-burger{display:none;flex-direction:column;justify-content:center;align-items:center;gap:5px;width:36px;height:36px;background:none;border:none;cursor:pointer;padding:4px;border-radius:var(--r-2);}
+.nav-burger span{display:block;width:20px;height:2px;background:var(--fg);border-radius:2px;transition:transform 0.22s cubic-bezier(0.16,1,0.3,1),opacity 0.18s;transform-origin:center;}
+.nav-burger.open span:nth-child(1){transform:translateY(7px) rotate(45deg);}
+.nav-burger.open span:nth-child(2){opacity:0;transform:scaleX(0);}
+.nav-burger.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg);}
+.nav-mobile{display:none;position:absolute;top:60px;left:0;right:0;background:rgba(255,255,255,0.97);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);box-shadow:0 8px 32px rgba(0,0,0,0.07);padding:12px 24px 24px;flex-direction:column;gap:2px;}
+.nav-mobile.open{display:flex;}
+.nav-mobile ul{list-style:none;display:flex;flex-direction:column;}
+.nav-mobile ul li a{display:block;font-size:1rem;font-weight:500;color:var(--fg-2);padding:11px 4px;border-bottom:1px solid var(--border);letter-spacing:-0.01em;}
+.nav-mobile ul li:last-child a{border-bottom:none;}
+.nav-mobile-ctas{display:flex;gap:8px;margin-top:16px;}
+.nav-mobile-ctas .btn{flex:1;justify-content:center;padding:10px 12px;font-size:.875rem;}
+
+/* PAGE HERO */
+#page-hero{padding:140px 40px 100px;background:var(--bg-inv);position:relative;overflow:hidden;text-align:center;}
+#page-hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% -10%,rgba(8,145,178,0.14),transparent 60%),radial-gradient(ellipse 40% 40% at 80% 70%,rgba(8,145,178,0.07),transparent 50%),radial-gradient(ellipse 50% 50% at 20% 80%,rgba(124,58,237,0.06),transparent 50%);pointer-events:none;}
+.page-hero-inner{position:relative;max-width:800px;margin:0 auto;}
+.page-hero-inner .label{color:rgba(255,255,255,0.3);margin-bottom:20px;display:block;}
+.page-hero-inner .d1{color:var(--fg-inv);margin-bottom:22px;}
+.page-hero-inner .subtitle{color:var(--fg-inv-2);max-width:600px;margin:0 auto 44px;}
+.page-hero-ctas{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+
+/* PRODUCT VISUAL */
+.pv-shell{width:100%;max-width:960px;margin:72px auto 0;border-radius:16px 16px 0 0;overflow:hidden;box-shadow:0 48px 96px rgba(0,0,0,0.45),0 0 0 1px rgba(255,255,255,0.06);border-bottom:none;position:relative;}
+.pv-chrome{background:#1C1C22;height:40px;display:flex;align-items:center;padding:0 14px;gap:7px;border-bottom:1px solid rgba(255,255,255,0.05);}
+.pv-dot{width:11px;height:11px;border-radius:50%;}
+.pv-dot.r{background:#FF5F57;}
+.pv-dot.y{background:#FFBD2E;}
+.pv-dot.g{background:#28C840;}
+.pv-url{flex:1;margin:0 12px;background:rgba(255,255,255,0.06);border-radius:5px;height:25px;display:flex;align-items:center;padding:0 10px;font-family:var(--mono);font-size:0.625rem;color:rgba(255,255,255,0.3);max-width:320px;}
+.pv-canvas{background:#0D0D11;height:400px;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.pv-grid{position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,0.042) 1px,transparent 1px);background-size:24px 24px;pointer-events:none;}
+
+/* Graph SVG */
+.graph-svg{position:absolute;inset:0;width:100%;height:100%;}
+
+/* Node info panel */
+.graph-panel{position:absolute;right:20px;top:50%;transform:translateY(-50%);width:148px;background:#111118;border:1px solid rgba(8,145,178,0.22);border-radius:10px;padding:14px;box-shadow:0 8px 32px rgba(0,0,0,0.5);}
+.graph-panel-title{font-family:var(--mono);font-size:0.4375rem;color:rgba(255,255,255,0.25);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px;}
+.graph-panel-name{font-family:var(--mono);font-size:0.6875rem;font-weight:600;color:#0891B2;margin-bottom:10px;}
+.graph-stat{display:flex;justify-content:space-between;margin-bottom:6px;}
+.graph-stat-label{font-family:var(--mono);font-size:0.5rem;color:rgba(255,255,255,0.32);}
+.graph-stat-val{font-family:var(--mono);font-size:0.5625rem;font-weight:600;color:rgba(255,255,255,0.7);}
+.graph-stat-val.teal{color:#0891B2;}
+.graph-sep{height:1px;background:rgba(255,255,255,0.06);margin:10px 0;}
+.graph-edge-legend{display:flex;flex-direction:column;gap:5px;margin-top:4px;}
+.graph-edge-item{display:flex;align-items:center;gap:6px;}
+.graph-edge-line{width:16px;height:1px;flex-shrink:0;}
+.graph-edge-line.usage{background:rgba(255,255,255,0.3);}
+.graph-edge-line.inherit{background-image:repeating-linear-gradient(90deg,rgba(124,58,237,0.7) 0,rgba(124,58,237,0.7) 4px,transparent 4px,transparent 7px);}
+.graph-edge-line.token{background-image:repeating-linear-gradient(90deg,rgba(8,145,178,0.7) 0,rgba(8,145,178,0.7) 3px,transparent 3px,transparent 5px);}
+.graph-edge-text{font-family:var(--mono);font-size:0.4375rem;color:rgba(255,255,255,0.3);}
+
+/* HOW IT WORKS */
+.hiw-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin-top:64px;position:relative;}
+.hiw-steps::before{content:'';position:absolute;top:28px;left:12.5%;right:12.5%;height:1px;background:linear-gradient(90deg,transparent,var(--border-2) 20%,var(--border-2) 80%,transparent);}
+.hiw-step{display:flex;flex-direction:column;align-items:center;text-align:center;padding:0 20px;position:relative;z-index:1;}
+.hiw-num{width:56px;height:56px;border-radius:50%;background:var(--bg);border:1px solid var(--border-2);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:1rem;font-weight:700;color:var(--teal);margin-bottom:20px;box-shadow:var(--sh-sm);}
+.hiw-step h3{font-size:0.9375rem;font-weight:700;color:var(--fg);letter-spacing:-0.02em;margin-bottom:8px;}
+.hiw-step p{font-size:0.8125rem;color:var(--fg-2);line-height:1.6;}
+
+/* FEATURE SPLIT */
+.feat-split{display:grid;grid-template-columns:1fr 1fr;gap:96px;align-items:center;max-width:1120px;margin:0 auto;}
+.feat-split.rev{direction:rtl;}
+.feat-split.rev>*{direction:ltr;}
+.feat-copy .label{display:block;margin-bottom:16px;}
+.feat-copy .d3{margin-bottom:16px;}
+.feat-copy .subtitle{margin-bottom:28px;}
+.feat-pts{list-style:none;display:flex;flex-direction:column;gap:12px;margin-bottom:32px;}
+.feat-pts li{display:flex;align-items:flex-start;gap:10px;font-size:0.9375rem;color:var(--fg-2);line-height:1.55;}
+.feat-pt-icon{width:20px;height:20px;border-radius:3px;background:var(--teal-soft);border:1px solid var(--teal-mid);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;font-size:0.625rem;color:var(--teal);}
+
+/* Feature visual */
+.feat-vis{border-radius:var(--r-5);overflow:hidden;box-shadow:var(--sh-2xl);border:1px solid var(--border);aspect-ratio:4/3;position:relative;}
+.feat-vis-dark{background:#0D0D11;border-color:rgba(255,255,255,0.07);}
+.feat-vis-light{background:var(--bg-muted);}
+
+/* TECH SECTION */
+.tech-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:56px;}
+.tech-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--r-4);padding:32px 28px;transition:box-shadow 0.2s;}
+.tech-card:hover{box-shadow:var(--sh-lg);}
+.tech-icon{width:44px;height:44px;background:var(--teal-soft);border:1px solid var(--teal-mid);border-radius:var(--r-2);display:flex;align-items:center;justify-content:center;font-size:1.25rem;margin-bottom:18px;}
+.tech-card h3{font-size:1rem;font-weight:700;color:var(--fg);letter-spacing:-0.02em;margin-bottom:8px;}
+.tech-card p{font-size:0.875rem;color:var(--fg-2);line-height:1.65;}
+.tech-tag{display:inline-block;margin-top:14px;font-family:var(--mono);font-size:0.625rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--teal);background:var(--teal-soft);border:1px solid var(--teal-mid);padding:3px 9px;border-radius:var(--r-full);}
+
+/* CODE BLOCK */
+.code-block{background:#111118;border:1px solid rgba(255,255,255,0.07);border-radius:var(--r-3);padding:24px;font-family:var(--mono);font-size:0.75rem;line-height:1.75;color:rgba(255,255,255,0.75);overflow-x:auto;}
+.code-block .kw{color:#7EB8FF;}
+.code-block .str{color:#7DDBA0;}
+.code-block .cm{color:rgba(255,255,255,0.28);}
+.code-block .fn{color:#FFBA7B;}
+.code-block .nm{color:#D4A0FF;}
+.code-block .tl{color:#5FCDD9;}
+
+/* RELATED */
+.related-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:48px;}
+.related-card{border:1px solid var(--border);border-radius:var(--r-4);padding:24px;transition:box-shadow 0.15s,border-color 0.15s;display:flex;flex-direction:column;gap:10px;}
+.related-card:hover{box-shadow:var(--sh-md);border-color:var(--border-2);}
+.related-icon{font-size:1.25rem;}
+.related-card h3{font-size:0.9375rem;font-weight:700;color:var(--fg);letter-spacing:-0.02em;}
+.related-card p{font-size:0.8125rem;color:var(--fg-2);line-height:1.6;flex:1;}
+.related-link{font-size:0.8125rem;font-weight:600;color:var(--teal);}
+
+/* CTA */
+#cta-bottom{background:var(--bg-inv);padding:120px 40px;position:relative;overflow:hidden;text-align:center;}
+#cta-bottom::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 60% 80% at 30% 50%,rgba(8,145,178,0.1),transparent 60%),radial-gradient(ellipse 60% 80% at 70% 50%,rgba(8,145,178,0.07),transparent 60%);pointer-events:none;}
+.cta-inner{position:relative;max-width:680px;margin:0 auto;}
+.cta-headline{font-size:clamp(2rem,4.5vw,3.5rem);font-weight:900;letter-spacing:-0.045em;color:var(--fg-inv);line-height:1.05;margin-bottom:18px;}
+.cta-sub{font-size:1.0625rem;color:var(--fg-inv-2);margin-bottom:44px;line-height:1.65;}
+.cta-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+
+/* FOOTER */
+footer{background:#08080C;border-top:1px solid rgba(255,255,255,0.06);padding:72px 40px 40px;}
+.ft-inner{max-width:1120px;margin:0 auto;}
+.ft-top{display:grid;grid-template-columns:260px repeat(4,1fr);gap:48px;padding-bottom:56px;border-bottom:1px solid rgba(255,255,255,0.07);margin-bottom:36px;}
+.ft-brand-logo{font-size:1rem;font-weight:800;letter-spacing:-0.04em;color:rgba(255,255,255,0.92);margin-bottom:8px;}
+.ft-brand-logo span{color:#0891B2;}
+.ft-brand-tag{font-size:0.875rem;color:rgba(255,255,255,0.3);line-height:1.65;max-width:200px;}
+.ft-col h4{font-size:0.875rem;font-weight:600;color:rgba(255,255,255,0.7);margin-bottom:16px;letter-spacing:-0.01em;}
+.ft-col ul{list-style:none;display:flex;flex-direction:column;gap:10px;}
+.ft-col a{font-size:0.875rem;color:rgba(255,255,255,0.32);transition:color 0.14s;letter-spacing:-0.01em;}
+.ft-col a:hover{color:rgba(255,255,255,0.65);}
+.ft-bottom{display:flex;justify-content:space-between;align-items:center;}
+.ft-copy{font-size:0.8125rem;color:rgba(255,255,255,0.22);}
+
+/* REVEAL */
+.reveal{opacity:0;transform:translateY(22px);transition:opacity 0.7s cubic-bezier(0.16,1,0.3,1),transform 0.7s cubic-bezier(0.16,1,0.3,1);}
+.reveal.in{opacity:1;transform:none;}
+.stagger>*{opacity:0;transform:translateY(16px);transition:opacity 0.55s cubic-bezier(0.16,1,0.3,1),transform 0.55s cubic-bezier(0.16,1,0.3,1);}
+.stagger.in>*:nth-child(1){opacity:1;transform:none;transition-delay:0s;}
+.stagger.in>*:nth-child(2){opacity:1;transform:none;transition-delay:0.07s;}
+.stagger.in>*:nth-child(3){opacity:1;transform:none;transition-delay:0.14s;}
+.stagger.in>*:nth-child(4){opacity:1;transform:none;transition-delay:0.21s;}
+.stagger.in>*:nth-child(5){opacity:1;transform:none;transition-delay:0.28s;}
+.stagger.in>*:nth-child(6){opacity:1;transform:none;transition-delay:0.35s;}
+
+@media(max-width:1024px){.feat-split{grid-template-columns:1fr;gap:56px;}.feat-split.rev{direction:ltr;}.hiw-steps{grid-template-columns:1fr 1fr;gap:40px;}.hiw-steps::before{display:none;}.tech-grid{grid-template-columns:1fr 1fr;}.related-grid{grid-template-columns:1fr 1fr;}}
+@media(max-width:768px){.wrap{padding:0 24px;}#nav{padding:0 24px;}.nav-inner{display:flex;justify-content:space-between;}.nav-links,.nav-actions .btn{display:none;}.nav-burger{display:flex;}#page-hero{padding:120px 24px 80px;}.pv-shell{margin-top:48px;}.hiw-steps{grid-template-columns:1fr;}.tech-grid,.related-grid{grid-template-columns:1fr;}.ft-top{grid-template-columns:1fr 1fr;}}
+@media(max-width:480px){.ft-top{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav id="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">Origin<span>main</span></a>
+    <ul class="nav-links">
+      <li class="nav-dropdown">
+        <a href="/#features" style="display:flex;align-items:center;gap:4px;">
+          Product
+          <svg class="nav-dd-caret" width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </a>
+        <div class="nav-dropdown-menu">
+          <a class="nav-dd-item" href="/features/live-artboard.html">
+            <div class="nav-dd-icon blue-icon">⬜</div>
+            <div class="nav-dd-text"><span class="nav-dd-name">Live Artboard</span><span class="nav-dd-desc">Your app rendered live in the canvas</span></div>
+          </a>
+          <a class="nav-dd-item active" href="/features/origin-graph.html">
+            <div class="nav-dd-icon">◉</div>
+            <div class="nav-dd-text"><span class="nav-dd-name">◉ Origin Graph</span><span class="nav-dd-desc">Every component, indexed and queryable</span></div>
+          </a>
+          <a class="nav-dd-item" href="/features/intent-diff.html">
+            <div class="nav-dd-icon blue-icon">△</div>
+            <div class="nav-dd-text"><span class="nav-dd-name">Intent Diff</span><span class="nav-dd-desc">Ship component-level diffs, not redlines</span></div>
+          </a>
+          <div class="nav-dd-sep"></div>
+          <a class="nav-dd-item" href="/features/completion-zone.html">
+            <div class="nav-dd-icon blue-icon">◈</div>
+            <div class="nav-dd-text"><span class="nav-dd-name">Completion Zone</span><span class="nav-dd-desc">AI-filled design, constrained to your system</span></div>
+          </a>
+          <a class="nav-dd-item" href="/features/agent-bridge.html">
+            <div class="nav-dd-icon blue-icon">⇄</div>
+            <div class="nav-dd-text"><span class="nav-dd-name">Agent Bridge</span><span class="nav-dd-desc">MCP channel to Cursor, Claude Code &amp; more</span></div>
+          </a>
+          <a class="nav-dd-item" href="/features/integrations.html">
+            <div class="nav-dd-icon blue-icon">🔗</div>
+            <div class="nav-dd-text"><span class="nav-dd-name">Integrations</span><span class="nav-dd-desc">Linear, Slack, GitHub, Figma &amp; more</span></div>
+          </a>
+        </div>
+      </li>
+      <li><a href="/features/integrations.html">Integrations</a></li>
+      <li><a href="/#pricing">Pricing</a></li>
+      <li><a href="#">Docs</a></li>
+    </ul>
+    <div class="nav-actions">
+      <a href="#" class="btn btn-secondary" style="padding:7px 16px;font-size:.875rem">Log in</a>
+      <a href="#" class="btn btn-primary" style="padding:8px 18px;font-size:.875rem">Request Access</a>
+      <button class="nav-burger" id="nav-burger" aria-label="Menu"><span></span><span></span><span></span></button>
+    </div>
+  </div>
+  <div class="nav-mobile" id="nav-mobile">
+    <ul>
+      <li>
+        <a href="/#features" id="mob-product-toggle" style="display:flex;justify-content:space-between;align-items:center;">
+          Product
+          <svg id="mob-dd-caret" width="10" height="6" viewBox="0 0 10 6" fill="none" style="transition:transform 0.15s;"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </a>
+        <div class="nav-mobile-sub" id="nav-mobile-sub">
+          <a href="/features/live-artboard.html">Live Artboard</a>
+          <a href="/features/origin-graph.html">Origin Graph</a>
+          <a href="/features/intent-diff.html">Intent Diff</a>
+          <a href="/features/completion-zone.html">Completion Zone</a>
+          <a href="/features/agent-bridge.html">Agent Bridge</a>
+          <a href="/features/integrations.html">Integrations</a>
+        </div>
+      </li>
+      <li><a href="/features/integrations.html">Integrations</a></li>
+      <li><a href="/#pricing">Pricing</a></li>
+      <li><a href="#">Docs</a></li>
+    </ul>
+    <div class="nav-mobile-ctas">
+      <a href="#" class="btn btn-secondary">Log in</a>
+      <a href="#" class="btn btn-primary">Request Access</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section id="page-hero">
+  <div class="page-hero-inner">
+    <span class="label reveal">◉ Origin Graph</span>
+    <h1 class="d1 reveal">Every component,<br>indexed and queryable.</h1>
+    <p class="subtitle reveal">The Origin Graph is a living knowledge graph of your entire component ecosystem — relationships, history, usage, and design tokens — all queryable in real time.</p>
+    <div class="page-hero-ctas reveal">
+      <a href="#" class="btn btn-white btn-lg">Request Early Access</a>
+      <a href="#how-it-works" class="btn btn-outline-white btn-lg">See how it works ↓</a>
+    </div>
+  </div>
+
+  <!-- Graph product visual -->
+  <div class="pv-shell reveal">
+    <div class="pv-chrome">
+      <div class="pv-dot r"></div>
+      <div class="pv-dot y"></div>
+      <div class="pv-dot g"></div>
+      <div class="pv-url">🔒 app.originmain.io/graph</div>
+    </div>
+    <div class="pv-canvas">
+      <div class="pv-grid"></div>
+
+      <!-- SVG graph visualization -->
+      <svg class="graph-svg" viewBox="0 0 960 400" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <marker id="arr-usage" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+            <path d="M0,1 L5,3 L0,5" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+          </marker>
+          <marker id="arr-token" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+            <path d="M0,1 L5,3 L0,5" fill="none" stroke="rgba(8,145,178,0.5)" stroke-width="1"/>
+          </marker>
+          <marker id="arr-inherit" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+            <path d="M0,1 L5,3 L0,5" fill="none" stroke="rgba(124,58,237,0.5)" stroke-width="1"/>
+          </marker>
+          <filter id="glow-teal" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+
+        <!-- Usage edges (solid faint white) -->
+        <!-- NavBar → Button -->
+        <line stroke="rgba(255,255,255,0.12)" stroke-width="1" x1="285" y1="128" x2="404" y2="192" marker-end="url(#arr-usage)"/>
+        <!-- DashboardCard → Card -->
+        <line stroke="rgba(255,255,255,0.12)" stroke-width="1" x1="490" y1="180" x2="578" y2="130" marker-end="url(#arr-usage)"/>
+        <!-- DashboardCard → Button -->
+        <line stroke="rgba(255,255,255,0.12)" stroke-width="1" x1="462" y1="192" x2="436" y2="192" marker-end="url(#arr-usage)"/>
+        <!-- Card → Input -->
+        <line stroke="rgba(255,255,255,0.12)" stroke-width="1" x1="606" y1="148" x2="634" y2="256" marker-end="url(#arr-usage)"/>
+        <!-- NavBar → Input -->
+        <line stroke="rgba(255,255,255,0.08)" stroke-width="1" x1="308" y1="135" x2="618" y2="265" marker-end="url(#arr-usage)"/>
+
+        <!-- Inheritance edge (dashed purple) -->
+        <!-- DashboardCard extends Card -->
+        <line stroke="rgba(124,58,237,0.35)" stroke-width="1.5" stroke-dasharray="5 3" x1="510" y1="178" x2="582" y2="142" marker-end="url(#arr-inherit)"/>
+
+        <!-- Token edges (dashed teal) -->
+        <!-- --color-primary → Button -->
+        <line stroke="rgba(8,145,178,0.3)" stroke-width="1" stroke-dasharray="3 3" x1="400" y1="302" x2="418" y2="212" marker-end="url(#arr-token)"/>
+        <!-- --color-primary → Card -->
+        <line stroke="rgba(8,145,178,0.3)" stroke-width="1" stroke-dasharray="3 3" x1="412" y1="294" x2="578" y2="148" marker-end="url(#arr-token)"/>
+        <!-- --color-primary → DashboardCard -->
+        <line stroke="rgba(8,145,178,0.3)" stroke-width="1" stroke-dasharray="3 3" x1="404" y1="290" x2="472" y2="218" marker-end="url(#arr-token)"/>
+        <!-- --color-primary → Input -->
+        <line stroke="rgba(8,145,178,0.25)" stroke-width="1" stroke-dasharray="3 3" x1="418" y1="298" x2="636" y2="278" marker-end="url(#arr-token)"/>
+        <!-- --color-primary → NavBar -->
+        <line stroke="rgba(8,145,178,0.25)" stroke-width="1" stroke-dasharray="3 3" x1="382" y1="290" x2="282" y2="148" marker-end="url(#arr-token)"/>
+
+        <!-- Node: NavBar -->
+        <g transform="translate(262,120)">
+          <circle r="32" fill="#191920" stroke="rgba(255,255,255,0.12)" stroke-width="1.5"/>
+          <text text-anchor="middle" dominant-baseline="central" font-family="'JetBrains Mono',monospace" font-size="9" fill="rgba(255,255,255,0.65)">NavBar</text>
+        </g>
+
+        <!-- Node: Button -->
+        <g transform="translate(420,200)">
+          <circle r="30" fill="#191920" stroke="rgba(255,255,255,0.12)" stroke-width="1.5"/>
+          <text text-anchor="middle" dominant-baseline="central" font-family="'JetBrains Mono',monospace" font-size="9" fill="rgba(255,255,255,0.65)">Button</text>
+        </g>
+
+        <!-- Node: DashboardCard — selected, blue ring, glow -->
+        <g transform="translate(490,200)" filter="url(#glow-teal)">
+          <circle r="44" fill="none" stroke="rgba(8,145,178,0.12)" stroke-width="1"/>
+          <circle r="36" fill="#0D1E26" stroke="#0891B2" stroke-width="2"/>
+          <text text-anchor="middle" dominant-baseline="central" font-family="'JetBrains Mono',monospace" font-size="8" fill="#0891B2" font-weight="600">Dashboard</text>
+          <text y="12" text-anchor="middle" dominant-baseline="central" font-family="'JetBrains Mono',monospace" font-size="8" fill="#0891B2" font-weight="600">Card</text>
+        </g>
+
+        <!-- Selected label tooltip -->
+        <g transform="translate(490,148)">
+          <rect x="-52" y="-11" width="104" height="18" rx="4" fill="rgba(8,145,178,0.12)" stroke="rgba(8,145,178,0.28)" stroke-width="1"/>
+          <text text-anchor="middle" dominant-baseline="central" font-family="'JetBrains Mono',monospace" font-size="7" fill="rgba(8,145,178,0.85)">DashboardCard — selected</text>
+        </g>
+
+        <!-- Node: Card -->
+        <g transform="translate(600,120)">
+          <circle r="30" fill="#191920" stroke="rgba(255,255,255,0.12)" stroke-width="1.5"/>
+          <text text-anchor="middle" dominant-baseline="central" font-family="'JetBrains Mono',monospace" font-size="9" fill="rgba(255,255,255,0.65)">Card</text>
+        </g>
+
+        <!-- Node: Input -->
+        <g transform="translate(648,280)">
+          <circle r="26" fill="#191920" stroke="rgba(255,255,255,0.12)" stroke-width="1.5"/>
+          <text text-anchor="middle" dominant-baseline="central" font-family="'JetBrains Mono',monospace" font-size="9" fill="rgba(255,255,255,0.65)">Input</text>
+        </g>
+
+        <!-- Node: --color-primary (token, teal circle) -->
+        <g transform="translate(392,316)">
+          <circle r="24" fill="#0A1A20" stroke="rgba(8,145,178,0.5)" stroke-width="1.5"/>
+          <text text-anchor="middle" dominant-baseline="central" font-family="'JetBrains Mono',monospace" font-size="6.5" fill="rgba(8,145,178,0.85)" y="-5">--color</text>
+          <text text-anchor="middle" dominant-baseline="central" font-family="'JetBrains Mono',monospace" font-size="6.5" fill="rgba(8,145,178,0.85)" y="6">-primary</text>
+        </g>
+
+      </svg>
+
+      <!-- Node info panel -->
+      <div class="graph-panel">
+        <div class="graph-panel-title">Node Inspector</div>
+        <div class="graph-panel-name">DashboardCard</div>
+        <div class="graph-stat">
+          <span class="graph-stat-label">uses</span>
+          <span class="graph-stat-val teal">4</span>
+        </div>
+        <div class="graph-stat">
+          <span class="graph-stat-label">used by</span>
+          <span class="graph-stat-val">2</span>
+        </div>
+        <div class="graph-stat">
+          <span class="graph-stat-label">tokens consumed</span>
+          <span class="graph-stat-val">12</span>
+        </div>
+        <div class="graph-sep"></div>
+        <div class="graph-panel-title" style="margin-bottom:6px;">Edge types</div>
+        <div class="graph-edge-legend">
+          <div class="graph-edge-item">
+            <div class="graph-edge-line usage"></div>
+            <span class="graph-edge-text">Usage</span>
+          </div>
+          <div class="graph-edge-item">
+            <div class="graph-edge-line inherit"></div>
+            <span class="graph-edge-text">Inheritance</span>
+          </div>
+          <div class="graph-edge-item">
+            <div class="graph-edge-line token"></div>
+            <span class="graph-edge-text">Token link</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how-it-works" class="section">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="label">Architecture</span>
+      <h2 class="d2">From source file to queryable graph<br>in four steps.</h2>
+      <p class="subtitle">A two-pass pipeline — static analysis plus runtime capture — builds a continuously updated graph with zero manual annotation required.</p>
+    </div>
+    <div class="hiw-steps stagger">
+      <div class="hiw-step">
+        <div class="hiw-num">01</div>
+        <h3>Static analysis</h3>
+        <p>An AST walker scans every component file, extracting imports, prop signatures, and design-token references without running your code.</p>
+      </div>
+      <div class="hiw-step">
+        <div class="hiw-num">02</div>
+        <h3>Runtime capture</h3>
+        <p>A React Fiber hook captures live props and state at render time, adding real-world usage data that static analysis alone can't see.</p>
+      </div>
+      <div class="hiw-step">
+        <div class="hiw-num">03</div>
+        <h3>Graph construction</h3>
+        <p>Nodes and typed edges — usage, inheritance, token links — are written to Supabase, forming a queryable graph that updates incrementally.</p>
+      </div>
+      <div class="hiw-step">
+        <div class="hiw-num">04</div>
+        <h3>Query interface</h3>
+        <p>A REST API and MCP tool set expose the graph to AI agents, the diff engine, and the Inspector — answering natural-language queries in real time.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DEEP DIVE 1: Impact analysis -->
+<div class="section" style="padding:100px 40px;">
+  <div class="feat-split reveal">
+    <div class="feat-copy">
+      <span class="label label-teal">Impact analysis, instant</span>
+      <h2 class="d3">Change a token.<br>See all 47 components affected — instantly.</h2>
+      <p class="subtitle">Because every design-token link is a first-class edge in the graph, changing <code style="font-family:var(--mono);font-size:0.85em;background:var(--bg-muted);padding:2px 6px;border-radius:4px;">--color-primary</code> immediately highlights every component downstream. No Storybook trawl. No grep. Just the answer.</p>
+      <ul class="feat-pts">
+        <li><span class="feat-pt-icon">◉</span>Token edges are resolved at index time — the graph knows before you even ask.</li>
+        <li><span class="feat-pt-icon">◉</span>Affected nodes are ranked by depth: direct consumers first, transitive next.</li>
+        <li><span class="feat-pt-icon">◉</span>The result feeds directly into Intent Diff, so every PR ships with a complete blast-radius audit.</li>
+      </ul>
+      <a href="#" class="btn btn-primary">Request early access</a>
+    </div>
+    <div class="feat-vis feat-vis-dark reveal">
+      <div style="position:absolute;inset:0;padding:28px;display:flex;flex-direction:column;overflow:hidden;">
+        <div style="font-family:var(--mono);font-size:0.5rem;color:rgba(255,255,255,0.25);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:16px;">Token blast radius — --color-primary</div>
+
+        <!-- Token source row -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+          <div style="width:28px;height:28px;border-radius:6px;background:rgba(8,145,178,0.15);border:1px solid rgba(8,145,178,0.4);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="4" stroke="#0891B2" stroke-width="1.5"/></svg>
+          </div>
+          <span style="font-family:var(--mono);font-size:0.625rem;color:#0891B2;font-weight:600;">--color-primary</span>
+          <span style="font-family:var(--mono);font-size:0.4375rem;color:rgba(255,255,255,0.22);margin-left:auto;white-space:nowrap;">#0066FF → #0891B2</span>
+        </div>
+
+        <!-- Affected component list -->
+        <div style="display:flex;flex-direction:column;gap:7px;padding-left:14px;border-left:1px solid rgba(8,145,178,0.2);">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:5px;height:1px;background:rgba(8,145,178,0.4);flex-shrink:0;margin-left:-17px;"></div>
+            <div style="width:20px;height:20px;border-radius:4px;background:rgba(8,145,178,0.1);border:1px solid rgba(8,145,178,0.22);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><div style="width:8px;height:8px;border-radius:50%;background:rgba(8,145,178,0.6);"></div></div>
+            <span style="font-family:var(--mono);font-size:0.5625rem;color:rgba(255,255,255,0.65);">Button</span>
+            <span style="font-family:var(--mono);font-size:0.4375rem;color:rgba(8,145,178,0.8);margin-left:auto;background:rgba(8,145,178,0.08);padding:1px 6px;border-radius:3px;">direct</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:5px;height:1px;background:rgba(8,145,178,0.4);flex-shrink:0;margin-left:-17px;"></div>
+            <div style="width:20px;height:20px;border-radius:4px;background:rgba(8,145,178,0.1);border:1px solid rgba(8,145,178,0.22);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><div style="width:8px;height:8px;border-radius:50%;background:rgba(8,145,178,0.6);"></div></div>
+            <span style="font-family:var(--mono);font-size:0.5625rem;color:rgba(255,255,255,0.65);">Card</span>
+            <span style="font-family:var(--mono);font-size:0.4375rem;color:rgba(8,145,178,0.8);margin-left:auto;background:rgba(8,145,178,0.08);padding:1px 6px;border-radius:3px;">direct</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:5px;height:1px;background:rgba(8,145,178,0.4);flex-shrink:0;margin-left:-17px;"></div>
+            <div style="width:20px;height:20px;border-radius:4px;background:rgba(8,145,178,0.1);border:1px solid rgba(8,145,178,0.22);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><div style="width:8px;height:8px;border-radius:50%;background:rgba(8,145,178,0.6);"></div></div>
+            <span style="font-family:var(--mono);font-size:0.5625rem;color:rgba(255,255,255,0.65);">NavBar</span>
+            <span style="font-family:var(--mono);font-size:0.4375rem;color:rgba(8,145,178,0.8);margin-left:auto;background:rgba(8,145,178,0.08);padding:1px 6px;border-radius:3px;">direct</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:5px;height:1px;background:rgba(255,255,255,0.1);flex-shrink:0;margin-left:-17px;"></div>
+            <div style="width:20px;height:20px;border-radius:4px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><div style="width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,0.18);"></div></div>
+            <span style="font-family:var(--mono);font-size:0.5625rem;color:rgba(255,255,255,0.4);">DashboardCard</span>
+            <span style="font-family:var(--mono);font-size:0.4375rem;color:rgba(255,255,255,0.25);margin-left:auto;background:rgba(255,255,255,0.04);padding:1px 6px;border-radius:3px;">via Card</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:5px;height:1px;background:rgba(255,255,255,0.1);flex-shrink:0;margin-left:-17px;"></div>
+            <div style="width:20px;height:20px;border-radius:4px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><div style="width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,0.18);"></div></div>
+            <span style="font-family:var(--mono);font-size:0.5625rem;color:rgba(255,255,255,0.4);">Input</span>
+            <span style="font-family:var(--mono);font-size:0.4375rem;color:rgba(255,255,255,0.25);margin-left:auto;background:rgba(255,255,255,0.04);padding:1px 6px;border-radius:3px;">via Button</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;opacity:0.45;">
+            <div style="width:5px;height:1px;background:rgba(255,255,255,0.1);flex-shrink:0;margin-left:-17px;"></div>
+            <span style="font-family:var(--mono);font-size:0.5rem;color:rgba(255,255,255,0.3);">+ 42 more components…</span>
+          </div>
+        </div>
+
+        <!-- Summary bar -->
+        <div style="margin-top:auto;padding:10px 12px;background:rgba(8,145,178,0.07);border:1px solid rgba(8,145,178,0.14);border-radius:6px;display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-family:var(--mono);font-size:0.5rem;color:rgba(255,255,255,0.3);">Total affected</span>
+          <span style="font-family:var(--mono);font-size:0.75rem;font-weight:700;color:#0891B2;">47 components</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DEEP DIVE 2: Graph as API -->
+<div class="section section-muted" style="padding:100px 40px;">
+  <div class="feat-split rev reveal">
+    <div class="feat-copy">
+      <span class="label label-teal">The graph as API</span>
+      <h2 class="d3">Not just a visualization.<br>A queryable API.</h2>
+      <p class="subtitle">Every node in the graph is a structured JSON object accessible via REST or MCP tools. AI agents, CI pipelines, and custom tooling can query your entire component ecosystem programmatically — no scraping, no docs to keep in sync.</p>
+      <ul class="feat-pts">
+        <li><span class="feat-pt-icon">◉</span>REST endpoints return nodes, edges, and subgraphs with fully typed results.</li>
+        <li><span class="feat-pt-icon">◉</span>MCP tools let AI agents query the graph via natural language through Agent Bridge.</li>
+        <li><span class="feat-pt-icon">◉</span>Completion Zone AI pulls the relevant graph neighborhood as context automatically — no manual prompt engineering.</li>
+      </ul>
+    </div>
+    <div class="feat-vis feat-vis-dark reveal">
+      <div style="position:absolute;inset:0;padding:28px;overflow:auto;">
+        <div style="font-family:var(--mono);font-size:0.5rem;color:rgba(255,255,255,0.25);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:14px;">GET /graph/nodes/Button</div>
+        <div class="code-block" style="font-size:0.6875rem;padding:18px;margin:0;line-height:1.7;">
+<span class="kw">{</span>
+  <span class="str">"id"</span><span style="color:rgba(255,255,255,0.45)">: </span><span class="str">"Button"</span><span style="color:rgba(255,255,255,0.45)">,</span>
+  <span class="str">"type"</span><span style="color:rgba(255,255,255,0.45)">: </span><span class="str">"component"</span><span style="color:rgba(255,255,255,0.45)">,</span>
+  <span class="str">"file"</span><span style="color:rgba(255,255,255,0.45)">: </span><span class="str">"src/ui/Button.tsx"</span><span style="color:rgba(255,255,255,0.45)">,</span>
+  <span class="str">"props"</span><span style="color:rgba(255,255,255,0.45)">: </span><span class="kw">{</span>
+    <span class="str">"label"</span><span style="color:rgba(255,255,255,0.45)">: </span><span class="nm">"string"</span><span style="color:rgba(255,255,255,0.45)">,</span>
+    <span class="str">"variant"</span><span style="color:rgba(255,255,255,0.45)">: </span><span class="nm">"primary | secondary"</span><span style="color:rgba(255,255,255,0.45)">,</span>
+    <span class="str">"disabled"</span><span style="color:rgba(255,255,255,0.45)">: </span><span class="nm">"boolean"</span>
+  <span class="kw">}</span><span style="color:rgba(255,255,255,0.45)">,</span>
+  <span class="str">"usedBy"</span><span style="color:rgba(255,255,255,0.45)">: </span><span class="kw">[</span><span class="str">"Card"</span><span style="color:rgba(255,255,255,0.45)">, </span><span class="str">"NavBar"</span><span class="kw">]</span><span style="color:rgba(255,255,255,0.45)">,</span>
+  <span class="str">"uses"</span><span style="color:rgba(255,255,255,0.45)">: </span><span class="kw">[]</span><span style="color:rgba(255,255,255,0.45)">,</span>
+  <span class="str">"tokens"</span><span style="color:rgba(255,255,255,0.45)">: </span><span class="kw">[</span>
+    <span class="tl">"--color-primary"</span><span style="color:rgba(255,255,255,0.45)">,</span>
+    <span class="tl">"--radius-sm"</span><span style="color:rgba(255,255,255,0.45)">,</span>
+    <span class="tl">"--font-weight-semibold"</span>
+  <span class="kw">]</span><span style="color:rgba(255,255,255,0.45)">,</span>
+  <span class="str">"updatedAt"</span><span style="color:rgba(255,255,255,0.45)">: </span><span class="str">"2025-04-25T14:22:07Z"</span>
+<span class="kw">}</span>
+        </div>
+        <div style="margin-top:12px;padding:8px 12px;background:rgba(8,145,178,0.07);border:1px solid rgba(8,145,178,0.14);border-radius:6px;display:flex;align-items:center;gap:6px;">
+          <span style="font-family:var(--mono);font-size:0.5rem;color:rgba(8,145,178,0.8);">MCP →</span>
+          <span style="font-family:var(--mono);font-size:0.5rem;color:rgba(255,255,255,0.35);">graph.query("What will break if I rename Button?")</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TECH SECTION -->
+<section class="section">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="label">Technical foundation</span>
+      <h2 class="d2">Six layers that keep<br>the graph always current.</h2>
+      <p class="subtitle">Origin Graph is designed to stay accurate as your codebase moves — incremental, typed, and accessible to any tooling that speaks REST or MCP.</p>
+    </div>
+    <div class="tech-grid stagger">
+      <div class="tech-card">
+        <div class="tech-icon">🌳</div>
+        <h3>AST walker</h3>
+        <p>A Babel-based AST walker traverses every component file on save, extracting imports, JSX usage, and design-token references — without executing any code.</p>
+        <span class="tech-tag">Static analysis</span>
+      </div>
+      <div class="tech-card">
+        <div class="tech-icon">⚛</div>
+        <h3>React Fiber runtime</h3>
+        <p>A Fiber hook captures live props and state during rendering, adding real-world usage data — actual prop values in production — that static analysis cannot infer.</p>
+        <span class="tech-tag">Runtime</span>
+      </div>
+      <div class="tech-card">
+        <div class="tech-icon">🗄</div>
+        <h3>Supabase graph store</h3>
+        <p>Nodes and edges are persisted in Supabase Postgres with a graph-friendly schema. Postgres views and RPC functions serve subgraph queries with sub-10ms latency.</p>
+        <span class="tech-tag">Persistence</span>
+      </div>
+      <div class="tech-card">
+        <div class="tech-icon">🔗</div>
+        <h3>Typed edges</h3>
+        <p>Three edge types — <code style="font-family:var(--mono);font-size:0.8em;background:var(--bg-muted);padding:1px 4px;border-radius:3px;">usage</code>, <code style="font-family:var(--mono);font-size:0.8em;background:var(--bg-muted);padding:1px 4px;border-radius:3px;">inheritance</code>, <code style="font-family:var(--mono);font-size:0.8em;background:var(--bg-muted);padding:1px 4px;border-radius:3px;">token</code> — are stored with directionality and metadata, making impact analysis a simple graph traversal rather than a heuristic search.</p>
+        <span class="tech-tag">Data model</span>
+      </div>
+      <div class="tech-card">
+        <div class="tech-icon">💬</div>
+        <h3>Natural language queries</h3>
+        <p>Agent Bridge exposes the graph as an MCP tool. Ask "What will break if I rename Card?" in plain English from Cursor, Claude Code, or any MCP-compatible editor.</p>
+        <span class="tech-tag">Agent Bridge</span>
+      </div>
+      <div class="tech-card">
+        <div class="tech-icon">⚡</div>
+        <h3>Incremental updates</h3>
+        <p>Only the files touched since the last commit are re-indexed. No full rebuild. A project with 1,000 components updates in under two seconds on a file save.</p>
+        <span class="tech-tag">Performance</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- RELATED FEATURES -->
+<section class="section section-muted">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="label">What connects here</span>
+      <h2 class="d2">Origin Graph powers<br>everything downstream.</h2>
+      <p class="subtitle">The graph is infrastructure. Every Originmain feature that needs to understand your codebase queries it first.</p>
+    </div>
+    <div class="related-grid stagger">
+      <a class="related-card" href="/features/live-artboard.html">
+        <div class="related-icon">⬜</div>
+        <h3>Live Artboard</h3>
+        <p>The Fiber hook that powers Live Artboard is the same one feeding runtime usage data into Origin Graph. Both features share a single, lightweight injection.</p>
+        <span class="related-link">Explore Live Artboard →</span>
+      </a>
+      <a class="related-card" href="/features/intent-diff.html">
+        <div class="related-icon">△</div>
+        <h3>Intent Diff</h3>
+        <p>When Intent Diff calculates the blast radius of a change, it queries Origin Graph. The complete token and usage graph makes the diff semantically complete.</p>
+        <span class="related-link">Explore Intent Diff →</span>
+      </a>
+      <a class="related-card" href="/features/completion-zone.html">
+        <div class="related-icon">◈</div>
+        <h3>Completion Zone</h3>
+        <p>Completion Zone AI pulls the relevant graph neighborhood as context before generating. Your design system constraints arrive as graph data — not a prompt you maintain.</p>
+        <span class="related-link">Explore Completion Zone →</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section id="cta-bottom">
+  <div class="cta-inner">
+    <h2 class="cta-headline">Your component graph,<br>always up to date.</h2>
+    <p class="cta-sub">Early access is free. Connect your repo and the first full graph index runs in under a minute.</p>
+    <div class="cta-actions">
+      <a href="#" class="btn btn-white btn-lg">Request Early Access</a>
+      <a href="/" class="btn btn-outline-white btn-lg">Back to overview</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="ft-inner">
+    <div class="ft-top">
+      <div>
+        <div class="ft-brand-logo">Origin<span>main</span></div>
+        <p class="ft-brand-tag">Where design intent becomes production code.</p>
+      </div>
+      <div class="ft-col">
+        <h4>Product</h4>
+        <ul>
+          <li><a href="/features/live-artboard.html">Live Artboard</a></li>
+          <li><a href="/features/origin-graph.html">Origin Graph</a></li>
+          <li><a href="/features/intent-diff.html">Intent Diff</a></li>
+          <li><a href="/features/completion-zone.html">Completion Zone</a></li>
+          <li><a href="/features/agent-bridge.html">Agent Bridge</a></li>
+        </ul>
+      </div>
+      <div class="ft-col">
+        <h4>Integrations</h4>
+        <ul>
+          <li><a href="/features/integrations.html">All integrations</a></li>
+          <li><a href="#">GitHub</a></li>
+          <li><a href="#">Linear</a></li>
+          <li><a href="#">Slack</a></li>
+        </ul>
+      </div>
+      <div class="ft-col">
+        <h4>Developers</h4>
+        <ul>
+          <li><a href="#">Docs</a></li>
+          <li><a href="#">API Reference</a></li>
+          <li><a href="#">MCP Protocol</a></li>
+          <li><a href="#">Changelog</a></li>
+        </ul>
+      </div>
+      <div class="ft-col">
+        <h4>Company</h4>
+        <ul>
+          <li><a href="#">About</a></li>
+          <li><a href="/#pricing">Pricing</a></li>
+          <li><a href="#">Blog</a></li>
+          <li><a href="#">Contact</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="ft-bottom">
+      <span class="ft-copy">© 2025 Originmain. All rights reserved.</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+// Nav scroll
+const nav=document.getElementById('nav');
+window.addEventListener('scroll',()=>{nav.classList.toggle('scrolled',window.scrollY>20);});
+// Dropdown: delay-based hover (desktop) + click (mobile/touch)
+document.querySelectorAll('.nav-dropdown').forEach(dd=>{const menu=dd.querySelector('.nav-dropdown-menu');let t;const open=()=>{clearTimeout(t);dd.classList.add('open');menu.classList.add('open');};const close=()=>{t=setTimeout(()=>{dd.classList.remove('open');menu.classList.remove('open');},150);};dd.addEventListener('mouseenter',open);dd.addEventListener('mouseleave',close);menu.addEventListener('mouseenter',open);menu.addEventListener('mouseleave',close);dd.querySelector('a').addEventListener('click',e=>{if(window.matchMedia('(hover:none)').matches||window.innerWidth<=1024){e.preventDefault();const o=menu.classList.toggle('open');dd.classList.toggle('open',o);}});});
+// Mobile product sub-accordion
+const mpt=document.getElementById('mob-product-toggle'),mns=document.getElementById('nav-mobile-sub'),mdc=document.getElementById('mob-dd-caret');if(mpt&&mns){mpt.addEventListener('click',e=>{e.preventDefault();const o=mns.classList.toggle('open');if(mdc)mdc.style.transform=o?'rotate(180deg)':'';});}
+// Burger
+const burger=document.getElementById('nav-burger'),mob=document.getElementById('nav-mobile');
+burger.addEventListener('click',()=>{const o=mob.classList.toggle('open');burger.classList.toggle('open',o);burger.setAttribute('aria-expanded',o);});
+// Reveal
+const io=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}});},{threshold:0.12});
+document.querySelectorAll('.reveal,.stagger').forEach(el=>io.observe(el));
+</script>
+</body>
+</html>

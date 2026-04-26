@@ -349,6 +349,63 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   font-size: .875rem;
 }
 
+/* ── Nav dropdown ── */
+.nav-dropdown { position: relative; }
+.nav-dropdown > a { display: flex; align-items: center; gap: 4px; }
+.nav-dd-caret { transition: transform 0.15s; }
+.nav-dropdown.open .nav-dd-caret { transform: rotate(180deg); }
+.nav-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-4px);
+  background: rgba(255,255,255,0.98);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  border-radius: var(--r-3);
+  box-shadow: var(--sh-xl);
+  padding: 10px 8px 8px;  /* top padding bridges the visual gap without a dead zone */
+  min-width: 248px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s, transform 0.15s, visibility 0.15s;
+  pointer-events: none;
+}
+.nav-dropdown-menu.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: all;
+}
+/* Mobile sub-nav (product pages list inside hamburger drawer) */
+.nav-mobile-sub { display: none; padding: 2px 0 6px 14px; flex-direction: column; }
+.nav-mobile-sub.open { display: flex; }
+.nav-mobile-sub a { font-size: 0.875rem; color: var(--fg-3); padding: 8px 4px; border-bottom: 1px solid var(--border); letter-spacing: -0.01em; transition: color 0.1s; }
+.nav-mobile-sub a:last-child { border-bottom: none; }
+.nav-mobile-sub a:hover { color: var(--fg); }
+.nav-dd-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: var(--r-2);
+  transition: background 0.1s;
+  cursor: pointer;
+}
+.nav-dd-item:hover { background: var(--bg-muted); }
+.nav-dd-icon {
+  width: 30px; height: 30px;
+  background: var(--blue-soft);
+  border: 1px solid var(--blue-mid);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; font-size: 13px;
+}
+.nav-dd-text { display: flex; flex-direction: column; }
+.nav-dd-name { font-size: 0.8125rem; font-weight: 600; color: var(--fg); letter-spacing: -0.01em; }
+.nav-dd-desc { font-size: 0.6875rem; color: var(--fg-3); margin-top: 1px; line-height: 1.4; }
+.nav-dd-sep { height: 1px; background: var(--border); margin: 4px 0; }
+
 /* ════════════════════════════════════════════════════════════
    HERO — Figma Sites: product-forward, massive type
    ════════════════════════════════════════════════════════════ */
@@ -1529,7 +1586,39 @@ footer {
   <div class="nav-inner">
     <a href="#" class="nav-logo">Origin<span>main</span></a>
     <ul class="nav-links">
-      <li><a href="#features">Product</a></li>
+      <li class="nav-dropdown">
+        <a href="#features" style="display:flex;align-items:center;gap:4px;">
+          Product
+          <svg class="nav-dd-caret" width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </a>
+        <div class="nav-dropdown-menu">
+          <a class="nav-dd-item" href="/features/live-artboard.html">
+            <div class="nav-dd-icon">⬜</div>
+            <div class="nav-dd-text"><span class="nav-dd-name">Live Artboard</span><span class="nav-dd-desc">Your app rendered live in the canvas</span></div>
+          </a>
+          <a class="nav-dd-item" href="/features/origin-graph.html">
+            <div class="nav-dd-icon">◉</div>
+            <div class="nav-dd-text"><span class="nav-dd-name">Origin Graph</span><span class="nav-dd-desc">Every component, indexed and queryable</span></div>
+          </a>
+          <a class="nav-dd-item" href="/features/intent-diff.html">
+            <div class="nav-dd-icon">△</div>
+            <div class="nav-dd-text"><span class="nav-dd-name">Intent Diff</span><span class="nav-dd-desc">Ship component-level diffs, not redlines</span></div>
+          </a>
+          <div class="nav-dd-sep"></div>
+          <a class="nav-dd-item" href="/features/completion-zone.html">
+            <div class="nav-dd-icon">◈</div>
+            <div class="nav-dd-text"><span class="nav-dd-name">Completion Zone</span><span class="nav-dd-desc">AI-filled design, constrained to your system</span></div>
+          </a>
+          <a class="nav-dd-item" href="/features/agent-bridge.html">
+            <div class="nav-dd-icon">⇄</div>
+            <div class="nav-dd-text"><span class="nav-dd-name">Agent Bridge</span><span class="nav-dd-desc">MCP channel to Cursor, Claude Code & more</span></div>
+          </a>
+          <a class="nav-dd-item" href="/features/integrations.html">
+            <div class="nav-dd-icon">🔗</div>
+            <div class="nav-dd-text"><span class="nav-dd-name">Integrations</span><span class="nav-dd-desc">Linear, Slack, GitHub, Figma & more</span></div>
+          </a>
+        </div>
+      </li>
       <li><a href="#integrations">Integrations</a></li>
       <li><a href="#pricing">Pricing</a></li>
       <li><a href="#">Docs</a></li>
@@ -1546,7 +1635,20 @@ footer {
   <!-- Mobile drawer (hidden on desktop) -->
   <div class="nav-mobile" id="nav-mobile" aria-hidden="true">
     <ul>
-      <li><a href="#features">Product</a></li>
+      <li>
+        <a href="#features" id="mob-product-toggle" style="display:flex;justify-content:space-between;align-items:center;">
+          Product
+          <svg id="mob-dd-caret" width="10" height="6" viewBox="0 0 10 6" fill="none" style="transition:transform 0.15s;"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </a>
+        <div class="nav-mobile-sub" id="nav-mobile-sub">
+          <a href="/features/live-artboard.html">Live Artboard</a>
+          <a href="/features/origin-graph.html">Origin Graph</a>
+          <a href="/features/intent-diff.html">Intent Diff</a>
+          <a href="/features/completion-zone.html">Completion Zone</a>
+          <a href="/features/agent-bridge.html">Agent Bridge</a>
+          <a href="/features/integrations.html">Integrations</a>
+        </div>
+      </li>
       <li><a href="#integrations">Integrations</a></li>
       <li><a href="#pricing">Pricing</a></li>
       <li><a href="#">Docs</a></li>
@@ -1783,7 +1885,7 @@ footer {
           Hot reload and real-time data. The canvas reflects your app state at all times.
         </li>
       </ul>
-      <a href="#" class="btn btn-primary">See it in action →</a>
+      <a href="/features/live-artboard.html" class="btn btn-primary">See it in action →</a>
     </div>
     <div class="feat-visual feat-visual-dark reveal">
       <div class="fv-artboard-scene">
@@ -1824,7 +1926,7 @@ footer {
           Parity is verified automatically. The canvas confirms the result.
         </li>
       </ul>
-      <a href="#" class="btn btn-primary">Explore Intent Diff →</a>
+      <a href="/features/intent-diff.html" class="btn btn-primary">Explore Intent Diff →</a>
     </div>
     <div class="feat-visual feat-visual-dark reveal">
       <div class="fv-diff-scene">
@@ -1865,7 +1967,7 @@ footer {
           Agent Bridge exposes the graph to external AI tools via MCP protocol.
         </li>
       </ul>
-      <a href="#" class="btn btn-primary">Explore the Graph →</a>
+      <a href="/features/origin-graph.html" class="btn btn-primary">Explore the Graph →</a>
     </div>
     <div class="feat-visual feat-visual-dark reveal" style="position:relative;">
       <div class="fv-graph-scene">
@@ -2339,11 +2441,13 @@ footer {
       <div class="ft-col">
         <h4>Product</h4>
         <ul>
-          <li><a href="#">Live Artboard</a></li>
-          <li><a href="#">Origin Graph</a></li>
-          <li><a href="#">Intent Diff</a></li>
-          <li><a href="#">Agent Bridge</a></li>
-          <li><a href="#">Pricing</a></li>
+          <li><a href="/features/live-artboard.html">Live Artboard</a></li>
+          <li><a href="/features/origin-graph.html">Origin Graph</a></li>
+          <li><a href="/features/intent-diff.html">Intent Diff</a></li>
+          <li><a href="/features/completion-zone.html">Completion Zone</a></li>
+          <li><a href="/features/agent-bridge.html">Agent Bridge</a></li>
+          <li><a href="/features/integrations.html">Integrations</a></li>
+          <li><a href="#pricing">Pricing</a></li>
         </ul>
       </div>
       <div class="ft-col">
@@ -2399,6 +2503,38 @@ document.querySelectorAll('.int-card:not(.int-more)').forEach(card => {
     card.style.setProperty('--my', ((e.clientY - r.top)  / r.height * 100) + '%');
   });
 });
+
+// ── Nav dropdown: delay-based hover (desktop) + click toggle (mobile/touch) ──
+document.querySelectorAll('.nav-dropdown').forEach(dd => {
+  const menu = dd.querySelector('.nav-dropdown-menu');
+  let closeTimer;
+  const open  = () => { clearTimeout(closeTimer); dd.classList.add('open'); menu.classList.add('open'); };
+  const sched = () => { closeTimer = setTimeout(() => { dd.classList.remove('open'); menu.classList.remove('open'); }, 150); };
+  dd.addEventListener('mouseenter', open);
+  dd.addEventListener('mouseleave', sched);
+  menu.addEventListener('mouseenter', open);
+  menu.addEventListener('mouseleave', sched);
+  // Mobile / touch: click the trigger link to toggle instead of hover
+  dd.querySelector('a').addEventListener('click', e => {
+    if (window.matchMedia('(hover: none)').matches || window.innerWidth <= 1024) {
+      e.preventDefault();
+      const isOpen = menu.classList.toggle('open');
+      dd.classList.toggle('open', isOpen);
+    }
+  });
+});
+
+// ── Mobile product sub-accordion ─────────────────────────
+const mobProductToggle = document.getElementById('mob-product-toggle');
+const navMobileSub     = document.getElementById('nav-mobile-sub');
+const mobDdCaret       = document.getElementById('mob-dd-caret');
+if (mobProductToggle && navMobileSub) {
+  mobProductToggle.addEventListener('click', e => {
+    e.preventDefault();
+    const isOpen = navMobileSub.classList.toggle('open');
+    if (mobDdCaret) mobDdCaret.style.transform = isOpen ? 'rotate(180deg)' : '';
+  });
+}
 
 // ── Mobile hamburger ──────────────────────────────────────
 const burger     = document.getElementById('nav-burger');

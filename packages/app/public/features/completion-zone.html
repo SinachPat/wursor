@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Completion Zone — Originmain</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#FFFFFF;--bg-subtle:#FAFAFA;--bg-muted:#F4F4F5;--bg-strong:#EBEBEB;--bg-inv:#0A0A0A;--bg-inv-2:#141414;--bg-inv-3:#1C1C1C;--fg:#0A0A0A;--fg-2:#52525B;--fg-3:#A1A1AA;--fg-4:#D4D4D8;--fg-inv:rgba(255,255,255,0.92);--fg-inv-2:rgba(255,255,255,0.52);--fg-inv-3:rgba(255,255,255,0.28);--blue:#0066FF;--blue-dark:#0050CC;--blue-light:#3385FF;--blue-soft:rgba(0,102,255,0.07);--blue-mid:rgba(0,102,255,0.15);--green:#10B981;--green-dark:#059669;--green-light:#34D399;--green-soft:rgba(16,185,129,0.07);--green-mid:rgba(16,185,129,0.18);--purple:#7C3AED;--teal:#0891B2;--border:rgba(0,0,0,0.07);--border-2:rgba(0,0,0,0.12);--border-inv:rgba(255,255,255,0.08);--border-inv-2:rgba(255,255,255,0.14);--r-1:4px;--r-2:8px;--r-3:12px;--r-4:16px;--r-5:20px;--r-6:24px;--r-full:9999px;--sh-xs:0 1px 2px rgba(0,0,0,0.05);--sh-sm:0 1px 3px rgba(0,0,0,0.07),0 1px 2px rgba(0,0,0,0.05);--sh-md:0 4px 8px rgba(0,0,0,0.06),0 2px 4px rgba(0,0,0,0.04);--sh-lg:0 10px 24px rgba(0,0,0,0.08),0 4px 8px rgba(0,0,0,0.05);--sh-xl:0 20px 40px rgba(0,0,0,0.09),0 8px 16px rgba(0,0,0,0.05);--sh-2xl:0 32px 64px rgba(0,0,0,0.11),0 16px 32px rgba(0,0,0,0.06);--font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;--mono:'JetBrains Mono','SF Mono',ui-monospace,'Cascadia Code',monospace;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{font-size:16px;scroll-behavior:smooth;-webkit-font-smoothing:antialiased;}
+body{font-family:var(--font);background:var(--bg);color:var(--fg);line-height:1.6;overflow-x:hidden;}
+img,svg{display:block;max-width:100%;}
+a{color:inherit;text-decoration:none;}
+button{font-family:inherit;cursor:pointer;border:none;background:none;}
+.wrap{max-width:1120px;margin:0 auto;padding:0 40px;}
+.section{padding:112px 0;}
+.section-muted{background:var(--bg-subtle);}
+.section-dark{background:var(--bg-inv);}
+.d1{font-size:clamp(2.5rem,6vw,4.5rem);font-weight:900;line-height:1.02;letter-spacing:-0.045em;color:var(--fg);}
+.d2{font-size:clamp(1.875rem,3.5vw,2.75rem);font-weight:800;line-height:1.1;letter-spacing:-0.038em;color:var(--fg);}
+.d3{font-size:clamp(1.25rem,2.5vw,1.625rem);font-weight:700;line-height:1.25;letter-spacing:-0.028em;color:var(--fg);}
+.subtitle{font-size:clamp(1rem,1.8vw,1.125rem);font-weight:400;line-height:1.75;color:var(--fg-2);}
+.label{font-family:var(--mono);font-size:0.6875rem;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:var(--fg-3);}
+.label-green{color:var(--green);}
+.btn{display:inline-flex;align-items:center;gap:8px;font-family:var(--font);font-size:0.9375rem;font-weight:600;padding:11px 22px;border-radius:var(--r-2);transition:transform 0.12s cubic-bezier(.16,1,.3,1),opacity 0.12s,box-shadow 0.12s;white-space:nowrap;letter-spacing:-0.01em;position:relative;overflow:hidden;}
+.btn::after{content:'';position:absolute;inset:0;background:rgba(255,255,255,0);transition:background 0.12s;}
+.btn:hover::after{background:rgba(255,255,255,0.06);}
+.btn:active{transform:scale(0.98)!important;}
+.btn-primary{background:var(--fg);color:var(--bg);box-shadow:var(--sh-sm);}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:var(--sh-md);}
+.btn-secondary{background:transparent;color:var(--fg);border:1px solid var(--border-2);}
+.btn-secondary:hover{background:var(--bg-muted);transform:translateY(-1px);}
+.btn-green{background:var(--green);color:#fff;box-shadow:0 4px 12px rgba(16,185,129,0.35);}
+.btn-green:hover{background:var(--green-dark);transform:translateY(-1px);}
+.btn-lg{font-size:1rem;padding:13px 28px;}
+.btn-white{background:#fff;color:#0A0A0A;box-shadow:0 4px 12px rgba(255,255,255,0.15);}
+.btn-white:hover{background:#F5F5F5;transform:translateY(-1px);}
+.btn-outline-white{background:transparent;color:rgba(255,255,255,0.72);border:1px solid rgba(255,255,255,0.18);}
+.btn-outline-white:hover{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.9);transform:translateY(-1px);}
+.divider{height:1px;background:var(--border);}
+.section-head{text-align:center;max-width:640px;margin:0 auto 72px;}
+.section-head .label{display:block;margin-bottom:16px;}
+.section-head .d2{margin-bottom:18px;}
+
+/* NAV */
+#nav{position:fixed;top:0;left:0;right:0;z-index:200;height:60px;display:flex;align-items:center;padding:0 40px;transition:background 0.2s,border-color 0.2s,box-shadow 0.2s;}
+#nav.scrolled{background:rgba(255,255,255,0.85);backdrop-filter:blur(20px) saturate(1.6);-webkit-backdrop-filter:blur(20px) saturate(1.6);border-bottom:1px solid var(--border);box-shadow:var(--sh-xs);}
+.nav-inner{max-width:1120px;margin:0 auto;width:100%;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;}
+.nav-logo{justify-self:start;font-size:1rem;font-weight:800;letter-spacing:-0.04em;color:var(--fg);display:flex;align-items:center;gap:2px;}
+.nav-logo span{color:var(--blue);}
+.nav-links{justify-self:center;display:flex;align-items:center;gap:0;list-style:none;}
+.nav-links a{font-size:0.9375rem;font-weight:500;color:var(--fg-2);padding:6px 14px;border-radius:var(--r-1);transition:color 0.12s,background 0.12s;letter-spacing:-0.01em;}
+.nav-links a:hover{color:var(--fg);}
+.nav-actions{justify-self:end;display:flex;align-items:center;gap:8px;}
+
+/* Dropdown */
+.nav-dropdown{position:relative;}
+.nav-dropdown>a{display:flex;align-items:center;gap:4px;}
+.nav-dd-caret{transition:transform 0.15s;}
+/* caret rotation handled via JS .open class */
+.nav-dropdown-menu{position:absolute;top:calc(100% + 10px);left:50%;transform:translateX(-50%) translateY(-4px);background:rgba(255,255,255,0.98);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:var(--r-3);box-shadow:var(--sh-xl);padding:8px;min-width:240px;opacity:0;visibility:hidden;transition:opacity 0.15s,transform 0.15s,visibility 0.15s;pointer-events:none;}
+.nav-dropdown-menu.open{opacity:1;visibility:visible;transform:translateX(-50%) translateY(0);pointer-events:all;}
+.nav-dropdown.open .nav-dd-caret{transform:rotate(180deg);}
+/* Mobile sub-nav */
+.nav-mobile-sub{display:none;padding:2px 0 6px 14px;flex-direction:column;}
+.nav-mobile-sub.open{display:flex;}
+.nav-mobile-sub a{font-size:0.875rem;color:rgba(255,255,255,0.4);padding:8px 4px;border-bottom:1px solid rgba(255,255,255,0.06);letter-spacing:-0.01em;transition:color 0.1s;}
+.nav-mobile-sub a:last-child{border-bottom:none;}
+.nav-mobile-sub a:hover{color:rgba(255,255,255,0.8);}
+/* Dark hero: white nav before scrolling */
+#nav:not(.scrolled) .nav-logo{color:rgba(255,255,255,0.92);}
+#nav:not(.scrolled) .nav-logo span{color:#3385FF;}
+#nav:not(.scrolled) .nav-links a{color:rgba(255,255,255,0.5);}
+#nav:not(.scrolled) .nav-links a:hover{color:rgba(255,255,255,0.9);}
+#nav:not(.scrolled) .nav-actions .btn-secondary{color:rgba(255,255,255,0.65);border-color:rgba(255,255,255,0.2);background:transparent;}
+#nav:not(.scrolled) .nav-burger span{background:rgba(255,255,255,0.8);}
+.nav-dd-item{display:flex;align-items:flex-start;gap:10px;padding:9px 10px;border-radius:var(--r-2);transition:background 0.1s;cursor:pointer;}
+.nav-dd-item:hover{background:var(--bg-muted);}
+.nav-dd-item.active{background:var(--green-soft);}
+.nav-dd-icon{width:30px;height:30px;background:var(--blue-soft);border:1px solid var(--blue-mid);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;}
+.nav-dd-icon.green{background:var(--green-soft);border-color:var(--green-mid);}
+.nav-dd-text{display:flex;flex-direction:column;}
+.nav-dd-name{font-size:0.8125rem;font-weight:600;color:var(--fg);letter-spacing:-0.01em;}
+.nav-dd-desc{font-size:0.6875rem;color:var(--fg-3);margin-top:1px;line-height:1.4;}
+.nav-dd-sep{height:1px;background:var(--border);margin:4px 0;}
+.nav-burger{display:none;flex-direction:column;justify-content:center;align-items:center;gap:5px;width:36px;height:36px;background:none;border:none;cursor:pointer;padding:4px;border-radius:var(--r-2);}
+.nav-burger span{display:block;width:20px;height:2px;background:var(--fg);border-radius:2px;transition:transform 0.22s cubic-bezier(0.16,1,0.3,1),opacity 0.18s;transform-origin:center;}
+.nav-burger.open span:nth-child(1){transform:translateY(7px) rotate(45deg);}
+.nav-burger.open span:nth-child(2){opacity:0;transform:scaleX(0);}
+.nav-burger.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg);}
+.nav-mobile{display:none;position:absolute;top:60px;left:0;right:0;background:rgba(255,255,255,0.97);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);box-shadow:0 8px 32px rgba(0,0,0,0.07);padding:12px 24px 24px;flex-direction:column;gap:2px;}
+.nav-mobile.open{display:flex;}
+.nav-mobile ul{list-style:none;display:flex;flex-direction:column;}
+.nav-mobile ul li a{display:block;font-size:1rem;font-weight:500;color:var(--fg-2);padding:11px 4px;border-bottom:1px solid var(--border);letter-spacing:-0.01em;}
+.nav-mobile ul li:last-child a{border-bottom:none;}
+.nav-mobile-ctas{display:flex;gap:8px;margin-top:16px;}
+.nav-mobile-ctas .btn{flex:1;justify-content:center;padding:10px 12px;font-size:.875rem;}
+
+/* PAGE HERO */
+#page-hero{padding:140px 40px 100px;background:var(--bg-inv);position:relative;overflow:hidden;text-align:center;}
+#page-hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% -10%,rgba(16,185,129,0.13),transparent 60%),radial-gradient(ellipse 40% 40% at 80% 70%,rgba(52,211,153,0.07),transparent 50%);pointer-events:none;}
+.page-hero-inner{position:relative;max-width:800px;margin:0 auto;}
+.page-hero-inner .label{color:rgba(255,255,255,0.3);margin-bottom:20px;display:block;}
+.page-hero-inner .d1{color:var(--fg-inv);margin-bottom:22px;}
+.page-hero-inner .subtitle{color:var(--fg-inv-2);max-width:600px;margin:0 auto 44px;}
+.page-hero-ctas{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+
+/* PRODUCT VISUAL */
+.pv-shell{width:100%;max-width:960px;margin:72px auto 0;border-radius:16px 16px 0 0;overflow:hidden;box-shadow:0 48px 96px rgba(0,0,0,0.45),0 0 0 1px rgba(255,255,255,0.06);border-bottom:none;position:relative;}
+.pv-chrome{background:#1C1C22;height:40px;display:flex;align-items:center;padding:0 14px;gap:7px;border-bottom:1px solid rgba(255,255,255,0.05);}
+.pv-dot{width:11px;height:11px;border-radius:50%;}
+.pv-dot.r{background:#FF5F57;}
+.pv-dot.y{background:#FFBD2E;}
+.pv-dot.g{background:#28C840;}
+.pv-url{flex:1;margin:0 12px;background:rgba(255,255,255,0.06);border-radius:5px;height:25px;display:flex;align-items:center;padding:0 10px;font-family:var(--mono);font-size:0.625rem;color:rgba(255,255,255,0.3);max-width:320px;}
+.pv-canvas{background:#0D0D11;height:400px;position:relative;display:flex;align-items:center;justify-content:center;}
+.pv-grid{position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,0.055) 1px,transparent 1px);background-size:24px 24px;pointer-events:none;}
+
+/* COMPLETION BADGE */
+.pv-cz-badge{position:absolute;top:16px;right:16px;display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:6px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.25);}
+.pv-cz-dot{width:6px;height:6px;border-radius:50%;background:#10B981;box-shadow:0 0 0 2px rgba(16,185,129,0.25);animation:cz-pulse 2.4s ease-in-out infinite;}
+@keyframes cz-pulse{0%,100%{box-shadow:0 0 0 2px rgba(16,185,129,0.25);}50%{box-shadow:0 0 0 5px rgba(16,185,129,0.08);}}
+.pv-cz-txt{font-family:var(--mono);font-size:0.5625rem;color:#10B981;font-weight:600;}
+
+/* Dashed placeholder shimmer */
+@keyframes shimmer-drift{0%{background-position:-200% 0;}100%{background-position:200% 0;}}
+.cz-placeholder{border:1.5px dashed rgba(16,185,129,0.45);border-radius:8px;background:linear-gradient(90deg,rgba(16,185,129,0.03) 0%,rgba(16,185,129,0.09) 40%,rgba(52,211,153,0.12) 50%,rgba(16,185,129,0.09) 60%,rgba(16,185,129,0.03) 100%);background-size:200% 100%;animation:shimmer-drift 2.8s ease-in-out infinite;display:flex;align-items:center;justify-content:center;box-shadow:0 0 18px rgba(16,185,129,0.1),inset 0 0 10px rgba(16,185,129,0.04);}
+.cz-q{font-family:var(--mono);font-size:1.125rem;color:rgba(16,185,129,0.55);font-weight:700;}
+
+/* HOW IT WORKS */
+.hiw-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin-top:64px;position:relative;}
+.hiw-steps::before{content:'';position:absolute;top:28px;left:12.5%;right:12.5%;height:1px;background:linear-gradient(90deg,transparent,var(--border-2) 20%,var(--border-2) 80%,transparent);}
+.hiw-step{display:flex;flex-direction:column;align-items:center;text-align:center;padding:0 20px;position:relative;z-index:1;}
+.hiw-num{width:56px;height:56px;border-radius:50%;background:var(--bg);border:1px solid var(--border-2);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:1rem;font-weight:700;color:var(--green);margin-bottom:20px;box-shadow:var(--sh-sm);}
+.hiw-step h3{font-size:0.9375rem;font-weight:700;color:var(--fg);letter-spacing:-0.02em;margin-bottom:8px;}
+.hiw-step p{font-size:0.8125rem;color:var(--fg-2);line-height:1.6;}
+.hiw-step-tag{display:inline-block;margin-top:10px;font-family:var(--mono);font-size:0.5625rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--green);background:var(--green-soft);border:1px solid var(--green-mid);padding:2px 8px;border-radius:var(--r-full);}
+
+/* FEATURE SPLIT */
+.feat-split{display:grid;grid-template-columns:1fr 1fr;gap:96px;align-items:center;max-width:1120px;margin:0 auto;}
+.feat-split.rev{direction:rtl;}
+.feat-split.rev>*{direction:ltr;}
+.feat-copy .label{display:block;margin-bottom:16px;}
+.feat-copy .d3{margin-bottom:16px;}
+.feat-copy .subtitle{margin-bottom:28px;}
+.feat-pts{list-style:none;display:flex;flex-direction:column;gap:12px;margin-bottom:32px;}
+.feat-pts li{display:flex;align-items:flex-start;gap:10px;font-size:0.9375rem;color:var(--fg-2);line-height:1.55;}
+.feat-pt-icon{width:20px;height:20px;border-radius:3px;background:var(--green-soft);border:1px solid var(--green-mid);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;font-size:0.625rem;color:var(--green);}
+
+/* Feature visual */
+.feat-vis{border-radius:var(--r-5);overflow:hidden;box-shadow:var(--sh-2xl);border:1px solid var(--border);aspect-ratio:4/3;position:relative;}
+.feat-vis-dark{background:#0D0D11;border-color:rgba(255,255,255,0.07);}
+.feat-vis-light{background:var(--bg-muted);}
+
+/* COMPARISON VISUAL */
+.cz-compare{display:grid;grid-template-columns:1fr 1fr;height:100%;}
+.cz-compare-col{padding:20px 18px;display:flex;flex-direction:column;gap:10px;}
+.cz-compare-col.bad{border-right:1px solid rgba(255,255,255,0.05);}
+.cz-col-head{display:flex;align-items:center;gap:7px;margin-bottom:4px;}
+.cz-col-badge{font-family:var(--mono);font-size:0.5rem;letter-spacing:0.1em;text-transform:uppercase;padding:3px 8px;border-radius:var(--r-full);font-weight:600;}
+.cz-col-badge.bad{background:rgba(239,68,68,0.1);color:#F87171;border:1px solid rgba(239,68,68,0.2);}
+.cz-col-badge.good{background:rgba(16,185,129,0.1);color:#34D399;border:1px solid rgba(16,185,129,0.22);}
+.cz-row{display:flex;align-items:flex-start;gap:7px;padding:7px 9px;border-radius:6px;}
+.cz-row.bad-row{background:rgba(239,68,68,0.05);}
+.cz-row.good-row{background:rgba(16,185,129,0.05);}
+.cz-row-icon{font-size:0.625rem;flex-shrink:0;margin-top:1px;}
+.cz-row-text{font-family:var(--mono);font-size:0.5625rem;color:rgba(255,255,255,0.55);line-height:1.55;}
+.cz-row-text strong{display:block;font-weight:600;margin-bottom:1px;}
+.cz-row-text strong.bad-txt{color:#F87171;}
+.cz-row-text strong.good-txt{color:#34D399;}
+
+/* TECH SECTION */
+.tech-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:56px;}
+.tech-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--r-4);padding:32px 28px;transition:box-shadow 0.2s;}
+.tech-card:hover{box-shadow:var(--sh-lg);}
+.tech-icon{width:44px;height:44px;background:var(--green-soft);border:1px solid var(--green-mid);border-radius:var(--r-2);display:flex;align-items:center;justify-content:center;font-size:1.25rem;margin-bottom:18px;}
+.tech-card h3{font-size:1rem;font-weight:700;color:var(--fg);letter-spacing:-0.02em;margin-bottom:8px;}
+.tech-card p{font-size:0.875rem;color:var(--fg-2);line-height:1.65;}
+.tech-tag{display:inline-block;margin-top:14px;font-family:var(--mono);font-size:0.625rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--green);background:var(--green-soft);border:1px solid var(--green-mid);padding:3px 9px;border-radius:var(--r-full);}
+
+/* CODE BLOCK */
+.code-block{background:#111118;border:1px solid rgba(255,255,255,0.07);border-radius:var(--r-3);padding:24px;font-family:var(--mono);font-size:0.75rem;line-height:1.75;color:rgba(255,255,255,0.75);overflow-x:auto;}
+.code-block .kw{color:#7EB8FF;}
+.code-block .str{color:#7DDBA0;}
+.code-block .cm{color:rgba(255,255,255,0.28);}
+.code-block .fn{color:#FFBA7B;}
+.code-block .nm{color:#D4A0FF;}
+.code-block .grn{color:#34D399;}
+
+/* RELATED */
+.related-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:48px;}
+.related-card{border:1px solid var(--border);border-radius:var(--r-4);padding:24px;transition:box-shadow 0.15s,border-color 0.15s;display:flex;flex-direction:column;gap:10px;}
+.related-card:hover{box-shadow:var(--sh-md);border-color:var(--border-2);}
+.related-icon{font-size:1.25rem;}
+.related-card h3{font-size:0.9375rem;font-weight:700;color:var(--fg);letter-spacing:-0.02em;}
+.related-card p{font-size:0.8125rem;color:var(--fg-2);line-height:1.6;flex:1;}
+.related-link{font-size:0.8125rem;font-weight:600;color:var(--green);}
+
+/* CTA */
+#cta-bottom{background:var(--bg-inv);padding:120px 40px;position:relative;overflow:hidden;text-align:center;}
+#cta-bottom::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 60% 80% at 30% 50%,rgba(16,185,129,0.1),transparent 60%),radial-gradient(ellipse 60% 80% at 70% 50%,rgba(52,211,153,0.07),transparent 60%);pointer-events:none;}
+.cta-inner{position:relative;max-width:680px;margin:0 auto;}
+.cta-headline{font-size:clamp(2rem,4.5vw,3.5rem);font-weight:900;letter-spacing:-0.045em;color:var(--fg-inv);line-height:1.05;margin-bottom:18px;}
+.cta-sub{font-size:1.0625rem;color:var(--fg-inv-2);margin-bottom:44px;line-height:1.65;}
+.cta-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+
+/* FOOTER */
+footer{background:#08080C;border-top:1px solid rgba(255,255,255,0.06);padding:72px 40px 40px;}
+.ft-inner{max-width:1120px;margin:0 auto;}
+.ft-top{display:grid;grid-template-columns:260px repeat(4,1fr);gap:48px;padding-bottom:56px;border-bottom:1px solid rgba(255,255,255,0.07);margin-bottom:36px;}
+.ft-brand-logo{font-size:1rem;font-weight:800;letter-spacing:-0.04em;color:rgba(255,255,255,0.92);margin-bottom:8px;}
+.ft-brand-logo span{color:#3385FF;}
+.ft-brand-tag{font-size:0.875rem;color:rgba(255,255,255,0.3);line-height:1.65;max-width:200px;}
+.ft-col h4{font-size:0.875rem;font-weight:600;color:rgba(255,255,255,0.7);margin-bottom:16px;letter-spacing:-0.01em;}
+.ft-col ul{list-style:none;display:flex;flex-direction:column;gap:10px;}
+.ft-col a{font-size:0.875rem;color:rgba(255,255,255,0.32);transition:color 0.14s;letter-spacing:-0.01em;}
+.ft-col a:hover{color:rgba(255,255,255,0.65);}
+.ft-bottom{display:flex;justify-content:space-between;align-items:center;}
+.ft-copy{font-size:0.8125rem;color:rgba(255,255,255,0.22);}
+
+/* REVEAL */
+.reveal{opacity:0;transform:translateY(22px);transition:opacity 0.7s cubic-bezier(0.16,1,0.3,1),transform 0.7s cubic-bezier(0.16,1,0.3,1);}
+.reveal.in{opacity:1;transform:none;}
+.stagger>*{opacity:0;transform:translateY(16px);transition:opacity 0.55s cubic-bezier(0.16,1,0.3,1),transform 0.55s cubic-bezier(0.16,1,0.3,1);}
+.stagger.in>*:nth-child(1){opacity:1;transform:none;transition-delay:0s;}
+.stagger.in>*:nth-child(2){opacity:1;transform:none;transition-delay:0.07s;}
+.stagger.in>*:nth-child(3){opacity:1;transform:none;transition-delay:0.14s;}
+.stagger.in>*:nth-child(4){opacity:1;transform:none;transition-delay:0.21s;}
+.stagger.in>*:nth-child(5){opacity:1;transform:none;transition-delay:0.28s;}
+.stagger.in>*:nth-child(6){opacity:1;transform:none;transition-delay:0.35s;}
+
+@media(max-width:1024px){.feat-split{grid-template-columns:1fr;gap:56px;}.feat-split.rev{direction:ltr;}.hiw-steps{grid-template-columns:1fr 1fr;gap:40px;}.hiw-steps::before{display:none;}.tech-grid{grid-template-columns:1fr 1fr;}.related-grid{grid-template-columns:1fr 1fr;}}
+@media(max-width:768px){.wrap{padding:0 24px;}#nav{padding:0 24px;}.nav-inner{display:flex;justify-content:space-between;}.nav-links,.nav-actions .btn{display:none;}.nav-burger{display:flex;}#page-hero{padding:120px 24px 80px;}.pv-shell{margin-top:48px;}.hiw-steps{grid-template-columns:1fr;}.tech-grid,.related-grid{grid-template-columns:1fr;}.ft-top{grid-template-columns:1fr 1fr;}}
+@media(max-width:480px){.ft-top{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav id="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">Origin<span>main</span></a>
+    <ul class="nav-links">
+      <li class="nav-dropdown">
+        <a href="/#features" style="display:flex;align-items:center;gap:4px;">
+          Product
+          <svg class="nav-dd-caret" width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </a>
+        <div class="nav-dropdown-menu">
+          <a class="nav-dd-item" href="/features/live-artboard.html">
+            <div class="nav-dd-icon">⬜</div>
+            <div class="nav-dd-text"><span class="nav-dd-name">Live Artboard</span><span class="nav-dd-desc">Your app rendered live in the canvas</span></div>
+          </a>
+          <a class="nav-dd-item" href="/features/origin-graph.html">
+            <div class="nav-dd-icon">◉</div>
+            <div class="nav-dd-text"><span class="nav-dd-name">Origin Graph</span><span class="nav-dd-desc">Every component, indexed and queryable</span></div>
+          </a>
+          <a class="nav-dd-item" href="/features/intent-diff.html">
+            <div class="nav-dd-icon">△</div>
+            <div class="nav-dd-text"><span class="nav-dd-name">Intent Diff</span><span class="nav-dd-desc">Ship component-level diffs, not redlines</span></div>
+          </a>
+          <div class="nav-dd-sep"></div>
+          <a class="nav-dd-item active" href="/features/completion-zone.html">
+            <div class="nav-dd-icon green">◈</div>
+            <div class="nav-dd-text"><span class="nav-dd-name">Completion Zone</span><span class="nav-dd-desc">AI-filled design, constrained to your system</span></div>
+          </a>
+          <a class="nav-dd-item" href="/features/agent-bridge.html">
+            <div class="nav-dd-icon">⇄</div>
+            <div class="nav-dd-text"><span class="nav-dd-name">Agent Bridge</span><span class="nav-dd-desc">MCP channel to Cursor, Claude Code &amp; more</span></div>
+          </a>
+          <a class="nav-dd-item" href="/features/integrations.html">
+            <div class="nav-dd-icon">🔗</div>
+            <div class="nav-dd-text"><span class="nav-dd-name">Integrations</span><span class="nav-dd-desc">Linear, Slack, GitHub, Figma &amp; more</span></div>
+          </a>
+        </div>
+      </li>
+      <li><a href="/features/integrations.html">Integrations</a></li>
+      <li><a href="/#pricing">Pricing</a></li>
+      <li><a href="#">Docs</a></li>
+    </ul>
+    <div class="nav-actions">
+      <a href="#" class="btn btn-secondary" style="padding:7px 16px;font-size:.875rem">Log in</a>
+      <a href="#" class="btn btn-primary" style="padding:8px 18px;font-size:.875rem">Request Access</a>
+      <button class="nav-burger" id="nav-burger" aria-label="Menu"><span></span><span></span><span></span></button>
+    </div>
+  </div>
+  <div class="nav-mobile" id="nav-mobile">
+    <ul>
+      <li>
+        <a href="/#features" id="mob-product-toggle" style="display:flex;justify-content:space-between;align-items:center;">
+          Product
+          <svg id="mob-dd-caret" width="10" height="6" viewBox="0 0 10 6" fill="none" style="transition:transform 0.15s;"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </a>
+        <div class="nav-mobile-sub" id="nav-mobile-sub">
+          <a href="/features/live-artboard.html">Live Artboard</a>
+          <a href="/features/origin-graph.html">Origin Graph</a>
+          <a href="/features/intent-diff.html">Intent Diff</a>
+          <a href="/features/completion-zone.html">Completion Zone</a>
+          <a href="/features/agent-bridge.html">Agent Bridge</a>
+          <a href="/features/integrations.html">Integrations</a>
+        </div>
+      </li>
+      <li><a href="/features/integrations.html">Integrations</a></li>
+      <li><a href="/#pricing">Pricing</a></li>
+      <li><a href="#">Docs</a></li>
+    </ul>
+    <div class="nav-mobile-ctas">
+      <a href="#" class="btn btn-secondary">Log in</a>
+      <a href="#" class="btn btn-primary">Request Access</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section id="page-hero">
+  <div class="page-hero-inner">
+    <span class="label reveal">◈ Completion Zone</span>
+    <h1 class="d1 reveal">AI-filled design,<br>constrained to your system.</h1>
+    <p class="subtitle reveal">Describe a component in plain language. Completion Zone generates it using only tokens, variants, and patterns that already exist in your design system — no hallucinated styles, no drift.</p>
+    <div class="page-hero-ctas reveal">
+      <a href="#" class="btn btn-white btn-lg">Request Early Access</a>
+      <a href="#how-it-works" class="btn btn-outline-white btn-lg">See how it works ↓</a>
+    </div>
+  </div>
+
+  <!-- Product visual: before / after canvas -->
+  <div class="pv-shell reveal">
+    <div class="pv-chrome">
+      <div class="pv-dot r"></div>
+      <div class="pv-dot y"></div>
+      <div class="pv-dot g"></div>
+      <div class="pv-url">🔒 app.originmain.io/canvas — Completion Zone</div>
+    </div>
+    <div class="pv-canvas">
+      <div class="pv-grid"></div>
+      <div class="pv-cz-badge"><div class="pv-cz-dot"></div><span class="pv-cz-txt">Constrained generation</span></div>
+
+      <!-- BEFORE: partial card with dashed placeholder -->
+      <div style="position:absolute;left:76px;top:36px;width:256px;">
+        <div style="font-family:var(--mono);font-size:0.475rem;color:rgba(16,185,129,0.55);margin-bottom:5px;">MetricsCard — completing…</div>
+        <div style="background:#1A1A22;border-radius:10px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.07);">
+          <div style="padding:14px 14px 0;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <span style="font-size:0.625rem;font-weight:700;color:rgba(255,255,255,0.8);letter-spacing:-0.01em;">Weekly Overview</span>
+              <span style="font-size:0.475rem;background:rgba(16,185,129,0.12);color:#34D399;padding:2px 6px;border-radius:99px;font-weight:600;border:1px solid rgba(16,185,129,0.2);">Live</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+              <div style="background:rgba(255,255,255,0.04);border-radius:5px;padding:8px 9px;border:1px solid rgba(255,255,255,0.06);">
+                <div style="font-size:0.45rem;color:rgba(255,255,255,0.3);margin-bottom:2px;font-family:var(--mono);">Sessions</div>
+                <div style="font-size:0.875rem;font-weight:800;color:rgba(255,255,255,0.88);letter-spacing:-0.04em;">4,821</div>
+                <div style="font-size:0.45rem;color:#34D399;margin-top:1px;">↑ 12%</div>
+              </div>
+              <div style="background:rgba(255,255,255,0.04);border-radius:5px;padding:8px 9px;border:1px solid rgba(255,255,255,0.06);">
+                <div style="font-size:0.45rem;color:rgba(255,255,255,0.3);margin-bottom:2px;font-family:var(--mono);">Conversions</div>
+                <div style="font-size:0.875rem;font-weight:800;color:rgba(255,255,255,0.88);letter-spacing:-0.04em;">9.4%</div>
+                <div style="font-size:0.45rem;color:#34D399;margin-top:1px;">↑ 2.1%</div>
+              </div>
+            </div>
+            <!-- Dashed shimmer placeholder -->
+            <div class="cz-placeholder" style="height:48px;border-radius:6px;margin-bottom:12px;position:relative;">
+              <span class="cz-q">?</span>
+              <span style="position:absolute;top:-8px;right:7px;font-family:var(--mono);font-size:0.425rem;color:rgba(16,185,129,0.55);background:#0D0D11;padding:0 4px;">metric badge</span>
+            </div>
+          </div>
+          <div style="padding:0 14px 12px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="font-size:0.45rem;color:rgba(255,255,255,0.3);font-family:var(--mono);">Goal progress</span><span style="font-size:0.45rem;color:rgba(255,255,255,0.5);font-family:var(--mono);">68%</span></div>
+            <div style="height:2.5px;background:rgba(255,255,255,0.06);border-radius:99px;overflow:hidden;"><div style="height:100%;width:68%;background:linear-gradient(90deg,#10B981,#34D399);border-radius:99px;"></div></div>
+          </div>
+        </div>
+        <!-- Prompt input -->
+        <div style="margin-top:8px;background:#111118;border:1px solid rgba(16,185,129,0.3);border-radius:7px;padding:7px 10px;display:flex;align-items:center;gap:7px;box-shadow:0 0 0 3px rgba(16,185,129,0.06);">
+          <span style="font-size:0.475rem;color:rgba(16,185,129,0.7);">◈</span>
+          <span style="font-family:var(--mono);font-size:0.5rem;color:rgba(255,255,255,0.55);flex:1;">Add a metric badge to the top-right corner</span>
+          <span style="display:inline-block;width:1.5px;height:10px;background:#10B981;border-radius:1px;animation:cz-pulse 1s ease-in-out infinite;"></span>
+        </div>
+        <div style="display:flex;gap:5px;margin-top:5px;padding:0 1px;align-items:center;">
+          <div style="font-family:var(--mono);font-size:0.45rem;color:rgba(255,255,255,0.22);">Matching:</div>
+          <div style="font-family:var(--mono);font-size:0.45rem;color:rgba(16,185,129,0.65);background:rgba(16,185,129,0.07);padding:1px 5px;border-radius:3px;border:1px solid rgba(16,185,129,0.15);">MetricBadge</div>
+          <div style="font-family:var(--mono);font-size:0.45rem;color:rgba(255,255,255,0.22);">·</div>
+          <div style="font-family:var(--mono);font-size:0.45rem;color:rgba(16,185,129,0.65);background:rgba(16,185,129,0.07);padding:1px 5px;border-radius:3px;border:1px solid rgba(16,185,129,0.15);">color.success</div>
+        </div>
+      </div>
+
+      <!-- Arrow -->
+      <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:3px;z-index:10;">
+        <div style="font-family:var(--mono);font-size:0.45rem;color:rgba(16,185,129,0.45);white-space:nowrap;">constrained</div>
+        <div style="font-size:1.125rem;color:rgba(16,185,129,0.65);">→</div>
+        <div style="font-family:var(--mono);font-size:0.45rem;color:rgba(16,185,129,0.45);white-space:nowrap;">generation</div>
+      </div>
+
+      <!-- AFTER: completed card -->
+      <div style="position:absolute;right:76px;top:36px;width:244px;">
+        <div style="font-family:var(--mono);font-size:0.475rem;color:rgba(16,185,129,0.55);margin-bottom:5px;">MetricsCard — completed</div>
+        <div style="background:#1A1A22;border-radius:10px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.6),0 0 0 1.5px rgba(16,185,129,0.28);border:1px solid rgba(16,185,129,0.18);">
+          <div style="padding:14px 14px 0;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <span style="font-size:0.625rem;font-weight:700;color:rgba(255,255,255,0.8);letter-spacing:-0.01em;">Weekly Overview</span>
+              <span style="font-size:0.475rem;background:rgba(16,185,129,0.12);color:#34D399;padding:2px 6px;border-radius:99px;font-weight:600;border:1px solid rgba(16,185,129,0.2);">Live</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+              <div style="background:rgba(255,255,255,0.04);border-radius:5px;padding:8px 9px;border:1px solid rgba(255,255,255,0.06);">
+                <div style="font-size:0.45rem;color:rgba(255,255,255,0.3);margin-bottom:2px;font-family:var(--mono);">Sessions</div>
+                <div style="font-size:0.875rem;font-weight:800;color:rgba(255,255,255,0.88);letter-spacing:-0.04em;">4,821</div>
+                <div style="font-size:0.45rem;color:#34D399;margin-top:1px;">↑ 12%</div>
+              </div>
+              <div style="background:rgba(255,255,255,0.04);border-radius:5px;padding:8px 9px;border:1px solid rgba(255,255,255,0.06);">
+                <div style="font-size:0.45rem;color:rgba(255,255,255,0.3);margin-bottom:2px;font-family:var(--mono);">Conversions</div>
+                <div style="font-size:0.875rem;font-weight:800;color:rgba(255,255,255,0.88);letter-spacing:-0.04em;">9.4%</div>
+                <div style="font-size:0.45rem;color:#34D399;margin-top:1px;">↑ 2.1%</div>
+              </div>
+            </div>
+            <!-- Filled metric badge component -->
+            <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.22);border-radius:6px;padding:8px 11px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 0 10px rgba(16,185,129,0.07);">
+              <div>
+                <div style="font-size:0.425rem;font-family:var(--mono);color:rgba(255,255,255,0.3);margin-bottom:1px;">Avg. session</div>
+                <div style="font-size:0.8125rem;font-weight:800;color:#34D399;letter-spacing:-0.04em;">3m 42s</div>
+              </div>
+              <div style="font-size:0.45rem;background:rgba(16,185,129,0.15);color:#34D399;padding:2px 7px;border-radius:99px;font-weight:700;border:1px solid rgba(16,185,129,0.25);">↑ 8%</div>
+            </div>
+          </div>
+          <div style="padding:0 14px 12px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="font-size:0.45rem;color:rgba(255,255,255,0.3);font-family:var(--mono);">Goal progress</span><span style="font-size:0.45rem;color:rgba(255,255,255,0.5);font-family:var(--mono);">68%</span></div>
+            <div style="height:2.5px;background:rgba(255,255,255,0.06);border-radius:99px;overflow:hidden;"><div style="height:100%;width:68%;background:linear-gradient(90deg,#10B981,#34D399);border-radius:99px;"></div></div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;margin-top:6px;padding:0 1px;">
+          <span style="font-family:var(--mono);font-size:0.425rem;color:rgba(16,185,129,0.65);">✓ MetricBadge variant="success" · color.success.600 · spacing.md</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how-it-works" class="section">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="label">Architecture</span>
+      <h2 class="d2">From prompt to placed component in four steps.</h2>
+      <p class="subtitle">Completion Zone is not a generic AI. Every generation pass is anchored to the full context of your Origin Graph — so the output is always on-system.</p>
+    </div>
+    <div class="hiw-steps stagger">
+      <div class="hiw-step">
+        <div class="hiw-num">01</div>
+        <h3>Prompt captured</h3>
+        <p>"Add a stats row below the chart" — your plain-language intent is parsed and the target artboard region is identified.</p>
+        <span class="hiw-step-tag">Natural language</span>
+      </div>
+      <div class="hiw-step">
+        <div class="hiw-num">02</div>
+        <h3>Graph context injected</h3>
+        <p>Relevant components, design tokens, spacing scales, and color palettes are fetched from your Origin Graph and assembled into the model context.</p>
+        <span class="hiw-step-tag">Origin Graph</span>
+      </div>
+      <div class="hiw-step">
+        <div class="hiw-num">03</div>
+        <h3>AI generates</h3>
+        <p>Claude constrains its output strictly to the graph context — only existing variants, only tokens in your scale. No new styles are ever invented.</p>
+        <span class="hiw-step-tag">Constrained output</span>
+      </div>
+      <div class="hiw-step">
+        <div class="hiw-num">04</div>
+        <h3>Component placed</h3>
+        <p>The generated component is written into the artboard, the live canvas updates, and the result is emitted as an Intent Diff ready to ship.</p>
+        <span class="hiw-step-tag">Live Artboard</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DEEP DIVE 1: Not generation — completion -->
+<div class="section" style="padding:100px 40px;">
+  <div class="feat-split reveal">
+    <div class="feat-copy">
+      <span class="label label-green">Key differentiator</span>
+      <h2 class="d3">Not generation —<br>completion.</h2>
+      <p class="subtitle">Generic AI tools invent. Completion Zone finishes. The difference is the constraint layer: every output token is validated against your existing design system before anything touches the canvas.</p>
+      <ul class="feat-pts">
+        <li><span class="feat-pt-icon">◈</span>Zero design drift — the AI only uses tokens that already exist in your system, never creating new ones.</li>
+        <li><span class="feat-pt-icon">◈</span>Only variants that exist — if your Button has three variants, the AI can only choose from those three.</li>
+        <li><span class="feat-pt-icon">◈</span>Only spacings from your scale — no magic numbers, no arbitrary pixel values slipping through.</li>
+        <li><span class="feat-pt-icon">◈</span>Generates real code, not images — the output is a live component on your artboard, not a static screenshot.</li>
+      </ul>
+      <a href="#" class="btn btn-primary">Request early access</a>
+    </div>
+
+    <!-- Two-column comparison visual -->
+    <div class="feat-vis feat-vis-dark reveal" style="overflow:hidden;">
+      <div class="cz-compare" style="height:100%;">
+        <!-- Generic AI -->
+        <div class="cz-compare-col bad">
+          <div class="cz-col-head">
+            <span class="cz-col-badge bad">Generic AI</span>
+          </div>
+          <div style="font-family:var(--mono);font-size:0.475rem;color:rgba(255,255,255,0.2);margin-bottom:5px;letter-spacing:0.06em;text-transform:uppercase;">Output</div>
+          <div class="cz-row bad-row">
+            <span class="cz-row-icon" style="color:#F87171;">✗</span>
+            <div class="cz-row-text"><strong class="bad-txt">Arbitrary styles</strong>background: #2D3748 · padding: 14px 18px</div>
+          </div>
+          <div class="cz-row bad-row">
+            <span class="cz-row-icon" style="color:#F87171;">✗</span>
+            <div class="cz-row-text"><strong class="bad-txt">New tokens introduced</strong>--new-color-7: #1a202c</div>
+          </div>
+          <div class="cz-row bad-row">
+            <span class="cz-row-icon" style="color:#F87171;">✗</span>
+            <div class="cz-row-text"><strong class="bad-txt">Inconsistent variants</strong>Button size="xl" — not in your system</div>
+          </div>
+          <div class="cz-row bad-row">
+            <span class="cz-row-icon" style="color:#F87171;">✗</span>
+            <div class="cz-row-text"><strong class="bad-txt">Magic numbers</strong>border-radius: 7px · margin: 11px</div>
+          </div>
+          <div class="cz-row bad-row">
+            <span class="cz-row-icon" style="color:#F87171;">✗</span>
+            <div class="cz-row-text"><strong class="bad-txt">Hallucinated components</strong>StatsWidget — not in your library</div>
+          </div>
+          <div style="margin-top:auto;padding:8px 9px;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.12);border-radius:5px;">
+            <div style="font-family:var(--mono);font-size:0.475rem;color:rgba(239,68,68,0.6);">Result: design drift. Manual cleanup required.</div>
+          </div>
+        </div>
+        <!-- Completion Zone -->
+        <div class="cz-compare-col good">
+          <div class="cz-col-head">
+            <span class="cz-col-badge good">◈ Completion Zone</span>
+          </div>
+          <div style="font-family:var(--mono);font-size:0.475rem;color:rgba(255,255,255,0.2);margin-bottom:5px;letter-spacing:0.06em;text-transform:uppercase;">Output</div>
+          <div class="cz-row good-row">
+            <span class="cz-row-icon" style="color:#34D399;">✓</span>
+            <div class="cz-row-text"><strong class="good-txt">Existing tokens only</strong>color.success.600 · spacing.md</div>
+          </div>
+          <div class="cz-row good-row">
+            <span class="cz-row-icon" style="color:#34D399;">✓</span>
+            <div class="cz-row-text"><strong class="good-txt">Zero new tokens</strong>Only what's already in your Origin Graph</div>
+          </div>
+          <div class="cz-row good-row">
+            <span class="cz-row-icon" style="color:#34D399;">✓</span>
+            <div class="cz-row-text"><strong class="good-txt">Constrained variants</strong>Button variant="primary" size="md" — verified</div>
+          </div>
+          <div class="cz-row good-row">
+            <span class="cz-row-icon" style="color:#34D399;">✓</span>
+            <div class="cz-row-text"><strong class="good-txt">Scale-only spacings</strong>All values drawn from your spacing scale</div>
+          </div>
+          <div class="cz-row good-row">
+            <span class="cz-row-icon" style="color:#34D399;">✓</span>
+            <div class="cz-row-text"><strong class="good-txt">Verified components</strong>MetricBadge — confirmed in your library</div>
+          </div>
+          <div style="margin-top:auto;padding:8px 9px;background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.14);border-radius:5px;">
+            <div style="font-family:var(--mono);font-size:0.475rem;color:rgba(16,185,129,0.7);">Result: zero drift. Ships as-is.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DEEP DIVE 2: Full graph context -->
+<div class="section section-muted" style="padding:100px 40px;">
+  <div class="feat-split rev reveal">
+    <div class="feat-copy">
+      <span class="label label-green">Full graph context</span>
+      <h2 class="d3">The AI knows<br>your entire system.</h2>
+      <p class="subtitle">Before Claude generates a single character, it receives the complete context of your Origin Graph — every token, every component name, every spacing value. The constraint is baked into the prompt, not tacked on afterward.</p>
+      <ul class="feat-pts">
+        <li><span class="feat-pt-icon">◈</span>All design tokens — color palettes, typography scales, spacing systems — injected verbatim into the system prompt.</li>
+        <li><span class="feat-pt-icon">◈</span>All component names, accepted props, and valid variant combinations from your live component library.</li>
+        <li><span class="feat-pt-icon">◈</span>The current artboard snapshot — surrounding components inform what fits, stylistically and spatially.</li>
+        <li><span class="feat-pt-icon">◈</span>Accepted completions feed back into the graph, making every future suggestion smarter over time.</li>
+      </ul>
+    </div>
+    <!-- Pseudo-code panel -->
+    <div class="feat-vis feat-vis-dark reveal">
+      <div style="position:absolute;inset:0;padding:18px 16px;overflow:hidden;display:flex;flex-direction:column;">
+        <div style="font-family:var(--mono);font-size:0.4375rem;color:rgba(255,255,255,0.2);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.05);padding-bottom:7px;">Context assembly — completion_zone.ts</div>
+        <div style="flex:1;overflow:hidden;font-family:var(--mono);font-size:0.5875rem;line-height:1.85;color:rgba(255,255,255,0.72);background:#111118;border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:14px 16px;overflow-y:auto;">
+<span style="color:rgba(255,255,255,0.28);">// 1. Fetch full Origin Graph context</span>
+<span style="color:#7EB8FF;">const</span> <span style="color:#D4A0FF;">graph</span> = <span style="color:#7EB8FF;">await</span> <span style="color:#FFBA7B;">originGraph</span>.<span style="color:#FFBA7B;">getContext</span>({
+  tokens:     <span style="color:#7DDBA0;">true</span>,   <span style="color:rgba(255,255,255,0.28);">// all design tokens</span>
+  components: <span style="color:#7DDBA0;">true</span>,   <span style="color:rgba(255,255,255,0.28);">// all names + props</span>
+  variants:   <span style="color:#7DDBA0;">true</span>,   <span style="color:rgba(255,255,255,0.28);">// valid combos only</span>
+  snapshot:   <span style="color:#D4A0FF;">artboard</span>.<span style="color:#FFBA7B;">snapshot</span>(),
+});
+
+<span style="color:rgba(255,255,255,0.28);">// 2. Build constrained system prompt</span>
+<span style="color:#7EB8FF;">const</span> <span style="color:#D4A0FF;">systemPrompt</span> = <span style="color:#FFBA7B;">buildPrompt</span>({
+  instruction: <span style="color:#7DDBA0;">"Only use tokens in this list. "</span>
+             + <span style="color:#7DDBA0;">"Never invent new tokens or variants."</span>,
+  tokens:     <span style="color:#D4A0FF;">graph</span>.<span style="color:#D4A0FF;">tokens</span>,
+  components: <span style="color:#D4A0FF;">graph</span>.<span style="color:#D4A0FF;">components</span>,
+  artboard:   <span style="color:#D4A0FF;">graph</span>.<span style="color:#D4A0FF;">snapshot</span>,
+});
+
+<span style="color:rgba(255,255,255,0.28);">// 3. Call Claude with full context</span>
+<span style="color:#7EB8FF;">const</span> <span style="color:#D4A0FF;">result</span> = <span style="color:#7EB8FF;">await</span> <span style="color:#FFBA7B;">claude</span>.<span style="color:#FFBA7B;">complete</span>({
+  system:  <span style="color:#D4A0FF;">systemPrompt</span>,
+  prompt:  <span style="color:#D4A0FF;">userIntent</span>,
+  model:   <span style="color:#7DDBA0;">"claude-sonnet-4-6"</span>,
+});
+
+<span style="color:rgba(255,255,255,0.28);">// 4. Validate against graph</span>
+<span style="color:#7EB8FF;">const</span> <span style="color:#D4A0FF;">validated</span> = <span style="color:#FFBA7B;">validateAgainstGraph</span>(
+  <span style="color:#D4A0FF;">result</span>.<span style="color:#D4A0FF;">component</span>, <span style="color:#D4A0FF;">graph</span>
+);
+
+<span style="color:rgba(255,255,255,0.28);">// 5. Place + record feedback loop</span>
+<span style="color:#7EB8FF;">if</span> (<span style="color:#D4A0FF;">validated</span>.<span style="color:#D4A0FF;">ok</span>) {
+  <span style="color:#D4A0FF;">artboard</span>.<span style="color:#FFBA7B;">place</span>(<span style="color:#D4A0FF;">validated</span>.<span style="color:#D4A0FF;">component</span>);
+  <span style="color:#34D399;">feedbackLoop</span>.<span style="color:#FFBA7B;">accept</span>(<span style="color:#D4A0FF;">validated</span>);
+}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SELLING POINTS BAND -->
+<section style="padding:72px 0;background:var(--bg-inv);">
+  <div class="wrap">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:rgba(255,255,255,0.06);border-radius:var(--r-4);overflow:hidden;" class="stagger">
+      <div style="background:var(--bg-inv-2);padding:32px 28px;">
+        <div style="font-size:1.5rem;margin-bottom:14px;">◈</div>
+        <h3 style="font-size:0.9375rem;font-weight:700;color:var(--fg-inv);letter-spacing:-0.02em;margin-bottom:8px;">Zero design drift</h3>
+        <p style="font-size:0.8125rem;color:var(--fg-inv-2);line-height:1.65;">Every token, every spacing value, every color reference is pulled from your existing scale. Nothing new is ever introduced into your system.</p>
+      </div>
+      <div style="background:var(--bg-inv-2);padding:32px 28px;">
+        <div style="font-size:1.5rem;margin-bottom:14px;">⬛</div>
+        <h3 style="font-size:0.9375rem;font-weight:700;color:var(--fg-inv);letter-spacing:-0.02em;margin-bottom:8px;">Generates real code</h3>
+        <p style="font-size:0.8125rem;color:var(--fg-inv-2);line-height:1.65;">The output is a live component placed on your artboard — actual JSX using your real component library, not a static image or an approximation.</p>
+      </div>
+      <div style="background:var(--bg-inv-2);padding:32px 28px;">
+        <div style="font-size:1.5rem;margin-bottom:14px;">⟳</div>
+        <h3 style="font-size:0.9375rem;font-weight:700;color:var(--fg-inv);letter-spacing:-0.02em;margin-bottom:8px;">Learns from your patterns</h3>
+        <p style="font-size:0.8125rem;color:var(--fg-inv-2);line-height:1.65;">Every accepted completion feeds back into the Origin Graph. The more you build, the better Completion Zone understands your conventions.</p>
+      </div>
+      <div style="background:var(--bg-inv-2);padding:32px 28px;">
+        <div style="font-size:1.5rem;margin-bottom:14px;">◉</div>
+        <h3 style="font-size:0.9375rem;font-weight:700;color:var(--fg-inv);letter-spacing:-0.02em;margin-bottom:8px;">Respects constraints</h3>
+        <p style="font-size:0.8125rem;color:var(--fg-inv-2);line-height:1.65;">Only variants that exist in your library. Only spacings from your defined scale. Hard constraints enforced in the prompt, not soft suggestions.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TECHNICAL SECTION -->
+<section class="section">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="label">Technical foundation</span>
+      <h2 class="d2">Engineered for design systems.</h2>
+      <p class="subtitle">Completion Zone is not a thin wrapper around an LLM. It's a constraint engine built from the ground up for the specific demands of systematic design at scale.</p>
+    </div>
+    <div class="tech-grid stagger">
+      <div class="tech-card">
+        <div class="tech-icon">⚡</div>
+        <h3>Claude API + context injection</h3>
+        <p>Claude powers generation, but the constraint work happens before and after the API call. The system prompt is fully assembled from your Origin Graph on every request — no stale cached context, no drift over time.</p>
+        <span class="tech-tag">Claude API</span>
+      </div>
+      <div class="tech-card">
+        <div class="tech-icon">◈</div>
+        <h3>Token-constrained generation</h3>
+        <p>A validation layer sits between the LLM output and the canvas. Every proposed token value is checked against your design token registry. Invalid tokens are flagged or substituted with the nearest valid match from your scale.</p>
+        <span class="tech-tag">Constraint layer</span>
+      </div>
+      <div class="tech-card">
+        <div class="tech-icon">◉</div>
+        <h3>Graph context retrieval</h3>
+        <p>The Origin Graph is queried with a relevance function to fetch the most pertinent subset of your component library for each prompt — keeping the context window focused and the generation latency low.</p>
+        <span class="tech-tag">Origin Graph</span>
+      </div>
+      <div class="tech-card">
+        <div class="tech-icon">△</div>
+        <h3>Component snapshot diffing</h3>
+        <p>Before placing a completion on the canvas, Originmain diffs it against the current artboard state. Only the minimal set of changes is applied, producing a clean Intent Diff entry with zero noise or redundancy.</p>
+        <span class="tech-tag">Intent Diff</span>
+      </div>
+      <div class="tech-card">
+        <div class="tech-icon">✦</div>
+        <h3>Prompt engineering for design systems</h3>
+        <p>The system prompt template communicates your design system's grammar to the model — token naming conventions, component composition patterns, spatial reasoning cues, and variant inheritance rules.</p>
+        <span class="tech-tag">Prompt design</span>
+      </div>
+      <div class="tech-card">
+        <div class="tech-icon">⟳</div>
+        <h3>Feedback loop</h3>
+        <p>Accepted completions are written back into the Origin Graph as accepted pattern examples. Over time, these examples shift the model's priors toward your team's specific conventions without any fine-tuning or retraining.</p>
+        <span class="tech-tag">Adaptive</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- RELATED FEATURES -->
+<section class="section section-muted">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="label">What powers it</span>
+      <h2 class="d2">Completion Zone runs on the full stack.</h2>
+      <p class="subtitle">Every piece of Originmain contributes to making completions possible — and every completion makes the rest of the platform smarter.</p>
+    </div>
+    <div class="related-grid stagger">
+      <a class="related-card" href="/features/origin-graph.html">
+        <div class="related-icon">◉</div>
+        <h3>Origin Graph</h3>
+        <p>The indexed knowledge base of every component, token, and relationship in your design system. Completion Zone pulls its constraints directly from the graph on every generation request.</p>
+        <span class="related-link">Explore Origin Graph →</span>
+      </a>
+      <a class="related-card" href="/features/live-artboard.html">
+        <div class="related-icon">⬜</div>
+        <h3>Live Artboard</h3>
+        <p>Completed components are placed directly onto the live artboard — rendered as real code in a real iframe, not as a static preview. What you see on the canvas is exactly what ships.</p>
+        <span class="related-link">Explore Live Artboard →</span>
+      </a>
+      <a class="related-card" href="/features/agent-bridge.html">
+        <div class="related-icon">⇄</div>
+        <h3>Agent Bridge</h3>
+        <p>Trigger completions from inside Cursor or Claude Code via the MCP channel. Your editor prompt invokes the same constraint engine, placing components directly from your IDE without switching context.</p>
+        <span class="related-link">Explore Agent Bridge →</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section id="cta-bottom">
+  <div class="cta-inner">
+    <h2 class="cta-headline">Fill the gaps in your<br>design system.</h2>
+    <p class="cta-sub">Early access is free. Connect your Origin Graph and run your first completion in under two minutes.</p>
+    <div class="cta-actions">
+      <a href="#" class="btn btn-white btn-lg">Request Early Access</a>
+      <a href="/" class="btn btn-outline-white btn-lg">Back to overview</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="ft-inner">
+    <div class="ft-top">
+      <div>
+        <div class="ft-brand-logo">Origin<span>main</span></div>
+        <p class="ft-brand-tag">Where design intent becomes production code.</p>
+      </div>
+      <div class="ft-col">
+        <h4>Product</h4>
+        <ul>
+          <li><a href="/features/live-artboard.html">Live Artboard</a></li>
+          <li><a href="/features/origin-graph.html">Origin Graph</a></li>
+          <li><a href="/features/intent-diff.html">Intent Diff</a></li>
+          <li><a href="/features/completion-zone.html">Completion Zone</a></li>
+          <li><a href="/features/agent-bridge.html">Agent Bridge</a></li>
+        </ul>
+      </div>
+      <div class="ft-col">
+        <h4>Integrations</h4>
+        <ul>
+          <li><a href="/features/integrations.html">All integrations</a></li>
+          <li><a href="#">GitHub</a></li>
+          <li><a href="#">Linear</a></li>
+          <li><a href="#">Slack</a></li>
+        </ul>
+      </div>
+      <div class="ft-col">
+        <h4>Developers</h4>
+        <ul>
+          <li><a href="#">Docs</a></li>
+          <li><a href="#">API Reference</a></li>
+          <li><a href="#">MCP Protocol</a></li>
+          <li><a href="#">Changelog</a></li>
+        </ul>
+      </div>
+      <div class="ft-col">
+        <h4>Company</h4>
+        <ul>
+          <li><a href="#">About</a></li>
+          <li><a href="/#pricing">Pricing</a></li>
+          <li><a href="#">Blog</a></li>
+          <li><a href="#">Contact</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="ft-bottom">
+      <span class="ft-copy">© 2025 Originmain. All rights reserved.</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+// Nav scroll
+const nav=document.getElementById('nav');
+window.addEventListener('scroll',()=>{nav.classList.toggle('scrolled',window.scrollY>20);});
+// Dropdown: delay-based hover (desktop) + click (mobile/touch)
+document.querySelectorAll('.nav-dropdown').forEach(dd=>{const menu=dd.querySelector('.nav-dropdown-menu');let t;const open=()=>{clearTimeout(t);dd.classList.add('open');menu.classList.add('open');};const close=()=>{t=setTimeout(()=>{dd.classList.remove('open');menu.classList.remove('open');},150);};dd.addEventListener('mouseenter',open);dd.addEventListener('mouseleave',close);menu.addEventListener('mouseenter',open);menu.addEventListener('mouseleave',close);dd.querySelector('a').addEventListener('click',e=>{if(window.matchMedia('(hover:none)').matches||window.innerWidth<=1024){e.preventDefault();const o=menu.classList.toggle('open');dd.classList.toggle('open',o);}});});
+// Mobile product sub-accordion
+const mpt=document.getElementById('mob-product-toggle'),mns=document.getElementById('nav-mobile-sub'),mdc=document.getElementById('mob-dd-caret');if(mpt&&mns){mpt.addEventListener('click',e=>{e.preventDefault();const o=mns.classList.toggle('open');if(mdc)mdc.style.transform=o?'rotate(180deg)':'';});}
+// Burger
+const burger=document.getElementById('nav-burger'),mob=document.getElementById('nav-mobile');
+burger.addEventListener('click',()=>{const o=mob.classList.toggle('open');burger.classList.toggle('open',o);burger.setAttribute('aria-expanded',o);});
+// Reveal
+const io=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}});},{threshold:0.12});
+document.querySelectorAll('.reveal,.stagger').forEach(el=>io.observe(el));
+</script>
+</body>
+</html>

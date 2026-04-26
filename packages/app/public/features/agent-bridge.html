@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Bridge — Originmain</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#FFFFFF;--bg-subtle:#FAFAFA;--bg-muted:#F4F4F5;--bg-strong:#EBEBEB;--bg-inv:#0A0A0A;--bg-inv-2:#141414;--bg-inv-3:#1C1C1C;--fg:#0A0A0A;--fg-2:#52525B;--fg-3:#A1A1AA;--fg-4:#D4D4D8;--fg-inv:rgba(255,255,255,0.92);--fg-inv-2:rgba(255,255,255,0.52);--fg-inv-3:rgba(255,255,255,0.28);--blue:#0066FF;--blue-dark:#0050CC;--blue-light:#3385FF;--blue-soft:rgba(0,102,255,0.07);--blue-mid:rgba(0,102,255,0.15);--purple:#7C3AED;--teal:#0891B2;--amber:#F59E0B;--amber-dark:#D97706;--amber-soft:rgba(245,158,11,0.07);--amber-mid:rgba(245,158,11,0.18);--border:rgba(0,0,0,0.07);--border-2:rgba(0,0,0,0.12);--border-inv:rgba(255,255,255,0.08);--border-inv-2:rgba(255,255,255,0.14);--r-1:4px;--r-2:8px;--r-3:12px;--r-4:16px;--r-5:20px;--r-6:24px;--r-full:9999px;--sh-xs:0 1px 2px rgba(0,0,0,0.05);--sh-sm:0 1px 3px rgba(0,0,0,0.07),0 1px 2px rgba(0,0,0,0.05);--sh-md:0 4px 8px rgba(0,0,0,0.06),0 2px 4px rgba(0,0,0,0.04);--sh-lg:0 10px 24px rgba(0,0,0,0.08),0 4px 8px rgba(0,0,0,0.05);--sh-xl:0 20px 40px rgba(0,0,0,0.09),0 8px 16px rgba(0,0,0,0.05);--sh-2xl:0 32px 64px rgba(0,0,0,0.11),0 16px 32px rgba(0,0,0,0.06);--font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;--mono:'JetBrains Mono','SF Mono',ui-monospace,'Cascadia Code',monospace;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{font-size:16px;scroll-behavior:smooth;-webkit-font-smoothing:antialiased;}
+body{font-family:var(--font);background:var(--bg);color:var(--fg);line-height:1.6;overflow-x:hidden;}
+img,svg{display:block;max-width:100%;}
+a{color:inherit;text-decoration:none;}
+button{font-family:inherit;cursor:pointer;border:none;background:none;}
+.wrap{max-width:1120px;margin:0 auto;padding:0 40px;}
+.section{padding:112px 0;}
+.section-muted{background:var(--bg-subtle);}
+.section-dark{background:var(--bg-inv);}
+.d1{font-size:clamp(2.5rem,6vw,4.5rem);font-weight:900;line-height:1.02;letter-spacing:-0.045em;color:var(--fg);}
+.d2{font-size:clamp(1.875rem,3.5vw,2.75rem);font-weight:800;line-height:1.1;letter-spacing:-0.038em;color:var(--fg);}
+.d3{font-size:clamp(1.25rem,2.5vw,1.625rem);font-weight:700;line-height:1.25;letter-spacing:-0.028em;color:var(--fg);}
+.subtitle{font-size:clamp(1rem,1.8vw,1.125rem);font-weight:400;line-height:1.75;color:var(--fg-2);}
+.label{font-family:var(--mono);font-size:0.6875rem;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:var(--fg-3);}
+.label-amber{color:var(--amber);}
+.btn{display:inline-flex;align-items:center;gap:8px;font-family:var(--font);font-size:0.9375rem;font-weight:600;padding:11px 22px;border-radius:var(--r-2);transition:transform 0.12s cubic-bezier(.16,1,.3,1),opacity 0.12s,box-shadow 0.12s;white-space:nowrap;letter-spacing:-0.01em;position:relative;overflow:hidden;}
+.btn::after{content:'';position:absolute;inset:0;background:rgba(255,255,255,0);transition:background 0.12s;}
+.btn:hover::after{background:rgba(255,255,255,0.06);}
+.btn:active{transform:scale(0.98)!important;}
+.btn-primary{background:var(--fg);color:var(--bg);box-shadow:var(--sh-sm);}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:var(--sh-md);}
+.btn-secondary{background:transparent;color:var(--fg);border:1px solid var(--border-2);}
+.btn-secondary:hover{background:var(--bg-muted);transform:translateY(-1px);}
+.btn-amber{background:var(--amber);color:#fff;box-shadow:0 4px 12px rgba(245,158,11,0.35);}
+.btn-amber:hover{background:var(--amber-dark);transform:translateY(-1px);}
+.btn-lg{font-size:1rem;padding:13px 28px;}
+.btn-white{background:#fff;color:#0A0A0A;box-shadow:0 4px 12px rgba(255,255,255,0.15);}
+.btn-white:hover{background:#F5F5F5;transform:translateY(-1px);}
+.btn-outline-white{background:transparent;color:rgba(255,255,255,0.72);border:1px solid rgba(255,255,255,0.18);}
+.btn-outline-white:hover{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.9);transform:translateY(-1px);}
+.divider{height:1px;background:var(--border);}
+.section-head{text-align:center;max-width:640px;margin:0 auto 72px;}
+.section-head .label{display:block;margin-bottom:16px;}
+.section-head .d2{margin-bottom:18px;}
+
+/* NAV */
+#nav{position:fixed;top:0;left:0;right:0;z-index:200;height:60px;display:flex;align-items:center;padding:0 40px;transition:background 0.2s,border-color 0.2s,box-shadow 0.2s;}
+#nav.scrolled{background:rgba(255,255,255,0.85);backdrop-filter:blur(20px) saturate(1.6);-webkit-backdrop-filter:blur(20px) saturate(1.6);border-bottom:1px solid var(--border);box-shadow:var(--sh-xs);}
+.nav-inner{max-width:1120px;margin:0 auto;width:100%;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;}
+.nav-logo{justify-self:start;font-size:1rem;font-weight:800;letter-spacing:-0.04em;color:var(--fg);display:flex;align-items:center;gap:2px;}
+.nav-logo span{color:var(--blue);}
+.nav-links{justify-self:center;display:flex;align-items:center;gap:0;list-style:none;}
+.nav-links a{font-size:0.9375rem;font-weight:500;color:var(--fg-2);padding:6px 14px;border-radius:var(--r-1);transition:color 0.12s,background 0.12s;letter-spacing:-0.01em;}
+.nav-links a:hover{color:var(--fg);}
+.nav-actions{justify-self:end;display:flex;align-items:center;gap:8px;}
+
+/* Dropdown */
+.nav-dropdown{position:relative;}
+.nav-dropdown>a{display:flex;align-items:center;gap:4px;}
+.nav-dd-caret{transition:transform 0.15s;}
+/* caret rotation handled via JS .open class */
+.nav-dropdown-menu{position:absolute;top:calc(100% + 10px);left:50%;transform:translateX(-50%) translateY(-4px);background:rgba(255,255,255,0.98);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:var(--r-3);box-shadow:var(--sh-xl);padding:8px;min-width:240px;opacity:0;visibility:hidden;transition:opacity 0.15s,transform 0.15s,visibility 0.15s;pointer-events:none;}
+.nav-dropdown-menu.open{opacity:1;visibility:visible;transform:translateX(-50%) translateY(0);pointer-events:all;}
+.nav-dropdown.open .nav-dd-caret{transform:rotate(180deg);}
+/* Mobile sub-nav */
+.nav-mobile-sub{display:none;padding:2px 0 6px 14px;flex-direction:column;}
+.nav-mobile-sub.open{display:flex;}
+.nav-mobile-sub a{font-size:0.875rem;color:rgba(255,255,255,0.4);padding:8px 4px;border-bottom:1px solid rgba(255,255,255,0.06);letter-spacing:-0.01em;transition:color 0.1s;}
+.nav-mobile-sub a:last-child{border-bottom:none;}
+.nav-mobile-sub a:hover{color:rgba(255,255,255,0.8);}
+/* Dark hero: white nav before scrolling */
+#nav:not(.scrolled) .nav-logo{color:rgba(255,255,255,0.92);}
+#nav:not(.scrolled) .nav-logo span{color:#3385FF;}
+#nav:not(.scrolled) .nav-links a{color:rgba(255,255,255,0.5);}
+#nav:not(.scrolled) .nav-links a:hover{color:rgba(255,255,255,0.9);}
+#nav:not(.scrolled) .nav-actions .btn-secondary{color:rgba(255,255,255,0.65);border-color:rgba(255,255,255,0.2);background:transparent;}
+#nav:not(.scrolled) .nav-burger span{background:rgba(255,255,255,0.8);}
+.nav-dd-item{display:flex;align-items:flex-start;gap:10px;padding:9px 10px;border-radius:var(--r-2);transition:background 0.1s;cursor:pointer;}
+.nav-dd-item:hover{background:var(--bg-muted);}
+.nav-dd-item.active{background:var(--amber-soft);}
+.nav-dd-icon{width:30px;height:30px;background:var(--blue-soft);border:1px solid var(--blue-mid);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;}
+.nav-dd-icon.amber{background:var(--amber-soft);border-color:var(--amber-mid);}
+.nav-dd-text{display:flex;flex-direction:column;}
+.nav-dd-name{font-size:0.8125rem;font-weight:600;color:var(--fg);letter-spacing:-0.01em;}
+.nav-dd-desc{font-size:0.6875rem;color:var(--fg-3);margin-top:1px;line-height:1.4;}
+.nav-dd-sep{height:1px;background:var(--border);margin:4px 0;}
+.nav-burger{display:none;flex-direction:column;justify-content:center;align-items:center;gap:5px;width:36px;height:36px;background:none;border:none;cursor:pointer;padding:4px;border-radius:var(--r-2);}
+.nav-burger span{display:block;width:20px;height:2px;background:var(--fg);border-radius:2px;transition:transform 0.22s cubic-bezier(0.16,1,0.3,1),opacity 0.18s;transform-origin:center;}
+.nav-burger.open span:nth-child(1){transform:translateY(7px) rotate(45deg);}
+.nav-burger.open span:nth-child(2){opacity:0;transform:scaleX(0);}
+.nav-burger.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg);}
+.nav-mobile{display:none;position:absolute;top:60px;left:0;right:0;background:rgba(255,255,255,0.97);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);box-shadow:0 8px 32px rgba(0,0,0,0.07);padding:12px 24px 24px;flex-direction:column;gap:2px;}
+.nav-mobile.open{display:flex;}
+.nav-mobile ul{list-style:none;display:flex;flex-direction:column;}
+.nav-mobile ul li a{display:block;font-size:1rem;font-weight:500;color:var(--fg-2);padding:11px 4px;border-bottom:1px solid var(--border);letter-spacing:-0.01em;}
+.nav-mobile ul li:last-child a{border-bottom:none;}
+.nav-mobile-ctas{display:flex;gap:8px;margin-top:16px;}
+.nav-mobile-ctas .btn{flex:1;justify-content:center;padding:10px 12px;font-size:.875rem;}
+
+/* PAGE HERO */
+#page-hero{padding:140px 40px 100px;background:var(--bg-inv);position:relative;overflow:hidden;text-align:center;}
+#page-hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% -10%,rgba(245,158,11,0.1),transparent 60%),radial-gradient(ellipse 40% 40% at 80% 70%,rgba(124,58,237,0.07),transparent 50%);pointer-events:none;}
+.page-hero-inner{position:relative;max-width:800px;margin:0 auto;}
+.page-hero-inner .label{color:rgba(255,255,255,0.3);margin-bottom:20px;display:block;}
+.page-hero-inner .d1{color:var(--fg-inv);margin-bottom:22px;}
+.page-hero-inner .subtitle{color:var(--fg-inv-2);max-width:620px;margin:0 auto 44px;}
+.page-hero-ctas{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+
+/* PRODUCT VISUAL */
+.pv-shell{width:100%;max-width:960px;margin:72px auto 0;border-radius:16px 16px 0 0;overflow:hidden;box-shadow:0 48px 96px rgba(0,0,0,0.45),0 0 0 1px rgba(255,255,255,0.06);border-bottom:none;position:relative;}
+.pv-chrome{background:#1C1C22;height:40px;display:flex;align-items:center;padding:0 14px;gap:7px;border-bottom:1px solid rgba(255,255,255,0.05);}
+.pv-dot{width:11px;height:11px;border-radius:50%;}
+.pv-dot.r{background:#FF5F57;}
+.pv-dot.y{background:#FFBD2E;}
+.pv-dot.g{background:#28C840;}
+.pv-url{flex:1;margin:0 12px;background:rgba(255,255,255,0.06);border-radius:5px;height:25px;display:flex;align-items:center;padding:0 10px;font-family:var(--mono);font-size:0.625rem;color:rgba(255,255,255,0.3);max-width:360px;}
+.pv-canvas{background:#0D0D11;height:400px;position:relative;display:flex;align-items:stretch;}
+.pv-grid{position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,0.04) 1px,transparent 1px);background-size:24px 24px;pointer-events:none;}
+
+/* Bridge split panels */
+.bridge-panel-left{flex:1;border-right:1px solid rgba(255,255,255,0.07);display:flex;flex-direction:column;overflow:hidden;position:relative;}
+.bridge-panel-right{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;}
+.bridge-panel-header{padding:8px 14px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.02);}
+.bridge-panel-title{font-family:var(--mono);font-size:0.5625rem;color:rgba(255,255,255,0.28);letter-spacing:0.08em;text-transform:uppercase;}
+.bridge-panel-badge{font-family:var(--mono);font-size:0.5rem;letter-spacing:0.06em;text-transform:uppercase;padding:2px 6px;border-radius:var(--r-full);}
+.bridge-panel-badge.cursor{background:rgba(124,58,237,0.18);color:#C4A1FF;border:1px solid rgba(124,58,237,0.25);}
+.bridge-panel-badge.canvas{background:rgba(245,158,11,0.14);color:#FCD34D;border:1px solid rgba(245,158,11,0.22);}
+.bridge-panel-body{flex:1;padding:16px;overflow:hidden;}
+
+/* Bridge center connector */
+.bridge-connector{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:10;display:flex;flex-direction:column;align-items:center;gap:0;}
+.bridge-icon{width:40px;height:40px;border-radius:50%;background:#0A0A0A;border:1px solid rgba(245,158,11,0.4);display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 0 0 4px rgba(245,158,11,0.08),0 0 20px rgba(245,158,11,0.15);position:relative;z-index:2;}
+.bridge-rings{position:absolute;width:40px;height:40px;top:28px;}
+.bridge-pulse{position:absolute;inset:0;border-radius:50%;border:1px solid rgba(245,158,11,0.3);animation:bridge-ring 2s ease-out infinite;}
+.bridge-pulse-2{animation-delay:0.7s;}
+@keyframes bridge-ring{0%{transform:scale(1);opacity:0.6;}100%{transform:scale(2.4);opacity:0;}}
+.bridge-line-top{width:1px;height:22px;background:linear-gradient(to top,rgba(245,158,11,0.55),transparent);position:relative;margin-bottom:2px;}
+.bridge-line-top::before{content:'';position:absolute;top:-1px;left:-3px;border-left:3.5px solid transparent;border-right:3.5px solid transparent;border-bottom:5px solid rgba(245,158,11,0.55);}
+.bridge-line-bottom{width:1px;height:22px;background:linear-gradient(to bottom,rgba(245,158,11,0.55),transparent);position:relative;margin-top:2px;}
+.bridge-line-bottom::after{content:'';position:absolute;bottom:-1px;left:-3px;border-left:3.5px solid transparent;border-right:3.5px solid transparent;border-top:5px solid rgba(245,158,11,0.55);}
+
+/* Editor simulation */
+.editor-line{display:flex;align-items:baseline;gap:10px;font-family:var(--mono);font-size:0.5875rem;line-height:1.9;white-space:nowrap;}
+.editor-ln{color:rgba(255,255,255,0.15);min-width:18px;text-align:right;user-select:none;flex-shrink:0;}
+.editor-code .kw{color:#C4A1FF;}
+.editor-code .str{color:#7DDBA0;}
+.editor-code .cm{color:rgba(255,255,255,0.28);}
+.editor-code .fn{color:#7EB8FF;}
+.editor-code .prop{color:#FFBA7B;}
+.editor-code .num{color:#F9A875;}
+.editor-suggestion{margin:5px 0 5px 28px;background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.22);border-radius:6px;padding:8px 10px;display:flex;flex-direction:column;gap:4px;}
+.editor-suggestion-label{font-family:var(--mono);font-size:0.4375rem;color:#C4A1FF;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:2px;}
+.editor-suggestion-diff{font-family:var(--mono);font-size:0.5625rem;display:flex;flex-direction:column;gap:2px;}
+.editor-diff-del{color:#F87171;background:rgba(248,113,113,0.07);padding:1px 4px;border-radius:2px;}
+.editor-diff-add{color:#34D399;background:rgba(52,211,153,0.07);padding:1px 4px;border-radius:2px;}
+.editor-suggestion-actions{display:flex;gap:6px;margin-top:4px;}
+.editor-action-btn{font-family:var(--mono);font-size:0.4375rem;letter-spacing:0.05em;padding:3px 8px;border-radius:3px;cursor:pointer;}
+.editor-action-btn.accept{background:rgba(52,211,153,0.18);color:#34D399;border:1px solid rgba(52,211,153,0.25);}
+.editor-action-btn.reject{background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.35);border:1px solid rgba(255,255,255,0.1);}
+
+/* Diff cards */
+.diff-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px 14px;margin-bottom:8px;}
+.diff-card-header{display:flex;align-items:center;gap:8px;margin-bottom:9px;}
+.diff-card-icon{width:22px;height:22px;border-radius:4px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0;}
+.diff-card-title{font-family:var(--mono);font-size:0.5625rem;color:rgba(255,255,255,0.7);font-weight:600;}
+.diff-card-agent{margin-left:auto;font-family:var(--mono);font-size:0.4rem;letter-spacing:0.06em;text-transform:uppercase;padding:2px 6px;border-radius:var(--r-full);background:rgba(245,158,11,0.1);color:#FCD34D;border:1px solid rgba(245,158,11,0.2);white-space:nowrap;}
+.diff-row{display:flex;justify-content:space-between;align-items:center;padding:4px 8px;border-radius:4px;background:rgba(255,255,255,0.02);margin-bottom:3px;}
+.diff-row-prop{font-family:var(--mono);font-size:0.5rem;color:rgba(255,255,255,0.3);}
+.diff-row-vals{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:0.5rem;}
+.diff-val-old{color:#F87171;text-decoration:line-through;opacity:0.7;}
+.diff-val-arrow{color:rgba(255,255,255,0.2);}
+.diff-val-new{color:#34D399;}
+.diff-actions{display:flex;gap:6px;margin-top:7px;}
+.diff-btn{font-family:var(--mono);font-size:0.4375rem;letter-spacing:0.05em;padding:4px 10px;border-radius:4px;cursor:pointer;}
+.diff-btn.accept{background:rgba(52,211,153,0.15);color:#34D399;border:1px solid rgba(52,211,153,0.22);}
+.diff-btn.reject{background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.32);border:1px solid rgba(255,255,255,0.09);}
+
+/* HOW IT WORKS */
+.hiw-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin-top:64px;position:relative;}
+.hiw-steps::before{content:'';position:absolute;top:28px;left:12.5%;right:12.5%;height:1px;background:linear-gradient(90deg,transparent,var(--border-2) 20%,var(--border-2) 80%,transparent);}
+.hiw-step{display:flex;flex-direction:column;align-items:center;text-align:center;padding:0 20px;position:relative;z-index:1;}
+.hiw-num{width:56px;height:56px;border-radius:50%;background:var(--bg);border:1px solid var(--border-2);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:1rem;font-weight:700;color:var(--amber);margin-bottom:20px;box-shadow:var(--sh-sm);}
+.hiw-step h3{font-size:0.9375rem;font-weight:700;color:var(--fg);letter-spacing:-0.02em;margin-bottom:8px;}
+.hiw-step p{font-size:0.8125rem;color:var(--fg-2);line-height:1.6;}
+.hiw-step code{font-family:var(--mono);font-size:0.78em;background:var(--bg-muted);padding:1px 4px;border-radius:3px;}
+
+/* FEATURE SPLIT */
+.feat-split{display:grid;grid-template-columns:1fr 1fr;gap:96px;align-items:center;max-width:1120px;margin:0 auto;}
+.feat-split.rev{direction:rtl;}
+.feat-split.rev>*{direction:ltr;}
+.feat-copy .label{display:block;margin-bottom:16px;}
+.feat-copy .d3{margin-bottom:16px;}
+.feat-copy .subtitle{margin-bottom:28px;}
+.feat-pts{list-style:none;display:flex;flex-direction:column;gap:12px;margin-bottom:32px;}
+.feat-pts li{display:flex;align-items:flex-start;gap:10px;font-size:0.9375rem;color:var(--fg-2);line-height:1.55;}
+.feat-pt-icon{width:20px;height:20px;border-radius:3px;background:var(--amber-soft);border:1px solid var(--amber-mid);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;font-size:0.625rem;color:var(--amber);}
+.feat-vis{border-radius:var(--r-5);overflow:hidden;box-shadow:var(--sh-2xl);border:1px solid var(--border);aspect-ratio:4/3;position:relative;}
+.feat-vis-dark{background:#0D0D11;border-color:rgba(255,255,255,0.07);}
+.feat-vis-light{background:var(--bg-muted);}
+
+/* CODE BLOCK */
+.code-block{background:#111118;border:1px solid rgba(255,255,255,0.07);border-radius:var(--r-3);padding:24px;font-family:var(--mono);font-size:0.75rem;line-height:1.75;color:rgba(255,255,255,0.75);overflow-x:auto;}
+.code-block .kw{color:#C4A1FF;}
+.code-block .str{color:#7DDBA0;}
+.code-block .cm{color:rgba(255,255,255,0.28);}
+.code-block .fn{color:#7EB8FF;}
+.code-block .nm{color:#FFBA7B;}
+.code-block .ty{color:#FCD34D;}
+
+/* TECH SECTION */
+.tech-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:56px;}
+.tech-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--r-4);padding:32px 28px;transition:box-shadow 0.2s;}
+.tech-card:hover{box-shadow:var(--sh-lg);}
+.tech-icon{width:44px;height:44px;background:var(--amber-soft);border:1px solid var(--amber-mid);border-radius:var(--r-2);display:flex;align-items:center;justify-content:center;font-size:1.25rem;margin-bottom:18px;}
+.tech-card h3{font-size:1rem;font-weight:700;color:var(--fg);letter-spacing:-0.02em;margin-bottom:8px;}
+.tech-card p{font-size:0.875rem;color:var(--fg-2);line-height:1.65;}
+.tech-tag{display:inline-block;margin-top:14px;font-family:var(--mono);font-size:0.625rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--amber);background:var(--amber-soft);border:1px solid var(--amber-mid);padding:3px 9px;border-radius:var(--r-full);}
+
+/* RELATED */
+.related-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:48px;}
+.related-card{border:1px solid var(--border);border-radius:var(--r-4);padding:24px;transition:box-shadow 0.15s,border-color 0.15s;display:flex;flex-direction:column;gap:10px;}
+.related-card:hover{box-shadow:var(--sh-md);border-color:var(--border-2);}
+.related-icon{font-size:1.25rem;}
+.related-card h3{font-size:0.9375rem;font-weight:700;color:var(--fg);letter-spacing:-0.02em;}
+.related-card p{font-size:0.8125rem;color:var(--fg-2);line-height:1.6;flex:1;}
+.related-link{font-size:0.8125rem;font-weight:600;color:var(--amber);}
+
+/* CTA */
+#cta-bottom{background:var(--bg-inv);padding:120px 40px;position:relative;overflow:hidden;text-align:center;}
+#cta-bottom::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 60% 80% at 30% 50%,rgba(245,158,11,0.08),transparent 60%),radial-gradient(ellipse 60% 80% at 70% 50%,rgba(124,58,237,0.08),transparent 60%);pointer-events:none;}
+.cta-inner{position:relative;max-width:680px;margin:0 auto;}
+.cta-headline{font-size:clamp(2rem,4.5vw,3.5rem);font-weight:900;letter-spacing:-0.045em;color:var(--fg-inv);line-height:1.05;margin-bottom:18px;}
+.cta-sub{font-size:1.0625rem;color:var(--fg-inv-2);margin-bottom:44px;line-height:1.65;}
+.cta-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+
+/* FOOTER */
+footer{background:#08080C;border-top:1px solid rgba(255,255,255,0.06);padding:72px 40px 40px;}
+.ft-inner{max-width:1120px;margin:0 auto;}
+.ft-top{display:grid;grid-template-columns:260px repeat(4,1fr);gap:48px;padding-bottom:56px;border-bottom:1px solid rgba(255,255,255,0.07);margin-bottom:36px;}
+.ft-brand-logo{font-size:1rem;font-weight:800;letter-spacing:-0.04em;color:rgba(255,255,255,0.92);margin-bottom:8px;}
+.ft-brand-logo span{color:#3385FF;}
+.ft-brand-tag{font-size:0.875rem;color:rgba(255,255,255,0.3);line-height:1.65;max-width:200px;}
+.ft-col h4{font-size:0.875rem;font-weight:600;color:rgba(255,255,255,0.7);margin-bottom:16px;letter-spacing:-0.01em;}
+.ft-col ul{list-style:none;display:flex;flex-direction:column;gap:10px;}
+.ft-col a{font-size:0.875rem;color:rgba(255,255,255,0.32);transition:color 0.14s;letter-spacing:-0.01em;}
+.ft-col a:hover{color:rgba(255,255,255,0.65);}
+.ft-bottom{display:flex;justify-content:space-between;align-items:center;}
+.ft-copy{font-size:0.8125rem;color:rgba(255,255,255,0.22);}
+
+/* REVEAL */
+.reveal{opacity:0;transform:translateY(22px);transition:opacity 0.7s cubic-bezier(0.16,1,0.3,1),transform 0.7s cubic-bezier(0.16,1,0.3,1);}
+.reveal.in{opacity:1;transform:none;}
+.stagger>*{opacity:0;transform:translateY(16px);transition:opacity 0.55s cubic-bezier(0.16,1,0.3,1),transform 0.55s cubic-bezier(0.16,1,0.3,1);}
+.stagger.in>*:nth-child(1){opacity:1;transform:none;transition-delay:0s;}
+.stagger.in>*:nth-child(2){opacity:1;transform:none;transition-delay:0.07s;}
+.stagger.in>*:nth-child(3){opacity:1;transform:none;transition-delay:0.14s;}
+.stagger.in>*:nth-child(4){opacity:1;transform:none;transition-delay:0.21s;}
+.stagger.in>*:nth-child(5){opacity:1;transform:none;transition-delay:0.28s;}
+.stagger.in>*:nth-child(6){opacity:1;transform:none;transition-delay:0.35s;}
+
+@keyframes live-pulse{0%,100%{box-shadow:0 0 0 2px rgba(245,158,11,0.2);}50%{box-shadow:0 0 0 4px rgba(245,158,11,0.08);}}
+
+@media(max-width:1024px){.feat-split{grid-template-columns:1fr;gap:56px;}.feat-split.rev{direction:ltr;}.hiw-steps{grid-template-columns:1fr 1fr;gap:40px;}.hiw-steps::before{display:none;}.tech-grid{grid-template-columns:1fr 1fr;}.related-grid{grid-template-columns:1fr 1fr;}}
+@media(max-width:768px){.wrap{padding:0 24px;}#nav{padding:0 24px;}.nav-inner{display:flex;justify-content:space-between;}.nav-links,.nav-actions .btn{display:none;}.nav-burger{display:flex;}#page-hero{padding:120px 24px 80px;}.pv-shell{margin-top:48px;}.hiw-steps{grid-template-columns:1fr;}.tech-grid,.related-grid{grid-template-columns:1fr;}.ft-top{grid-template-columns:1fr 1fr;}}
+@media(max-width:480px){.ft-top{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav id="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">Origin<span>main</span></a>
+    <ul class="nav-links">
+      <li class="nav-dropdown">
+        <a href="/#features" style="display:flex;align-items:center;gap:4px;">
+          Product
+          <svg class="nav-dd-caret" width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </a>
+        <div class="nav-dropdown-menu">
+          <a class="nav-dd-item" href="/features/live-artboard.html">
+            <div class="nav-dd-icon">⬜</div>
+            <div class="nav-dd-text"><span class="nav-dd-name">Live Artboard</span><span class="nav-dd-desc">Your app rendered live in the canvas</span></div>
+          </a>
+          <a class="nav-dd-item" href="/features/origin-graph.html">
+            <div class="nav-dd-icon">◉</div>
+            <div class="nav-dd-text"><span class="nav-dd-name">Origin Graph</span><span class="nav-dd-desc">Every component, indexed and queryable</span></div>
+          </a>
+          <a class="nav-dd-item" href="/features/intent-diff.html">
+            <div class="nav-dd-icon">△</div>
+            <div class="nav-dd-text"><span class="nav-dd-name">Intent Diff</span><span class="nav-dd-desc">Ship component-level diffs, not redlines</span></div>
+          </a>
+          <div class="nav-dd-sep"></div>
+          <a class="nav-dd-item" href="/features/completion-zone.html">
+            <div class="nav-dd-icon">◈</div>
+            <div class="nav-dd-text"><span class="nav-dd-name">Completion Zone</span><span class="nav-dd-desc">AI-filled design, constrained to your system</span></div>
+          </a>
+          <a class="nav-dd-item active" href="/features/agent-bridge.html">
+            <div class="nav-dd-icon amber">⇄</div>
+            <div class="nav-dd-text"><span class="nav-dd-name">Agent Bridge</span><span class="nav-dd-desc">MCP channel to Cursor, Claude Code &amp; more</span></div>
+          </a>
+          <a class="nav-dd-item" href="/features/integrations.html">
+            <div class="nav-dd-icon">🔗</div>
+            <div class="nav-dd-text"><span class="nav-dd-name">Integrations</span><span class="nav-dd-desc">Linear, Slack, GitHub, Figma &amp; more</span></div>
+          </a>
+        </div>
+      </li>
+      <li><a href="/features/integrations.html">Integrations</a></li>
+      <li><a href="/#pricing">Pricing</a></li>
+      <li><a href="#">Docs</a></li>
+    </ul>
+    <div class="nav-actions">
+      <a href="#" class="btn btn-secondary" style="padding:7px 16px;font-size:.875rem">Log in</a>
+      <a href="#" class="btn btn-primary" style="padding:8px 18px;font-size:.875rem">Request Access</a>
+      <button class="nav-burger" id="nav-burger" aria-label="Menu"><span></span><span></span><span></span></button>
+    </div>
+  </div>
+  <div class="nav-mobile" id="nav-mobile">
+    <ul>
+      <li>
+        <a href="/#features" id="mob-product-toggle" style="display:flex;justify-content:space-between;align-items:center;">
+          Product
+          <svg id="mob-dd-caret" width="10" height="6" viewBox="0 0 10 6" fill="none" style="transition:transform 0.15s;"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </a>
+        <div class="nav-mobile-sub" id="nav-mobile-sub">
+          <a href="/features/live-artboard.html">Live Artboard</a>
+          <a href="/features/origin-graph.html">Origin Graph</a>
+          <a href="/features/intent-diff.html">Intent Diff</a>
+          <a href="/features/completion-zone.html">Completion Zone</a>
+          <a href="/features/agent-bridge.html">Agent Bridge</a>
+          <a href="/features/integrations.html">Integrations</a>
+        </div>
+      </li>
+      <li><a href="/features/integrations.html">Integrations</a></li>
+      <li><a href="/#pricing">Pricing</a></li>
+      <li><a href="#">Docs</a></li>
+    </ul>
+    <div class="nav-mobile-ctas">
+      <a href="#" class="btn btn-secondary">Log in</a>
+      <a href="#" class="btn btn-primary">Request Access</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section id="page-hero">
+  <div class="page-hero-inner">
+    <span class="label reveal">⇄ Agent Bridge</span>
+    <h1 class="d1 reveal">MCP channel to<br>Cursor, Claude Code<br>&amp; more.</h1>
+    <p class="subtitle reveal">Agent Bridge exposes your entire Origin Graph through the Model Context Protocol — so Cursor, Claude Code, and any MCP-compatible agent can read your component tree, run diffs, and propose changes without leaving the editor.</p>
+    <div class="page-hero-ctas reveal">
+      <a href="#" class="btn btn-white btn-lg">Request Early Access</a>
+      <a href="#how-it-works" class="btn btn-outline-white btn-lg">See how it works ↓</a>
+    </div>
+  </div>
+
+  <!-- Product visual: split editor / canvas bridge -->
+  <div class="pv-shell reveal">
+    <div class="pv-chrome">
+      <div class="pv-dot r"></div>
+      <div class="pv-dot y"></div>
+      <div class="pv-dot g"></div>
+      <div class="pv-url">🔒 app.originmain.io/canvas — Agent Bridge active</div>
+    </div>
+    <div class="pv-canvas">
+      <div class="pv-grid"></div>
+
+      <!-- Left panel: VS Code-style editor -->
+      <div class="bridge-panel-left">
+        <div class="bridge-panel-header">
+          <span class="bridge-panel-title">Editor</span>
+          <span class="bridge-panel-badge cursor">Cursor</span>
+        </div>
+        <div class="bridge-panel-body">
+          <div class="editor-line"><span class="editor-ln">11</span><span class="editor-code"><span class="kw">const</span> <span class="fn">CardRoot</span> = <span class="fn">styled</span>.<span class="fn">div</span>`</span></div>
+          <div class="editor-line"><span class="editor-ln">12</span><span class="editor-code" style="padding-left:16px;"><span class="prop">display</span>: <span class="str">flex</span>;</span></div>
+          <div class="editor-line"><span class="editor-ln">13</span><span class="editor-code" style="padding-left:16px;"><span class="prop">flex-direction</span>: <span class="str">column</span>;</span></div>
+          <div class="editor-line"><span class="editor-ln">14</span><span class="editor-code" style="padding-left:16px;"><span class="prop">border-radius</span>: <span class="str">var(--radius-md)</span>;</span></div>
+          <div class="editor-line"><span class="editor-ln">15</span><span class="editor-code" style="padding-left:16px;"><span class="prop">padding</span>: <span class="num">16px</span>;</span></div>
+          <!-- Inline Cursor suggestion -->
+          <div class="editor-suggestion">
+            <div class="editor-suggestion-label">Cursor suggestion · via Agent Bridge</div>
+            <div class="editor-suggestion-diff">
+              <span class="editor-diff-del">− padding: 16px;</span>
+              <span class="editor-diff-add">+ padding: 24px;</span>
+            </div>
+            <div class="editor-suggestion-actions">
+              <button class="editor-action-btn accept">Accept</button>
+              <button class="editor-action-btn reject">Reject</button>
+            </div>
+          </div>
+          <div class="editor-line"><span class="editor-ln">16</span><span class="editor-code" style="padding-left:16px;"><span class="prop">overflow</span>: <span class="str">hidden</span>;</span></div>
+          <div class="editor-line"><span class="editor-ln">17</span><span class="editor-code"><span class="str">`</span>;</span></div>
+          <div class="editor-line" style="margin-top:6px;"><span class="editor-ln">18</span><span class="editor-code"></span></div>
+          <div class="editor-line"><span class="editor-ln">19</span><span class="editor-code"><span class="cm">// diff_components() — origin graph context loaded</span></span></div>
+          <div class="editor-line"><span class="editor-ln">20</span><span class="editor-code"><span class="cm">// 3 affected children: CardHeader, CardBody, CardFooter</span></span></div>
+        </div>
+      </div>
+
+      <!-- Center bridge connector -->
+      <div class="bridge-connector">
+        <div class="bridge-line-top"></div>
+        <div style="position:relative;display:flex;align-items:center;justify-content:center;">
+          <div class="bridge-rings">
+            <div class="bridge-pulse"></div>
+            <div class="bridge-pulse bridge-pulse-2"></div>
+          </div>
+          <div class="bridge-icon">⇄</div>
+        </div>
+        <div class="bridge-line-bottom"></div>
+      </div>
+
+      <!-- Right panel: Canvas intent diff -->
+      <div class="bridge-panel-right">
+        <div class="bridge-panel-header">
+          <span class="bridge-panel-title">Canvas</span>
+          <span class="bridge-panel-badge canvas">Intent Diff</span>
+        </div>
+        <div class="bridge-panel-body">
+          <!-- Primary diff card -->
+          <div class="diff-card">
+            <div class="diff-card-header">
+              <div class="diff-card-icon">△</div>
+              <span class="diff-card-title">CardRoot</span>
+              <span class="diff-card-agent">Proposed by: Cursor</span>
+            </div>
+            <div class="diff-row">
+              <span class="diff-row-prop">padding</span>
+              <div class="diff-row-vals">
+                <span class="diff-val-old">16px</span>
+                <span class="diff-val-arrow">→</span>
+                <span class="diff-val-new">24px</span>
+              </div>
+            </div>
+            <div class="diff-actions">
+              <button class="diff-btn accept">Accept diff</button>
+              <button class="diff-btn reject">Reject</button>
+            </div>
+          </div>
+          <!-- Secondary pending diff -->
+          <div class="diff-card" style="opacity:0.5;">
+            <div class="diff-card-header">
+              <div class="diff-card-icon">△</div>
+              <span class="diff-card-title">CardHeader</span>
+              <span class="diff-card-agent">Proposed by: Cursor</span>
+            </div>
+            <div class="diff-row">
+              <span class="diff-row-prop">gap</span>
+              <div class="diff-row-vals">
+                <span class="diff-val-old">8px</span>
+                <span class="diff-val-arrow">→</span>
+                <span class="diff-val-new">12px</span>
+              </div>
+            </div>
+          </div>
+          <!-- MCP status line -->
+          <div style="display:flex;align-items:center;gap:6px;margin-top:6px;">
+            <div style="width:6px;height:6px;border-radius:50%;background:#F59E0B;animation:live-pulse 2s ease-in-out infinite;"></div>
+            <span style="font-family:var(--mono);font-size:0.4375rem;color:rgba(255,255,255,0.25);letter-spacing:0.06em;text-transform:uppercase;">MCP connected · 2 pending diffs</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how-it-works" class="section">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="label">Protocol</span>
+      <h2 class="d2">From handshake to diff<br>in four steps.</h2>
+      <p class="subtitle">A JSON-RPC 2.0 MCP server sits between your AI agent and the Origin Graph. The agent calls tools. The bridge executes them. Proposed changes come back to you for review.</p>
+    </div>
+    <div class="hiw-steps stagger">
+      <div class="hiw-step">
+        <div class="hiw-num">01</div>
+        <h3>Agent connects</h3>
+        <p>Add the Agent Bridge MCP endpoint to your Cursor or Claude Code settings. The MCP handshake authenticates via <code>AGENT_BRIDGE_SECRET</code> and announces available tool definitions.</p>
+      </div>
+      <div class="hiw-step">
+        <div class="hiw-num">02</div>
+        <h3>Tool call made</h3>
+        <p>Your agent issues a JSON-RPC call — e.g. <code>diff_components({ before, after })</code>. The bridge validates the input schema with Zod before any execution begins.</p>
+      </div>
+      <div class="hiw-step">
+        <div class="hiw-num">03</div>
+        <h3>Bridge executes</h3>
+        <p>Agent Bridge queries the live Origin Graph, runs the diff engine against your real component tree, and streams structured results back to the agent.</p>
+      </div>
+      <div class="hiw-step">
+        <div class="hiw-num">04</div>
+        <h3>Result returned</h3>
+        <p>The agent receives a structured JSON response. Any proposed change is simultaneously queued as an Intent Diff in your canvas — ready for human review before anything applies.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DEEP DIVE 1: Real tools, not hallucinations -->
+<div class="section" style="padding:100px 40px;">
+  <div class="feat-split reveal">
+    <div class="feat-copy">
+      <span class="label label-amber">MCP tool definitions</span>
+      <h2 class="d3">Real tools,<br>not hallucinations.</h2>
+      <p class="subtitle">Every agent tool is backed by a live query against your Origin Graph. The agent gets your actual component tree, real prop values, and real token relationships — not documentation that may have drifted from your codebase.</p>
+      <ul class="feat-pts">
+        <li><span class="feat-pt-icon">⇄</span>Tool inputs are defined as JSON Schema and validated with Zod on every call. Malformed inputs never reach the graph.</li>
+        <li><span class="feat-pt-icon">◉</span><code style="font-family:var(--mono);font-size:0.875em;background:var(--bg-muted);padding:1px 5px;border-radius:3px;">query_graph</code> runs structured traversals — find components by name, trace token usage, map dependency chains.</li>
+        <li><span class="feat-pt-icon">△</span><code style="font-family:var(--mono);font-size:0.875em;background:var(--bg-muted);padding:1px 5px;border-radius:3px;">answer_question</code> gives agents plain-language answers grounded in the real graph, not training data.</li>
+      </ul>
+      <a href="#" class="btn btn-primary">Read the MCP docs</a>
+    </div>
+    <div class="feat-vis feat-vis-dark reveal">
+      <div style="position:absolute;inset:0;padding:20px 18px;overflow:hidden;">
+        <div style="font-family:var(--mono);font-size:0.5rem;color:rgba(255,255,255,0.2);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:12px;">MCP tool definitions</div>
+
+        <!-- get_component -->
+        <div style="margin-bottom:10px;padding:9px 11px;background:rgba(245,158,11,0.04);border:1px solid rgba(245,158,11,0.1);border-radius:7px;">
+          <div style="font-family:var(--mono);font-size:0.5625rem;color:#FCD34D;font-weight:600;margin-bottom:4px;">get_component</div>
+          <div style="font-family:var(--mono);font-size:0.5rem;color:rgba(255,255,255,0.28);line-height:1.75;">
+            <div><span style="color:#C4A1FF;">in:</span>&nbsp;&nbsp;<span style="color:#7DDBA0;">&#123; name: string, includeChildren?: boolean &#125;</span></div>
+            <div><span style="color:#C4A1FF;">out:</span>&nbsp;<span style="color:#7DDBA0;">&#123; node: ComponentNode, props: PropSchema, children: ComponentNode[] &#125;</span></div>
+          </div>
+        </div>
+
+        <!-- diff_components -->
+        <div style="margin-bottom:10px;padding:9px 11px;background:rgba(245,158,11,0.04);border:1px solid rgba(245,158,11,0.1);border-radius:7px;">
+          <div style="font-family:var(--mono);font-size:0.5625rem;color:#FCD34D;font-weight:600;margin-bottom:4px;">diff_components</div>
+          <div style="font-family:var(--mono);font-size:0.5rem;color:rgba(255,255,255,0.28);line-height:1.75;">
+            <div><span style="color:#C4A1FF;">in:</span>&nbsp;&nbsp;<span style="color:#7DDBA0;">&#123; before: ComponentSnapshot, after: ComponentSnapshot &#125;</span></div>
+            <div><span style="color:#C4A1FF;">out:</span>&nbsp;<span style="color:#7DDBA0;">&#123; diff: IntentDiff[], affectedCount: number &#125;</span></div>
+          </div>
+        </div>
+
+        <!-- query_graph -->
+        <div style="margin-bottom:10px;padding:9px 11px;background:rgba(245,158,11,0.04);border:1px solid rgba(245,158,11,0.1);border-radius:7px;">
+          <div style="font-family:var(--mono);font-size:0.5625rem;color:#FCD34D;font-weight:600;margin-bottom:4px;">query_graph</div>
+          <div style="font-family:var(--mono);font-size:0.5rem;color:rgba(255,255,255,0.28);line-height:1.75;">
+            <div><span style="color:#C4A1FF;">in:</span>&nbsp;&nbsp;<span style="color:#7DDBA0;">&#123; query: string, depth?: number, filters?: GraphFilter[] &#125;</span></div>
+            <div><span style="color:#C4A1FF;">out:</span>&nbsp;<span style="color:#7DDBA0;">&#123; nodes: GraphNode[], edges: GraphEdge[], total: number &#125;</span></div>
+          </div>
+        </div>
+
+        <!-- answer_question -->
+        <div style="padding:9px 11px;background:rgba(245,158,11,0.04);border:1px solid rgba(245,158,11,0.1);border-radius:7px;">
+          <div style="font-family:var(--mono);font-size:0.5625rem;color:#FCD34D;font-weight:600;margin-bottom:4px;">answer_question</div>
+          <div style="font-family:var(--mono);font-size:0.5rem;color:rgba(255,255,255,0.28);line-height:1.75;">
+            <div><span style="color:#C4A1FF;">in:</span>&nbsp;&nbsp;<span style="color:#7DDBA0;">&#123; question: string, context?: string[] &#125;</span></div>
+            <div><span style="color:#C4A1FF;">out:</span>&nbsp;<span style="color:#7DDBA0;">&#123; answer: string, sources: GraphNode[], confidence: number &#125;</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DEEP DIVE 2: Auditable agent actions -->
+<div class="section section-muted" style="padding:100px 40px;">
+  <div class="feat-split rev reveal">
+    <div class="feat-copy">
+      <span class="label label-amber">Audit trail</span>
+      <h2 class="d3">Auditable agent<br>actions. Always.</h2>
+      <p class="subtitle">Every change an agent proposes flows through the exact same Intent Diff review pipeline as a human edit. Nothing is applied silently. Every agent action is stamped, attributable, and reversible.</p>
+      <ul class="feat-pts">
+        <li><span class="feat-pt-icon">△</span>Agent-proposed diffs appear in your canvas labeled with the source agent — Cursor, Claude Code, or any MCP-compatible client.</li>
+        <li><span class="feat-pt-icon">◈</span>Accept or reject individual diffs. The agent cannot bypass the review queue or apply changes directly.</li>
+        <li><span class="feat-pt-icon">⇄</span>Every action is written to an append-only audit log with timestamp, agent identity, tool called, and full input/output payload.</li>
+      </ul>
+      <a href="/features/intent-diff.html" class="btn btn-primary">Explore Intent Diff</a>
+    </div>
+    <div class="feat-vis feat-vis-dark reveal">
+      <div style="position:absolute;inset:0;padding:20px 18px;display:flex;flex-direction:column;gap:10px;overflow:hidden;">
+        <div style="font-family:var(--mono);font-size:0.5rem;color:rgba(255,255,255,0.2);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:2px;">Intent Diff — agent queue</div>
+
+        <!-- Agent diff card -->
+        <div style="background:rgba(245,158,11,0.05);border:1px solid rgba(245,158,11,0.14);border-radius:9px;padding:11px 13px;">
+          <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">
+            <div style="width:22px;height:22px;border-radius:4px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0;">△</div>
+            <span style="font-family:var(--mono);font-size:0.5625rem;color:rgba(255,255,255,0.72);font-weight:600;">CardRoot</span>
+            <span style="margin-left:auto;font-family:var(--mono);font-size:0.4rem;letter-spacing:0.05em;text-transform:uppercase;padding:2px 6px;border-radius:99px;background:rgba(245,158,11,0.1);color:#FCD34D;border:1px solid rgba(245,158,11,0.18);white-space:nowrap;">Proposed by: Claude Code</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;border-radius:4px;background:rgba(255,255,255,0.02);margin-bottom:3px;">
+            <span style="font-family:var(--mono);font-size:0.5rem;color:rgba(255,255,255,0.3);">padding</span>
+            <div style="display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:0.5rem;">
+              <span style="color:#F87171;text-decoration:line-through;opacity:0.7;">16px</span>
+              <span style="color:rgba(255,255,255,0.2);">→</span>
+              <span style="color:#34D399;">24px</span>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;border-radius:4px;background:rgba(255,255,255,0.02);margin-bottom:7px;">
+            <span style="font-family:var(--mono);font-size:0.5rem;color:rgba(255,255,255,0.3);">gap</span>
+            <div style="display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:0.5rem;">
+              <span style="color:#F87171;text-decoration:line-through;opacity:0.7;">8px</span>
+              <span style="color:rgba(255,255,255,0.2);">→</span>
+              <span style="color:#34D399;">12px</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button style="font-family:var(--mono);font-size:0.4375rem;letter-spacing:0.05em;padding:4px 10px;border-radius:4px;background:rgba(52,211,153,0.15);color:#34D399;border:1px solid rgba(52,211,153,0.22);cursor:pointer;">Accept diff</button>
+            <button style="font-family:var(--mono);font-size:0.4375rem;letter-spacing:0.05em;padding:4px 10px;border-radius:4px;background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.32);border:1px solid rgba(255,255,255,0.09);cursor:pointer;">Reject</button>
+          </div>
+        </div>
+
+        <!-- Audit log -->
+        <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:9px;padding:11px 13px;">
+          <div style="font-family:var(--mono);font-size:0.4375rem;color:rgba(255,255,255,0.2);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;">Audit log</div>
+          <div style="display:flex;flex-direction:column;gap:5px;">
+            <div style="display:flex;align-items:center;gap:7px;">
+              <span style="font-family:var(--mono);font-size:0.4375rem;color:rgba(255,255,255,0.18);min-width:52px;">14:02:31</span>
+              <span style="font-family:var(--mono);font-size:0.4375rem;color:#FCD34D;">claude-code</span>
+              <span style="font-family:var(--mono);font-size:0.4375rem;color:rgba(255,255,255,0.3);">diff_components</span>
+              <span style="margin-left:auto;font-family:var(--mono);font-size:0.4375rem;color:#34D399;">queued</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:7px;">
+              <span style="font-family:var(--mono);font-size:0.4375rem;color:rgba(255,255,255,0.18);min-width:52px;">14:02:28</span>
+              <span style="font-family:var(--mono);font-size:0.4375rem;color:#C4A1FF;">cursor</span>
+              <span style="font-family:var(--mono);font-size:0.4375rem;color:rgba(255,255,255,0.3);">query_graph</span>
+              <span style="margin-left:auto;font-family:var(--mono);font-size:0.4375rem;color:rgba(255,255,255,0.28);">ok</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:7px;">
+              <span style="font-family:var(--mono);font-size:0.4375rem;color:rgba(255,255,255,0.18);min-width:52px;">14:02:21</span>
+              <span style="font-family:var(--mono);font-size:0.4375rem;color:#C4A1FF;">cursor</span>
+              <span style="font-family:var(--mono);font-size:0.4375rem;color:rgba(255,255,255,0.3);">get_component</span>
+              <span style="margin-left:auto;font-family:var(--mono);font-size:0.4375rem;color:rgba(255,255,255,0.28);">ok</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:7px;">
+              <span style="font-family:var(--mono);font-size:0.4375rem;color:rgba(255,255,255,0.18);min-width:52px;">14:02:09</span>
+              <span style="font-family:var(--mono);font-size:0.4375rem;color:#C4A1FF;">cursor</span>
+              <span style="font-family:var(--mono);font-size:0.4375rem;color:rgba(255,255,255,0.3);">answer_question</span>
+              <span style="margin-left:auto;font-family:var(--mono);font-size:0.4375rem;color:rgba(255,255,255,0.28);">ok</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CODE BLOCK: Full tool schema reference -->
+<section class="section section-muted" style="padding:80px 40px;">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="label">Developer reference</span>
+      <h2 class="d2">The full tool schema.</h2>
+      <p class="subtitle">Agent Bridge speaks standard JSON-RPC 2.0. Drop the endpoint into any MCP-compatible client and tool definitions auto-discover on connect.</p>
+    </div>
+    <div class="code-block reveal">
+<span class="cm">// Agent Bridge — MCP server tool manifest</span>
+<span class="cm">// Add to Cursor: Settings → MCP → Add Server → paste endpoint + secret</span>
+
+<span class="kw">const</span> <span class="nm">tools</span> = [
+  {
+    <span class="nm">name</span>: <span class="str">"get_component"</span>,
+    <span class="nm">description</span>: <span class="str">"Fetch a component node from the Origin Graph by name or ID"</span>,
+    <span class="nm">inputSchema</span>: {
+      <span class="nm">type</span>: <span class="str">"object"</span>,
+      <span class="nm">properties</span>: {
+        <span class="nm">name</span>:            { <span class="nm">type</span>: <span class="str">"string"</span>,  <span class="nm">description</span>: <span class="str">"Component display name"</span> },
+        <span class="nm">includeChildren</span>: { <span class="nm">type</span>: <span class="str">"boolean"</span>, <span class="nm">default</span>: <span class="kw">false</span> }
+      },
+      <span class="nm">required</span>: [<span class="str">"name"</span>]
+    }
+  },
+  {
+    <span class="nm">name</span>: <span class="str">"diff_components"</span>,
+    <span class="nm">description</span>: <span class="str">"Run a structural diff between two component snapshots"</span>,
+    <span class="nm">inputSchema</span>: {
+      <span class="nm">type</span>: <span class="str">"object"</span>,
+      <span class="nm">properties</span>: {
+        <span class="nm">before</span>: { <span class="nm">type</span>: <span class="str">"object"</span>, <span class="nm">description</span>: <span class="str">"ComponentSnapshot before change"</span> },
+        <span class="nm">after</span>:  { <span class="nm">type</span>: <span class="str">"object"</span>, <span class="nm">description</span>: <span class="str">"ComponentSnapshot after change"</span> }
+      },
+      <span class="nm">required</span>: [<span class="str">"before"</span>, <span class="str">"after"</span>]
+    }
+  },
+  {
+    <span class="nm">name</span>: <span class="str">"query_graph"</span>,
+    <span class="nm">description</span>: <span class="str">"Traverse the Origin Graph — find components, tokens, and relationships"</span>,
+    <span class="nm">inputSchema</span>: {
+      <span class="nm">type</span>: <span class="str">"object"</span>,
+      <span class="nm">properties</span>: {
+        <span class="nm">query</span>:   { <span class="nm">type</span>: <span class="str">"string"</span> },
+        <span class="nm">depth</span>:   { <span class="nm">type</span>: <span class="str">"number"</span>, <span class="nm">default</span>: <span class="ty">2</span> },
+        <span class="nm">filters</span>: { <span class="nm">type</span>: <span class="str">"array"</span>, <span class="nm">items</span>: { <span class="nm">type</span>: <span class="str">"string"</span> } }
+      },
+      <span class="nm">required</span>: [<span class="str">"query"</span>]
+    }
+  },
+  {
+    <span class="nm">name</span>: <span class="str">"answer_question"</span>,
+    <span class="nm">description</span>: <span class="str">"Ask a natural-language question grounded in the live Origin Graph"</span>,
+    <span class="nm">inputSchema</span>: {
+      <span class="nm">type</span>: <span class="str">"object"</span>,
+      <span class="nm">properties</span>: {
+        <span class="nm">question</span>: { <span class="nm">type</span>: <span class="str">"string"</span> },
+        <span class="nm">context</span>:  { <span class="nm">type</span>: <span class="str">"array"</span>, <span class="nm">items</span>: { <span class="nm">type</span>: <span class="str">"string"</span> } }
+      },
+      <span class="nm">required</span>: [<span class="str">"question"</span>]
+    }
+  }
+];
+    </div>
+  </div>
+</section>
+
+<!-- TECH CARDS -->
+<section class="section">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="label">Technical foundation</span>
+      <h2 class="d2">Built on open protocols.</h2>
+      <p class="subtitle">Agent Bridge is a first-class MCP server. No proprietary SDKs, no vendor lock-in. If your agent speaks MCP, it works.</p>
+    </div>
+    <div class="tech-grid stagger">
+      <div class="tech-card">
+        <div class="tech-icon">📡</div>
+        <h3>JSON-RPC 2.0</h3>
+        <p>Every tool call and response follows the JSON-RPC 2.0 specification exactly — standard request/response envelopes, structured error codes, and batch request support out of the box.</p>
+        <span class="tech-tag">Protocol</span>
+      </div>
+      <div class="tech-card">
+        <div class="tech-icon">⇄</div>
+        <h3>MCP protocol</h3>
+        <p>Agent Bridge registers as a full MCP server — tool discovery, capability negotiation, and streaming all follow the Model Context Protocol spec. Works with Cursor, Claude Code, and any future MCP client.</p>
+        <span class="tech-tag">Standard</span>
+      </div>
+      <div class="tech-card">
+        <div class="tech-icon">🛡</div>
+        <h3>Tool schema validation</h3>
+        <p>Every inbound tool call is validated against a Zod schema before any execution. Malformed inputs are rejected with structured JSON-RPC error responses — the graph is never reached by bad data.</p>
+        <span class="tech-tag">Zod</span>
+      </div>
+      <div class="tech-card">
+        <div class="tech-icon">🔑</div>
+        <h3>AGENT_BRIDGE_SECRET auth</h3>
+        <p>Authentication is token-based via a pre-shared <code style="font-family:var(--mono);font-size:0.8em;background:var(--bg-muted);padding:1px 4px;border-radius:3px;">AGENT_BRIDGE_SECRET</code>. Set it once in your MCP client config — all subsequent calls are bearer-authenticated automatically.</p>
+        <span class="tech-tag">Security</span>
+      </div>
+      <div class="tech-card">
+        <div class="tech-icon">⚡</div>
+        <h3>Streaming responses</h3>
+        <p>Large graph queries and diff results stream back incrementally as NDJSON. Your agent receives the first nodes immediately — no waiting for the full response payload to accumulate server-side.</p>
+        <span class="tech-tag">Performance</span>
+      </div>
+      <div class="tech-card">
+        <div class="tech-icon">📋</div>
+        <h3>Audit log for agent actions</h3>
+        <p>Every agent action is persisted to an append-only audit log — agent identity, tool called, inputs, outputs, and timestamp. Queryable from the canvas and exportable to JSON at any time.</p>
+        <span class="tech-tag">Compliance</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- RELATED FEATURES -->
+<section class="section section-muted">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="label">Connected features</span>
+      <h2 class="d2">Agent Bridge is<br>one half of the loop.</h2>
+      <p class="subtitle">Agents read from the Origin Graph and write back through Intent Diff. The whole system is the pipeline.</p>
+    </div>
+    <div class="related-grid stagger">
+      <a class="related-card" href="/features/origin-graph.html">
+        <div class="related-icon">◉</div>
+        <h3>Origin Graph</h3>
+        <p>The queryable index that Agent Bridge reads from. Every component, token, and relationship in your codebase — live, traversable, and always in sync with your real code.</p>
+        <span class="related-link">Explore Origin Graph →</span>
+      </a>
+      <a class="related-card" href="/features/intent-diff.html">
+        <div class="related-icon">△</div>
+        <h3>Intent Diff</h3>
+        <p>Every change an agent proposes enters the same Intent Diff review pipeline as a human edit. Nothing gets applied without your explicit sign-off — every agent action is auditable.</p>
+        <span class="related-link">Explore Intent Diff →</span>
+      </a>
+      <a class="related-card" href="/features/completion-zone.html">
+        <div class="related-icon">◈</div>
+        <h3>Completion Zone</h3>
+        <p>Mark a region in the canvas and let AI fill it using your design language constraints. Pairs with Agent Bridge for end-to-end agentic design-to-code sessions.</p>
+        <span class="related-link">Explore Completion Zone →</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section id="cta-bottom">
+  <div class="cta-inner">
+    <h2 class="cta-headline">Give your agents<br>real context.</h2>
+    <p class="cta-sub">Connect Cursor or Claude Code to your live Origin Graph in under five minutes. No hallucinated docs — just your actual codebase, queryable from any MCP agent.</p>
+    <div class="cta-actions">
+      <a href="#" class="btn btn-white btn-lg">Request Early Access</a>
+      <a href="/" class="btn btn-outline-white btn-lg">Back to overview</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="ft-inner">
+    <div class="ft-top">
+      <div>
+        <div class="ft-brand-logo">Origin<span>main</span></div>
+        <p class="ft-brand-tag">Where design intent becomes production code.</p>
+      </div>
+      <div class="ft-col">
+        <h4>Product</h4>
+        <ul>
+          <li><a href="/features/live-artboard.html">Live Artboard</a></li>
+          <li><a href="/features/origin-graph.html">Origin Graph</a></li>
+          <li><a href="/features/intent-diff.html">Intent Diff</a></li>
+          <li><a href="/features/completion-zone.html">Completion Zone</a></li>
+          <li><a href="/features/agent-bridge.html">Agent Bridge</a></li>
+        </ul>
+      </div>
+      <div class="ft-col">
+        <h4>Integrations</h4>
+        <ul>
+          <li><a href="/features/integrations.html">All integrations</a></li>
+          <li><a href="#">GitHub</a></li>
+          <li><a href="#">Linear</a></li>
+          <li><a href="#">Slack</a></li>
+        </ul>
+      </div>
+      <div class="ft-col">
+        <h4>Developers</h4>
+        <ul>
+          <li><a href="#">Docs</a></li>
+          <li><a href="#">API Reference</a></li>
+          <li><a href="#">MCP Protocol</a></li>
+          <li><a href="#">Changelog</a></li>
+        </ul>
+      </div>
+      <div class="ft-col">
+        <h4>Company</h4>
+        <ul>
+          <li><a href="#">About</a></li>
+          <li><a href="/#pricing">Pricing</a></li>
+          <li><a href="#">Blog</a></li>
+          <li><a href="#">Contact</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="ft-bottom">
+      <span class="ft-copy">© 2025 Originmain. All rights reserved.</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+// Nav scroll
+const nav=document.getElementById('nav');
+window.addEventListener('scroll',()=>{nav.classList.toggle('scrolled',window.scrollY>20);});
+// Dropdown: delay-based hover (desktop) + click (mobile/touch)
+document.querySelectorAll('.nav-dropdown').forEach(dd=>{const menu=dd.querySelector('.nav-dropdown-menu');let t;const open=()=>{clearTimeout(t);dd.classList.add('open');menu.classList.add('open');};const close=()=>{t=setTimeout(()=>{dd.classList.remove('open');menu.classList.remove('open');},150);};dd.addEventListener('mouseenter',open);dd.addEventListener('mouseleave',close);menu.addEventListener('mouseenter',open);menu.addEventListener('mouseleave',close);dd.querySelector('a').addEventListener('click',e=>{if(window.matchMedia('(hover:none)').matches||window.innerWidth<=1024){e.preventDefault();const o=menu.classList.toggle('open');dd.classList.toggle('open',o);}});});
+// Mobile product sub-accordion
+const mpt=document.getElementById('mob-product-toggle'),mns=document.getElementById('nav-mobile-sub'),mdc=document.getElementById('mob-dd-caret');if(mpt&&mns){mpt.addEventListener('click',e=>{e.preventDefault();const o=mns.classList.toggle('open');if(mdc)mdc.style.transform=o?'rotate(180deg)':'';});}
+// Burger
+const burger=document.getElementById('nav-burger'),mob=document.getElementById('nav-mobile');
+burger.addEventListener('click',()=>{const o=mob.classList.toggle('open');burger.classList.toggle('open',o);burger.setAttribute('aria-expanded',o);});
+// Reveal
+const io=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}});},{threshold:0.12});
+document.querySelectorAll('.reveal,.stagger').forEach(el=>io.observe(el));
+</script>
+</body>
+</html>
