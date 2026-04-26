@@ -3,7 +3,6 @@
 import { useRef, useEffect, useCallback } from 'react';
 import { useViewport } from '@/store/viewport';
 import { useCanvas } from '@/store/canvas';
-import { useWorkspace } from '@/hooks/useWorkspace';
 import { useArtboards } from '@/hooks/useArtboards';
 import { Artboard } from './Artboard';
 
@@ -12,10 +11,8 @@ export function Canvas() {
   const panX          = useViewport((s) => s.panX);
   const panY          = useViewport((s) => s.panY);
   const zoom          = useViewport((s) => s.zoom);
-  const { activeTool, selectArtboard } = useCanvas();
-
-  const { data: workspace } = useWorkspace();
-  const { artboards } = useArtboards(workspace?.id);
+  const { activeTool, selectArtboard, workspaceId } = useCanvas();
+  const { artboards } = useArtboards(workspaceId ?? undefined);
 
   const isPanning = useRef(false);
   const lastPos   = useRef({ x: 0, y: 0 });

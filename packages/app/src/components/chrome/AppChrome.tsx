@@ -19,6 +19,12 @@ interface AppChromeProps {
 
 export function AppChrome({ workspaceId, projectId, workspaceName, projectName }: AppChromeProps) {
   const selectedArtboardId = useCanvas((s) => s.selectedArtboardId);
+  const setContext = useCanvas((s) => s.setContext);
+
+  // Push workspace/project IDs into the store so Canvas and Navigator can read them.
+  useEffect(() => {
+    if (workspaceId && projectId) setContext(workspaceId, projectId);
+  }, [workspaceId, projectId, setContext]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -37,24 +43,28 @@ export function AppChrome({ workspaceId, projectId, workspaceName, projectName }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [selectedArtboardId]);
-  const showBreadcrumb = workspaceId && projectId;
+
+  const showBreadcrumb = Boolean(workspaceId && projectId);
 
   return (
+    // Outer flex-column: breadcrumb on top (fixed height), inner grid fills the rest.
+    // Breadcrumb lives OUTSIDE the grid so the Toolbar/panel gridRow placements
+    // never shift regardless of whether the breadcrumb is visible.
     <div
       style={{
-        display: 'grid',
-        gridTemplateRows: showBreadcrumb ? '36px 44px 1fr' : '44px 1fr',
-        gridTemplateColumns: '220px 1fr 272px',
+        display: 'flex',
+        flexDirection: 'column',
         height: '100dvh',
         overflow: 'hidden',
         background: '#0C0C10',
         fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
       }}
     >
-      {/* Breadcrumb bar — spans all 3 columns, only shown when project context is set */}
+      {/* ── Breadcrumb bar ─────────────────────────────────── */}
       {showBreadcrumb && (
         <div style={{
-          gridColumn: '1 / -1',
+          height: 36,
+          flexShrink: 0,
           background: '#0A0A0E',
           borderBottom: '1px solid rgba(255,255,255,0.06)',
           display: 'flex', alignItems: 'center',
@@ -87,17 +97,29 @@ export function AppChrome({ workspaceId, projectId, workspaceName, projectName }
 
           <div style={{ flex: 1 }} />
 
-          {/* User avatar in the top-right corner of canvas */}
           <div style={{ transform: 'scale(0.8)', transformOrigin: 'right center' }}>
             <UserButton />
           </div>
         </div>
       )}
 
-      <Toolbar />
-      <ArtboardNavigator />
-      <Canvas />
-      <Inspector />
+      {/* ── Inner grid: Toolbar (row 1) + panels (row 2) ─── */}
+      {/* Rows are always 44px + 1fr — breadcrumb never enters this grid. */}
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          display: 'grid',
+          gridTemplateRows: '44px 1fr',
+          gridTemplateColumns: '220px 1fr 272px',
+          overflow: 'hidden',
+        }}
+      >
+        <Toolbar />
+        <ArtboardNavigator />
+        <Canvas />
+        <Inspector />
+      </div>
     </div>
   );
 }

@@ -5,7 +5,6 @@ import { useFileTree, FileTree } from '@pierre/trees/react';
 import { themeToTreeStyles } from '@pierre/trees';
 import { SquareRegular } from '@fluentui/react-icons';
 import { useCanvas } from '@/store/canvas';
-import { useWorkspace } from '@/hooks/useWorkspace';
 import { useArtboards } from '@/hooks/useArtboards';
 
 const FILE_PATHS = [
@@ -48,9 +47,8 @@ const treeThemeStyles = themeToTreeStyles({
 });
 
 export function ArtboardNavigator() {
-  const { selectedArtboardId, selectArtboard } = useCanvas();
-  const { data: workspace } = useWorkspace();
-  const { artboards } = useArtboards(workspace?.id);
+  const { selectedArtboardId, selectArtboard, workspaceId } = useCanvas();
+  const { artboards } = useArtboards(workspaceId ?? undefined);
 
   const { model } = useFileTree({
     paths: FILE_PATHS,
