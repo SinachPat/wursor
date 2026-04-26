@@ -1,17 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { useFileTree, FileTree, useFileTreeSelection } from '@pierre/trees/react';
+import { useFileTree, FileTree } from '@pierre/trees/react';
 import { themeToTreeStyles } from '@pierre/trees';
 import { SquareRegular } from '@fluentui/react-icons';
 import { useCanvas } from '@/store/canvas';
-
-const ARTBOARDS = [
-  { id: 'dashboard-card', label: 'DashboardCard' },
-  { id: 'user-profile',   label: 'UserProfile'   },
-  { id: 'nav-sidebar',    label: 'NavSidebar'    },
-  { id: 'data-table',     label: 'DataTable'     },
-];
+import { useWorkspace } from '@/hooks/useWorkspace';
+import { useArtboards } from '@/hooks/useArtboards';
 
 const FILE_PATHS = [
   'src/components/DashboardCard.tsx',
@@ -54,6 +49,8 @@ const treeThemeStyles = themeToTreeStyles({
 
 export function ArtboardNavigator() {
   const { selectedArtboardId, selectArtboard } = useCanvas();
+  const { data: workspace } = useWorkspace();
+  const { artboards } = useArtboards(workspace?.id);
 
   const { model } = useFileTree({
     paths: FILE_PATHS,
@@ -78,7 +75,7 @@ export function ArtboardNavigator() {
       {/* ── Artboards ── */}
       <SectionLabel>Artboards</SectionLabel>
       <div style={{ padding: '2px 6px 0' }}>
-        {ARTBOARDS.map((ab) => {
+        {artboards.map((ab) => {
           const sel = selectedArtboardId === ab.id;
           return (
             <NavRow

@@ -62,12 +62,13 @@ export const useHistory = create<HistoryStore>((set, get) => ({
   },
 
   undo(artboardId) {
-    const stack = get().stacks[artboardId] ?? emptyStack();
-    const last = stack.past[stack.past.length - 1];
-    if (!last) return undefined;
-
+    // Read + write atomically inside set() to avoid TOCTOU between get() and set().
+    let undone: EditEntry | undefined;
     set(state => {
       const current = state.stacks[artboardId] ?? emptyStack();
+      const last = current.past[current.past.length - 1];
+      if (!last) return state; // nothing to undo — no-op
+      undone = last;
       return {
         stacks: {
           ...state.stacks,
@@ -78,17 +79,17 @@ export const useHistory = create<HistoryStore>((set, get) => ({
         },
       };
     });
-
-    return last;
+    return undone;
   },
 
   redo(artboardId) {
-    const stack = get().stacks[artboardId] ?? emptyStack();
-    const next = stack.future[0];
-    if (!next) return undefined;
-
+    // Read + write atomically inside set() to avoid TOCTOU between get() and set().
+    let redone: EditEntry | undefined;
     set(state => {
       const current = state.stacks[artboardId] ?? emptyStack();
+      const next = current.future[0];
+      if (!next) return state; // nothing to redo — no-op
+      redone = next;
       return {
         stacks: {
           ...state.stacks,
@@ -99,8 +100,7 @@ export const useHistory = create<HistoryStore>((set, get) => ({
         },
       };
     });
-
-    return next;
+    return redone;
   },
 
   canUndo(artboardId) {

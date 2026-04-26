@@ -1,7 +1,19 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  transpilePackages: ['@originmain/ui', '@originmain/diff-engine', '@fluentui/react-components'],
+  transpilePackages: [
+    '@originmain/agent-bridge',
+    '@originmain/ai-layer',
+    '@originmain/design-language',
+    '@originmain/diff-engine',
+    '@originmain/integrations',
+    '@originmain/multiplayer',
+    '@originmain/origin-graph',
+    '@originmain/platform',
+    '@originmain/renderer',
+    '@originmain/ui',
+    '@fluentui/react-components',
+  ],
   experimental: {
     optimizePackageImports: ['@fluentui/react-components'],
   },

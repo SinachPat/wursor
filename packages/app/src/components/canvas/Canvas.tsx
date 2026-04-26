@@ -3,14 +3,9 @@
 import { useRef, useEffect, useCallback } from 'react';
 import { useViewport } from '@/store/viewport';
 import { useCanvas } from '@/store/canvas';
+import { useWorkspace } from '@/hooks/useWorkspace';
+import { useArtboards } from '@/hooks/useArtboards';
 import { Artboard } from './Artboard';
-
-const ARTBOARDS = [
-  { id: 'dashboard-card', label: 'DashboardCard', x: 120,  y: 100, width: 280, height: 200 },
-  { id: 'user-profile',   label: 'UserProfile',   x: 460,  y: 100, width: 200, height: 260 },
-  { id: 'nav-sidebar',    label: 'NavSidebar',    x: 120,  y: 360, width: 200, height: 340 },
-  { id: 'data-table',     label: 'DataTable',     x: 380,  y: 380, width: 420, height: 280 },
-];
 
 export function Canvas() {
   const containerRef  = useRef<HTMLDivElement>(null);
@@ -18,6 +13,9 @@ export function Canvas() {
   const panY          = useViewport((s) => s.panY);
   const zoom          = useViewport((s) => s.zoom);
   const { activeTool, selectArtboard } = useCanvas();
+
+  const { data: workspace } = useWorkspace();
+  const { artboards } = useArtboards(workspace?.id);
 
   const isPanning = useRef(false);
   const lastPos   = useRef({ x: 0, y: 0 });
@@ -124,7 +122,7 @@ export function Canvas() {
           zIndex: 2,
         }}
       >
-        {ARTBOARDS.map((ab) => (
+        {artboards.map((ab) => (
           <Artboard key={ab.id} {...ab} />
         ))}
       </div>

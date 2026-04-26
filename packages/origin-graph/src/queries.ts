@@ -7,11 +7,13 @@
 import type {
   Artboard,
   Workspace,
+  Origin,
   IntentDiff,
   DesignLanguageFile,
   AgentSession,
   TeamMember,
   InsertArtboard,
+  InsertOrigin,
   InsertIntentDiff,
   InsertAgentSession,
   DiffStatus,
@@ -162,6 +164,18 @@ export async function getActiveDesignLanguageFile(
     .limit(1)
     .single() as Promise<{ data: DesignLanguageFile | null; error: DbError | null }>);
   if (error?.code === 'PGRST116') return null; // No rows found
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+// ── Origin queries ────────────────────────────────────────────────────────────
+
+export async function createOrigin(db: DbClient, row: InsertOrigin): Promise<Origin> {
+  const { data, error } = await (db
+    .from('origins')
+    .insert(row)
+    .select()
+    .single() as Promise<{ data: Origin; error: DbError | null }>);
   if (error) throw new Error(error.message);
   return data;
 }

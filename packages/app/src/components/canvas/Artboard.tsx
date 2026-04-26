@@ -1,6 +1,10 @@
 'use client';
 
+import { useState, useCallback } from 'react';
 import { useCanvas } from '@/store/canvas';
+import { LiveArtboard } from './LiveArtboard';
+import { SelectionOverlay } from './SelectionOverlay';
+import type { FiberNode } from '@originmain/renderer';
 
 interface ArtboardProps {
   id: string;
@@ -9,11 +13,19 @@ interface ArtboardProps {
   y: number;
   width: number;
   height: number;
+  renderUrl?: string;
 }
 
-export function Artboard({ id, label, x, y, width, height }: ArtboardProps) {
+export function Artboard({ id, label, x, y, width, height, renderUrl }: ArtboardProps) {
   const { selectedArtboardId, selectArtboard } = useCanvas();
   const selected = selectedArtboardId === id;
+  const [fiberRoot, setFiberRoot] = useState<FiberNode | undefined>(undefined);
+
+  const handleFiberUpdate = useCallback((root: FiberNode) => setFiberRoot(root), []);
+  const handleComponentSelected = useCallback(
+    (nodeId: string) => { void nodeId; /* future: highlight in inspector */ },
+    []
+  );
 
   return (
     <div
@@ -66,7 +78,26 @@ export function Artboard({ id, label, x, y, width, height }: ArtboardProps) {
         )}
 
         {/* Per-artboard content */}
-        <ArtboardContent id={id} />
+        {renderUrl ? (
+          <>
+            <LiveArtboard
+              id={id}
+              src={renderUrl}
+              width={width}
+              height={height}
+              onFiberTreeUpdate={handleFiberUpdate}
+              onComponentSelected={handleComponentSelected}
+            />
+            <SelectionOverlay
+              artboardId={id}
+              {...(fiberRoot !== undefined ? { fiberRoot } : {})}
+              width={width}
+              height={height}
+            />
+          </>
+        ) : (
+          <ArtboardContent id={id} />
+        )}
       </div>
     </div>
   );
