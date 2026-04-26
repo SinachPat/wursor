@@ -116,6 +116,20 @@ export const TeamMemberSchema = z.object({
 });
 export type TeamMember = z.infer<typeof TeamMemberSchema>;
 
+// ── Project ───────────────────────────────────────────────────────────────────
+
+export const ProjectSchema = z.object({
+  id:           z.string().uuid(),
+  workspace_id: z.string().uuid(),
+  name:         z.string(),
+  description:  z.string().nullable(),
+  app_url:      z.string().nullable(),
+  framework:    z.string().nullable(),
+  created_at:   z.string().datetime(),
+  updated_at:   z.string().datetime(),
+});
+export type Project = z.infer<typeof ProjectSchema>;
+
 // ── Ancestry (from materialized view) ────────────────────────────────────────
 
 export interface ArtboardAncestry {
@@ -133,3 +147,4 @@ export type InsertIntentDiff = Omit<IntentDiff, 'id' | 'created_at' | 'updated_a
 export type InsertAgentSession = Omit<AgentSession, 'id' | 'created_at' | 'updated_at'>;
 export type InsertDesignLanguageFile = Omit<DesignLanguageFile, 'id' | 'created_at' | 'updated_at'>;
 export type InsertTeamMember = Omit<TeamMember, 'id' | 'created_at' | 'updated_at'>;
+export type InsertProject = Omit<Project, 'id' | 'created_at' | 'updated_at'>;

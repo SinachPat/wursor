@@ -1,7 +1,7 @@
-import { AppChrome } from '@/components/chrome/AppChrome';
+import { redirect } from 'next/navigation';
 
-export const metadata = { title: 'Canvas — Originmain' };
-
+// The canvas now lives at /workspace/[wid]/project/[pid].
+// Redirect anyone hitting the old /canvas route to their workspace list.
 export default function CanvasPage() {
-  return <AppChrome />;
+  redirect('/workspaces');
 }

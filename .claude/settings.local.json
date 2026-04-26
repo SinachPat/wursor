@@ -119,7 +119,12 @@
       "WebFetch(domain:worldvectorlogo.com)",
       "Bash(pnpm --filter @originmain/app exec tsc --noEmit)",
       "Bash(mkdir -p /Users/USER/Desktop/originmain/packages/app/src/app/sign-in/\\\\[\\\\[...sign-in\\\\]\\\\])",
-      "Bash(mkdir -p /Users/USER/Desktop/originmain/packages/app/src/app/sign-up/\\\\[\\\\[...sign-up\\\\]\\\\])"
+      "Bash(mkdir -p /Users/USER/Desktop/originmain/packages/app/src/app/sign-up/\\\\[\\\\[...sign-up\\\\]\\\\])",
+      "Bash(python3)",
+      "Bash(mkdir -p \"/Users/USER/Desktop/originmain/packages/app/src/app/workspace/[wid]\")",
+      "Bash(mkdir -p \"/Users/USER/Desktop/originmain/packages/app/src/app/workspace/[wid]/project/new\")",
+      "Bash(mkdir -p \"/Users/USER/Desktop/originmain/packages/app/src/app/workspace/[wid]/project/[pid]\")",
+      "Bash(git -C /Users/USER/Desktop/originmain log --oneline --follow -- packages/origin-graph/migrations/002_artboard_ancestry.sql packages/origin-graph/migrations/003_rls_policies.sql packages/origin-graph/migrations/004_add_notes_to_diffs.sql)"
     ]
   }
 }
