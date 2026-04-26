@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { serverClient } from '@/lib/supabase';
 import { AppHeader } from '@/components/shell/AppHeader';
+import { ProjectCard } from '@/components/shell/ProjectCard';
 import type { Workspace, Project } from '@originmain/origin-graph';
 
 export async function generateMetadata({ params }: { params: Promise<{ wid: string }> }) {
@@ -11,15 +12,6 @@ export async function generateMetadata({ params }: { params: Promise<{ wid: stri
   const result = (await db.from('workspaces').select('name').eq('id', wid).single()) as unknown as { data: { name: string } | null };
   return { title: `${result.data?.name ?? 'Workspace'} — Originmain` };
 }
-
-const FRAMEWORK_ICON: Record<string, string> = {
-  next:    '▲',
-  react:   '⚛',
-  vue:     'V',
-  svelte:  'S',
-  angular: 'A',
-  nuxt:    'N',
-};
 
 export default async function WorkspacePage({ params }: { params: Promise<{ wid: string }> }) {
   const { wid } = await params;
@@ -121,64 +113,17 @@ export default async function WorkspacePage({ params }: { params: Promise<{ wid:
         {/* Project cards */}
         {projects.length > 0 && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
-            {projects.map(project => {
-              const icon = project.framework ? (FRAMEWORK_ICON[project.framework.toLowerCase()] ?? '◻') : '◻';
-              return (
-                <Link key={project.id} href={`/workspace/${wid}/project/${project.id}`} style={{ textDecoration: 'none' }}>
-                  <div style={{
-                    background: '#FFFFFF',
-                    border: '1px solid rgba(0,0,0,0.07)',
-                    borderRadius: 14, padding: '20px 22px', cursor: 'pointer',
-                    transition: 'box-shadow 0.15s, border-color 0.15s',
-                  }}
-                    onMouseEnter={e => {
-                      (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 16px rgba(0,0,0,0.08)';
-                      (e.currentTarget as HTMLElement).style.borderColor = 'rgba(0,0,0,0.12)';
-                    }}
-                    onMouseLeave={e => {
-                      (e.currentTarget as HTMLElement).style.boxShadow = 'none';
-                      (e.currentTarget as HTMLElement).style.borderColor = 'rgba(0,0,0,0.07)';
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-                      <div style={{
-                        width: 38, height: 38, borderRadius: 9,
-                        background: '#0A0A0A',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: '0.875rem', color: '#FFFFFF', fontWeight: 700, flexShrink: 0,
-                      }}>
-                        {icon}
-                      </div>
-                      <span style={{ fontSize: '0.9375rem', fontWeight: 600, color: '#0A0A0A', letterSpacing: '-0.01em' }}>
-                        {project.name}
-                      </span>
-                    </div>
-
-                    {project.app_url && (
-                      <p style={{
-                        margin: '0 0 6px',
-                        fontSize: '0.75rem', fontFamily: 'monospace',
-                        color: '#71717A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                      }}>
-                        {project.app_url}
-                      </p>
-                    )}
-
-                    {project.description && (
-                      <p style={{ margin: '0 0 12px', fontSize: '0.8125rem', color: '#71717A', lineHeight: 1.5 }}>
-                        {project.description}
-                      </p>
-                    )}
-
-                    <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontSize: '0.8125rem', color: '#0066FF', fontWeight: 500 }}>
-                        Open canvas →
-                      </span>
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
+            {projects.map(project => (
+              <ProjectCard
+                key={project.id}
+                workspaceId={wid}
+                projectId={project.id}
+                name={project.name}
+                framework={project.framework}
+                appUrl={project.app_url}
+                description={project.description}
+              />
+            ))}
           </div>
         )}
       </main>
