@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.2.7",
     "@fluentui/react-components": "^9.54.0",
     "@fluentui/react-icons": "^2.0.0",
     "@originmain/diff-engine": "workspace:*",

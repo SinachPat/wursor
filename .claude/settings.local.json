@@ -26,7 +26,24 @@
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\({k:d.get\\(k\\) for k in ['description','main','types','exports','peerDependencies','keywords']}, indent=2\\)\\)\")",
       "Bash(pnpm --filter @originmain/diff-engine test)",
       "Bash(npx tsc *)",
-      "Bash(npm test *)"
+      "Bash(npm test *)",
+      "Skill(claude-api)",
+      "Skill(claude-api:*)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\({**d.get\\('dependencies',{}\\), **d.get\\('devDependencies',{}\\)}, indent=2\\)\\)\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('exports', d.get\\('main', ''\\)\\), indent=2\\)\\)\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d['version']\\)\")",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(echo \"agent-bridge: $?\")",
+      "Bash(echo \"integrations: $?\")",
+      "Bash(echo \"agent-bridge exit: $?\")",
+      "Bash(echo \"integrations exit: $?\")",
+      "Bash(echo \"platform exit: $?\")",
+      "Bash(node -e \"const c = require\\('./node_modules/.pnpm/@clerk+nextjs@7.2.7_next@15.3.1_react-dom@19.2.5_react@19.2.5__react@19.2.5__react@19.2.5_react-dom@19.2.5_react@19.2.5__react@19.2.5/node_modules/@clerk/nextjs/dist/cjs/index.js'\\); console.log\\(Object.keys\\(c\\).filter\\(k => /show|signed/i.test\\(k\\)\\)\\)\")",
+      "Bash(echo \"port 3000 status: $?\")",
+      "Bash(curl -s http://localhost:3002)",
+      "Bash(xargs ps *)",
+      "Bash(curl -s http://localhost:3000 -L)"
     ]
   }
 }

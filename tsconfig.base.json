@@ -17,7 +17,10 @@
       "@originmain/agent-bridge": ["./packages/agent-bridge/src/index.ts"],
       "@originmain/ai-layer": ["./packages/ai-layer/src/index.ts"],
       "@originmain/renderer": ["./packages/renderer/src/index.ts"],
-      "@originmain/integrations": ["./packages/integrations/src/index.ts"]
+      "@originmain/integrations": ["./packages/integrations/src/index.ts"],
+      "@originmain/design-language": ["./packages/design-language/src/index.ts"],
+      "@originmain/multiplayer": ["./packages/multiplayer/src/index.ts"],
+      "@originmain/platform": ["./packages/platform/src/index.ts"]
     }
   }
 }

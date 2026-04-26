@@ -277,6 +277,73 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .nav-links a:hover { color: var(--fg); }
 .nav-actions { display: flex; align-items: center; gap: 8px; }
 
+/* ── Hamburger ── */
+.nav-burger {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  width: 36px;
+  height: 36px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--r-2);
+  transition: background 0.12s;
+  flex-shrink: 0;
+}
+.nav-burger:hover { background: var(--bg-muted); }
+.nav-burger span {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background: var(--fg);
+  border-radius: 2px;
+  transition: transform 0.22s cubic-bezier(0.16,1,0.3,1), opacity 0.18s;
+  transform-origin: center;
+}
+.nav-burger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.nav-burger.open span:nth-child(2) { opacity: 0; transform: scaleX(0); }
+.nav-burger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+/* ── Mobile drawer ── */
+.nav-mobile {
+  display: none;
+  position: absolute;
+  top: 60px; left: 0; right: 0;
+  background: rgba(255,255,255,0.97);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.07);
+  padding: 12px 24px 24px;
+  flex-direction: column;
+  gap: 2px;
+}
+.nav-mobile.open { display: flex; }
+.nav-mobile ul { list-style: none; display: flex; flex-direction: column; }
+.nav-mobile ul li a {
+  display: block;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--fg-2);
+  padding: 11px 4px;
+  border-bottom: 1px solid var(--border);
+  letter-spacing: -0.01em;
+  transition: color 0.1s;
+}
+.nav-mobile ul li:last-child a { border-bottom: none; }
+.nav-mobile ul li a:hover { color: var(--fg); }
+.nav-mobile-ctas {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+.nav-mobile-ctas .btn { text-align: center; padding: 11px 0; font-size: .9375rem; }
+
 /* ════════════════════════════════════════════════════════════
    HERO — Figma Sites: product-forward, massive type
    ════════════════════════════════════════════════════════════ */
@@ -1257,7 +1324,15 @@ footer {
 @media (max-width: 768px) {
   .wrap, .wrap-wide { padding: 0 24px; }
   #nav { padding: 0 24px; }
+  .nav-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
   .nav-links { display: none; }
+  .nav-actions .btn { display: none; }
+  .nav-burger { display: flex; }
   .section { padding: 80px 0; }
   .feat-block { padding: 80px 24px; }
   #hero { padding: 140px 24px 0; }
@@ -1295,6 +1370,23 @@ footer {
     <div class="nav-actions">
       <a href="#" class="btn btn-secondary" style="padding:7px 16px;font-size:.875rem">Log in</a>
       <a href="#" class="btn btn-primary" style="padding:8px 18px;font-size:.875rem">Request Access</a>
+      <button class="nav-burger" id="nav-burger" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Mobile drawer (hidden on desktop) -->
+  <div class="nav-mobile" id="nav-mobile" aria-hidden="true">
+    <ul>
+      <li><a href="#features">Product</a></li>
+      <li><a href="#integrations">Integrations</a></li>
+      <li><a href="#pricing">Pricing</a></li>
+      <li><a href="#">Docs</a></li>
+    </ul>
+    <div class="nav-mobile-ctas">
+      <a href="#" class="btn btn-secondary">Log in</a>
+      <a href="#" class="btn btn-primary">Request Access</a>
     </div>
   </div>
 </nav>
@@ -1930,6 +2022,38 @@ const nav = document.getElementById('nav');
 window.addEventListener('scroll', () => {
   nav.classList.toggle('scrolled', window.scrollY > 20);
 }, { passive: true });
+
+// ── Mobile hamburger ──────────────────────────────────────
+const burger     = document.getElementById('nav-burger');
+const mobileMenu = document.getElementById('nav-mobile');
+
+function toggleMenu(force) {
+  const open = force !== undefined ? force : !burger.classList.contains('open');
+  burger.classList.toggle('open', open);
+  burger.setAttribute('aria-expanded', String(open));
+  mobileMenu.classList.toggle('open', open);
+  mobileMenu.setAttribute('aria-hidden', String(!open));
+  document.body.style.overflow = open ? 'hidden' : '';
+}
+
+burger.addEventListener('click', () => toggleMenu());
+
+// Close on any link click inside the drawer
+mobileMenu.querySelectorAll('a').forEach(a =>
+  a.addEventListener('click', () => toggleMenu(false))
+);
+
+// Close on outside tap
+document.addEventListener('click', e => {
+  if (mobileMenu.classList.contains('open') && !nav.contains(e.target)) {
+    toggleMenu(false);
+  }
+});
+
+// Close on Escape key
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && mobileMenu.classList.contains('open')) toggleMenu(false);
+});
 
 // ── Scroll reveal ─────────────────────────────────────────
 const revealEls = document.querySelectorAll('.reveal, .stagger');

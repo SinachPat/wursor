@@ -1,0 +1,27 @@
+{
+  "name": "@originmain/multiplayer",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@originmain/origin-graph": "workspace:*",
+    "zod": "^3.0.0"
+  },
+  "peerDependencies": {
+    "@liveblocks/client": "^2.0.0",
+    "@liveblocks/react": "^2.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@liveblocks/client": { "optional": true },
+    "@liveblocks/react": { "optional": true }
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

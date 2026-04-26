@@ -1,0 +1,20 @@
+{
+  "name": "@originmain/platform",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@originmain/origin-graph": "workspace:*",
+    "@originmain/design-language": "workspace:*",
+    "zod": "^3.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}
