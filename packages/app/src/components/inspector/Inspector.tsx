@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useCanvas } from '@/store/canvas';
-import { useArtboards } from '@/hooks/useArtboards';
-import { useDiff } from '@/hooks/useDiff';
-import { ARTBOARD_SNAPSHOTS } from '@/data/artboard-snapshots';
-import type { DiffResult, PropChange } from '@originmain/diff-engine';
-import type { Artboard } from '@originmain/origin-graph';
+import { useHistory } from '@/store/history';
+import { useArtboards, patchArtboard } from '@/hooks/useArtboards';
+import { useDiffs } from '@/hooks/useDiffs';
+import { useQueryClient } from '@tanstack/react-query';
+import type { PropChange } from '@originmain/diff-engine';
+import type { Artboard, IntentDiff } from '@originmain/origin-graph';
 
 const TYPE_COLORS: Record<string, string> = {
   s: '#7DD3A8',
@@ -30,11 +31,11 @@ const T = {
 };
 
 export function Inspector() {
-  const { selectedArtboardId, workspaceId, projectId } = useCanvas();
+  const { selectedArtboardId, liveArtboardIds, workspaceId, projectId } = useCanvas();
   const [tab, setTab] = useState<TabId>('props');
-  const diffResult = useDiff(selectedArtboardId);
   const { rawArtboards } = useArtboards(workspaceId ?? undefined, projectId ?? undefined);
   const selectedArtboard = rawArtboards.find((ab) => ab.id === selectedArtboardId) ?? null;
+  const isLive = selectedArtboardId ? liveArtboardIds.has(selectedArtboardId) : false;
 
   return (
     <div
@@ -50,13 +51,7 @@ export function Inspector() {
       }}
     >
       {/* Tab bar */}
-      <div
-        style={{
-          display: 'flex',
-          borderBottom: `1px solid ${T.border}`,
-          flexShrink: 0,
-        }}
-      >
+      <div style={{ display: 'flex', borderBottom: `1px solid ${T.border}`, flexShrink: 0 }}>
         {(['props', 'diff', 'graph'] as TabId[]).map((t) => (
           <button
             key={t}
@@ -109,10 +104,9 @@ export function Inspector() {
             </span>
           </div>
         ) : tab === 'props' ? (
-          <PropsTab artboard={selectedArtboard} />
-
+          <PropsTab artboard={selectedArtboard} workspaceId={workspaceId} projectId={projectId} />
         ) : tab === 'diff' ? (
-          <DiffTab artboardId={selectedArtboardId} diffResult={diffResult} />
+          <DiffTab artboardId={selectedArtboardId} />
         ) : (
           <Section label="Origin Graph">
             <GraphNode label="DashboardCard" depth={0} isRoot />
@@ -144,9 +138,14 @@ export function Inspector() {
           flexShrink: 0,
         }}
       >
-        <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981', flexShrink: 0 }} />
+        <div style={{
+          width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+          background: isLive ? '#10B981' : 'rgba(255,255,255,0.15)',
+          boxShadow: isLive ? '0 0 6px rgba(16,185,129,0.6)' : 'none',
+          transition: 'background 0.3s, box-shadow 0.3s',
+        }} />
         <span style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: '0.5625rem', color: 'rgba(255,255,255,0.45)' }}>
-          Live render connected
+          {isLive ? 'Live render connected' : selectedArtboardId ? 'No render — set URL in Props' : 'No artboard selected'}
         </span>
         <span style={{ marginLeft: 'auto', fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: '0.5625rem', color: 'rgba(255,255,255,0.22)' }}>
           {selectedArtboard
@@ -159,24 +158,48 @@ export function Inspector() {
 }
 
 /* ── Props tab ────────────────────────────────────────────── */
-function PropsTab({ artboard }: { artboard: Artboard | null }) {
+function PropsTab({
+  artboard,
+  workspaceId,
+  projectId,
+}: {
+  artboard: Artboard | null;
+  workspaceId: string | null;
+  projectId: string | null;
+}) {
+  const queryClient = useQueryClient();
+  const [editingUrl, setEditingUrl] = useState(false);
+  const [urlDraft, setUrlDraft] = useState('');
+
+  const saveRenderUrl = useCallback(async () => {
+    if (!artboard) return;
+    const { renderUrl: _removed, ...rest } = artboard.metadata_jsonb;
+    const meta: Record<string, unknown> = urlDraft.trim()
+      ? { ...rest, renderUrl: urlDraft.trim() }
+      : { ...rest };
+    try {
+      await patchArtboard(artboard.id, { metadata_jsonb: meta });
+      queryClient.invalidateQueries({ queryKey: ['artboards', workspaceId, projectId ?? undefined] });
+    } catch (e) {
+      console.error('[Inspector] patch renderUrl failed', e);
+    }
+    setEditingUrl(false);
+  }, [artboard, urlDraft, workspaceId, projectId, queryClient]);
+
   if (!artboard) return null;
 
   const meta = artboard.metadata_jsonb;
-
   const N = TYPE_COLORS['n']!;
   const B = TYPE_COLORS['b']!;
   const S = TYPE_COLORS['s']!;
 
-  // Extract canvas geometry
   const canvasProps: Array<{ key: string; val: string; color: string }> = [
-    { key: 'x',      val: String(meta['x']      ?? 0),   color: N },
-    { key: 'y',      val: String(meta['y']      ?? 0),   color: N },
-    { key: 'width',  val: String(meta['width']  ?? 0),   color: N },
-    { key: 'height', val: String(meta['height'] ?? 0),   color: N },
+    { key: 'x',      val: String(meta['x']      ?? 0), color: N },
+    { key: 'y',      val: String(meta['y']      ?? 0), color: N },
+    { key: 'width',  val: String(meta['width']  ?? 0), color: N },
+    { key: 'height', val: String(meta['height'] ?? 0), color: N },
   ];
 
-  // Any extra metadata keys beyond the canvas geometry
   const reservedKeys = new Set(['x', 'y', 'width', 'height', 'renderUrl']);
   const extraProps = Object.entries(meta)
     .filter(([k]) => !reservedKeys.has(k))
@@ -187,7 +210,7 @@ function PropsTab({ artboard }: { artboard: Artboard | null }) {
       return { key: k, val, color };
     });
 
-  const renderUrl = typeof meta['renderUrl'] === 'string' ? meta['renderUrl'] as string : null;
+  const renderUrl = typeof meta['renderUrl'] === 'string' ? meta['renderUrl'] as string : '';
 
   return (
     <>
@@ -201,17 +224,80 @@ function PropsTab({ artboard }: { artboard: Artboard | null }) {
           <HSep />
         </>
       )}
+
       <Section label="Canvas">
         {canvasProps.map(({ key, val, color }) => (
           <PropRow key={key} label={key} value={val} color={color} />
         ))}
       </Section>
       <HSep />
+
       <Section label="Render Target">
-        <PropRow label="name"   value={artboard.name}                     color="#7EB8FF" />
-        <PropRow label="status" value={renderUrl ? 'connected' : 'none'}  color={renderUrl ? '#7DD3A8' : 'rgba(255,255,255,0.28)'} />
-        {renderUrl && <PropRow label="url" value={renderUrl} color="#7DD3A8" />}
-        <PropRow label="id"     value={artboard.id.slice(0, 8) + '…'}     color="rgba(255,255,255,0.28)" />
+        <PropRow label="name" value={artboard.name} color="#7EB8FF" />
+        <PropRow label="id"   value={artboard.id.slice(0, 8) + '…'} color="rgba(255,255,255,0.28)" />
+
+        {/* renderUrl — inline editable */}
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: editingUrl ? 6 : 0 }}>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.625rem', color: T.key }}>
+              url
+            </span>
+            <button
+              onClick={() => { setUrlDraft(renderUrl); setEditingUrl(true); }}
+              style={{
+                fontSize: '0.5rem', fontFamily: "'JetBrains Mono', monospace",
+                background: 'none', border: 'none', color: T.accent,
+                cursor: 'pointer', padding: 0, letterSpacing: '0.06em',
+                display: editingUrl ? 'none' : 'block',
+              }}
+            >
+              {renderUrl ? 'edit' : '+ set'}
+            </button>
+          </div>
+
+          {editingUrl ? (
+            <div style={{ display: 'flex', gap: 4 }}>
+              <input
+                autoFocus
+                value={urlDraft}
+                onChange={e => setUrlDraft(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') void saveRenderUrl();
+                  if (e.key === 'Escape') setEditingUrl(false);
+                }}
+                placeholder="http://localhost:3000"
+                style={{
+                  flex: 1, fontSize: '0.5875rem', fontFamily: "'JetBrains Mono', monospace",
+                  background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: 5, padding: '4px 8px', color: 'rgba(255,255,255,0.85)',
+                  outline: 'none',
+                }}
+              />
+              <button
+                onClick={() => void saveRenderUrl()}
+                style={{
+                  fontSize: '0.5625rem', fontFamily: "'JetBrains Mono', monospace",
+                  background: T.accent, border: 'none', borderRadius: 5,
+                  color: '#fff', padding: '4px 8px', cursor: 'pointer', flexShrink: 0,
+                }}
+              >
+                ✓
+              </button>
+            </div>
+          ) : renderUrl ? (
+            <span style={{
+              fontFamily: "'JetBrains Mono', monospace", fontSize: '0.625rem',
+              color: '#7DD3A8', overflow: 'hidden', textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap', display: 'block', maxWidth: '100%',
+            }}>
+              {renderUrl}
+            </span>
+          ) : (
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.625rem', color: 'rgba(255,255,255,0.18)' }}>
+              not connected
+            </span>
+          )}
+        </div>
       </Section>
     </>
   );
@@ -272,32 +358,9 @@ function PropRow({ label, value, color }: { label: string; value: string; color:
 
 function GraphNode({ label, depth, isRoot }: { label: string; depth: number; isRoot?: boolean }) {
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6,
-        paddingLeft: depth * 14,
-        marginBottom: 6,
-      }}
-    >
-      <div
-        style={{
-          width: 6,
-          height: 6,
-          borderRadius: '50%',
-          background: isRoot ? T.accent : 'rgba(255,255,255,0.18)',
-          flexShrink: 0,
-        }}
-      />
-      <span
-        style={{
-          fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-          fontSize: '0.625rem',
-          color: isRoot ? T.accent : 'rgba(255,255,255,0.5)',
-          letterSpacing: '-0.01em',
-        }}
-      >
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingLeft: depth * 14, marginBottom: 6 }}>
+      <div style={{ width: 6, height: 6, borderRadius: '50%', background: isRoot ? T.accent : 'rgba(255,255,255,0.18)', flexShrink: 0 }} />
+      <span style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: '0.625rem', color: isRoot ? T.accent : 'rgba(255,255,255,0.5)', letterSpacing: '-0.01em' }}>
         {label}
       </span>
     </div>
@@ -309,61 +372,128 @@ function HSep() {
 }
 
 /* ── Diff tab ─────────────────────────────────────────────── */
-function DiffTab({
-  artboardId,
-  diffResult,
-}: {
-  artboardId: string | null;
-  diffResult: DiffResult | null;
-}) {
-  if (!artboardId || !diffResult) {
+function DiffTab({ artboardId }: { artboardId: string | null }) {
+  const { stacks } = useHistory();
+  const { diffs, createDiff, isLoading } = useDiffs(artboardId);
+
+  const artboardHistory = artboardId ? (stacks[artboardId] ?? { past: [], future: [] }) : { past: [], future: [] };
+  const pendingChanges: PropChange[] = artboardHistory.past.flatMap(e => e.changes);
+  const hasChanges = pendingChanges.length > 0;
+
+  const exportDiff = useCallback(() => {
+    if (!artboardId || !hasChanges) return;
+    createDiff.mutate({
+      artboard_id: artboardId,
+      changes_jsonb: { propChanges: pendingChanges, styleChanges: [] },
+      summary: '',
+      status: 'DRAFT',
+    });
+  }, [artboardId, pendingChanges, hasChanges, createDiff]);
+
+  if (!artboardId) {
     return (
       <Section label="Intent Diff">
-        <span style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: '0.625rem', color: 'rgba(255,255,255,0.22)' }}>
-          No diff available
+        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.625rem', color: 'rgba(255,255,255,0.22)' }}>
+          No artboard selected
         </span>
       </Section>
     );
   }
 
-  const { diff } = diffResult;
-  const snapshots = ARTBOARD_SNAPSHOTS[artboardId];
-  const filename = snapshots?.after.filePath ?? `${diff.name}.tsx`;
-  const allChanges = [...diff.propChanges, ...diff.styleChanges];
-  const hunkCount = allChanges.filter(c => c.changeType !== 'unchanged').length;
-
   return (
-    <Section label="Intent Diff">
-      <div
-        style={{
-          fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-          fontSize: '0.5875rem',
-          color: 'rgba(255,255,255,0.28)',
-          marginBottom: 10,
-          letterSpacing: '-0.01em',
-        }}
-      >
-        {filename} · {hunkCount} change{hunkCount !== 1 ? 's' : ''}
+    <>
+      {/* Pending local changes */}
+      <Section label={`Pending · ${hasChanges ? pendingChanges.filter(c => c.changeType !== 'unchanged').length : 0} changes`}>
+        {hasChanges ? (
+          <>
+            {pendingChanges
+              .filter(c => c.changeType !== 'unchanged')
+              .map((change, i) => (
+                <DiffChangeRow key={i} change={change} />
+              ))}
+            <button
+              onClick={exportDiff}
+              disabled={createDiff.isPending}
+              style={{
+                marginTop: 10, width: '100%',
+                fontFamily: "'JetBrains Mono', monospace", fontSize: '0.5875rem',
+                background: T.accent, border: 'none', borderRadius: 6,
+                color: '#fff', padding: '7px 0', cursor: createDiff.isPending ? 'wait' : 'pointer',
+                letterSpacing: '0.04em', opacity: createDiff.isPending ? 0.6 : 1,
+                transition: 'opacity 0.15s',
+              }}
+            >
+              {createDiff.isPending ? 'Exporting…' : 'Export diff →'}
+            </button>
+            {createDiff.isError && (
+              <span style={{ fontSize: '0.5rem', color: '#FF8080', fontFamily: 'monospace', display: 'block', marginTop: 4 }}>
+                Export failed — try again
+              </span>
+            )}
+          </>
+        ) : (
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.625rem', color: 'rgba(255,255,255,0.22)' }}>
+            No pending changes
+          </span>
+        )}
+      </Section>
+
+      <HSep />
+
+      {/* Saved diffs from DB */}
+      <Section label="Exported">
+        {isLoading ? (
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.625rem', color: 'rgba(255,255,255,0.22)' }}>
+            Loading…
+          </span>
+        ) : diffs.length === 0 ? (
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.625rem', color: 'rgba(255,255,255,0.22)' }}>
+            No exported diffs yet
+          </span>
+        ) : (
+          diffs.map(d => <SavedDiffRow key={d.id} diff={d} />)
+        )}
+      </Section>
+    </>
+  );
+}
+
+const STATUS_COLOR: Record<string, string> = {
+  DRAFT:    '#FFBA7B',
+  REVIEWED: '#7EB8FF',
+  APPLIED:  '#7DD3A8',
+  REJECTED: '#FF8080',
+};
+
+function SavedDiffRow({ diff }: { diff: IntentDiff }) {
+  const changes = diff.changes_jsonb as { propChanges?: PropChange[]; styleChanges?: PropChange[] } | null;
+  const count = (changes?.propChanges?.length ?? 0) + (changes?.styleChanges?.length ?? 0);
+  const color = STATUS_COLOR[diff.status] ?? T.dim;
+  return (
+    <div style={{ marginBottom: 8, padding: '6px 8px', background: 'rgba(255,255,255,0.025)', borderRadius: 6 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.5625rem', color }}>
+          {diff.status}
+        </span>
+        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.5rem', color: 'rgba(255,255,255,0.22)' }}>
+          {count} change{count !== 1 ? 's' : ''}
+        </span>
       </div>
-      {allChanges.map((change, i) => (
-        <DiffChangeRow key={i} change={change} />
-      ))}
-      {allChanges.length === 0 && (
-        <span style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: '0.625rem', color: 'rgba(255,255,255,0.22)' }}>
-          No changes detected
+      {diff.summary && (
+        <span style={{ fontFamily: 'sans-serif', fontSize: '0.625rem', color: 'rgba(255,255,255,0.45)', lineHeight: 1.4, display: 'block' }}>
+          {diff.summary}
         </span>
       )}
-    </Section>
+    </div>
   );
 }
 
 function DiffChangeRow({ change }: { change: PropChange }) {
-  const isRemoved = change.changeType === 'removed';
-  const isAdded   = change.changeType === 'added';
+  const isRemoved  = change.changeType === 'removed';
+  const isAdded    = change.changeType === 'added';
   const isModified = change.changeType === 'modified';
 
   const rows: Array<{ op: 'del' | 'add'; text: string }> = [];
-
   if (isModified) {
     rows.push({ op: 'del', text: `− ${change.key}: ${change.before}` });
     rows.push({ op: 'add', text: `+ ${change.key}: ${change.after}` });

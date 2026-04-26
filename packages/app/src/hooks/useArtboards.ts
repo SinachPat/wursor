@@ -11,12 +11,6 @@ export interface CanvasArtboard {
   renderUrl?: string;
 }
 
-const DEMO_ARTBOARDS: CanvasArtboard[] = [
-  { id: 'dashboard-card', label: 'DashboardCard', x: 120,  y: 100, width: 280, height: 200 },
-  { id: 'user-profile',   label: 'UserProfile',   x: 460,  y: 100, width: 200, height: 260 },
-  { id: 'nav-sidebar',    label: 'NavSidebar',    x: 120,  y: 360, width: 200, height: 340 },
-  { id: 'data-table',     label: 'DataTable',     x: 380,  y: 380, width: 420, height: 280 },
-];
 
 function toCanvasArtboard(ab: Artboard): CanvasArtboard | null {
   const meta = ab.metadata_jsonb;
@@ -45,6 +39,23 @@ async function fetchArtboards(workspaceId: string, projectId?: string): Promise<
   return { rows, canvas: rows.map(toCanvasArtboard).filter((ab): ab is CanvasArtboard => ab !== null) };
 }
 
+/** PATCH an artboard (name and/or metadata_jsonb). */
+export async function patchArtboard(
+  id: string,
+  patch: { name?: string; metadata_jsonb?: Record<string, unknown> },
+): Promise<Artboard> {
+  const res = await fetch(`/api/artboards/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error ?? `Patch failed: ${res.status}`);
+  }
+  return res.json() as Promise<Artboard>;
+}
+
 /** Create a new artboard via POST /api/artboards and invalidate the cache. */
 export async function createArtboardMutation(
   body: InsertArtboard,
@@ -70,8 +81,7 @@ export function useArtboards(workspaceId: string | undefined, projectId?: string
   });
 
   const canvasArtboards = query.data?.canvas ?? [];
-  // Show demo artboards while loading or when workspace/project has no artboards yet.
-  const artboards = canvasArtboards.length === 0 ? DEMO_ARTBOARDS : canvasArtboards;
+  const artboards = canvasArtboards;
 
   return {
     artboards,

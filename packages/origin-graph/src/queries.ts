@@ -12,10 +12,13 @@ import type {
   DesignLanguageFile,
   AgentSession,
   TeamMember,
+  Project,
   InsertArtboard,
   InsertOrigin,
   InsertIntentDiff,
   InsertAgentSession,
+  InsertTeamMember,
+  InsertProject,
   DiffStatus,
   ArtboardAncestry,
 } from './types.js';
@@ -88,6 +91,29 @@ export async function createArtboard(db: DbClient, row: InsertArtboard): Promise
     .single() as Promise<{ data: Artboard; error: DbError | null }>);
   if (error) throw new Error(error.message);
   return data;
+}
+
+export async function updateArtboard(
+  db: DbClient,
+  id: string,
+  patch: Partial<InsertArtboard>,
+): Promise<Artboard> {
+  const { data, error } = await (db
+    .from('artboards')
+    .update(patch)
+    .eq('id', id)
+    .select()
+    .single() as Promise<{ data: Artboard; error: DbError | null }>);
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function deleteArtboard(db: DbClient, id: string): Promise<void> {
+  const { error } = await (db
+    .from('artboards')
+    .delete()
+    .eq('id', id) as unknown as Promise<{ data: unknown; error: DbError | null }>);
+  if (error) throw new Error(error.message);
 }
 
 export async function getArtboardAncestors(db: DbClient, artboardId: string): Promise<ArtboardAncestry[]> {
@@ -216,4 +242,87 @@ export async function getTeamMembers(db: DbClient, workspaceId: string): Promise
     .eq('workspace_id', workspaceId) as unknown as Promise<{ data: TeamMember[]; error: DbError | null }>);
   if (error) throw new Error(error.message);
   return data;
+}
+
+export async function addTeamMember(db: DbClient, row: InsertTeamMember): Promise<TeamMember> {
+  const { data, error } = await (db
+    .from('team_members')
+    .insert(row)
+    .select()
+    .single() as Promise<{ data: TeamMember; error: DbError | null }>);
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function removeTeamMember(
+  db: DbClient,
+  workspaceId: string,
+  userId: string,
+): Promise<void> {
+  const { error } = await (db
+    .from('team_members')
+    .delete()
+    .eq('workspace_id', workspaceId)
+    .eq('user_id', userId) as unknown as Promise<{ data: unknown; error: DbError | null }>);
+  if (error) throw new Error(error.message);
+}
+
+export async function updateWorkspace(
+  db: DbClient,
+  id: string,
+  patch: { name?: string },
+): Promise<Workspace> {
+  const { data, error } = await (db
+    .from('workspaces')
+    .update(patch)
+    .eq('id', id)
+    .select()
+    .single() as Promise<{ data: Workspace; error: DbError | null }>);
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+// ── Project queries ───────────────────────────────────────────────────────────
+
+export async function getProject(db: DbClient, id: string): Promise<Project> {
+  const { data, error } = await (db
+    .from('projects')
+    .select('*')
+    .eq('id', id)
+    .single() as Promise<{ data: Project; error: DbError | null }>);
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function createProject(db: DbClient, row: InsertProject): Promise<Project> {
+  const { data, error } = await (db
+    .from('projects')
+    .insert(row)
+    .select()
+    .single() as Promise<{ data: Project; error: DbError | null }>);
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function updateProject(
+  db: DbClient,
+  id: string,
+  patch: Partial<InsertProject>,
+): Promise<Project> {
+  const { data, error } = await (db
+    .from('projects')
+    .update(patch)
+    .eq('id', id)
+    .select()
+    .single() as Promise<{ data: Project; error: DbError | null }>);
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function deleteProject(db: DbClient, id: string): Promise<void> {
+  const { error } = await (db
+    .from('projects')
+    .delete()
+    .eq('id', id) as unknown as Promise<{ data: unknown; error: DbError | null }>);
+  if (error) throw new Error(error.message);
 }

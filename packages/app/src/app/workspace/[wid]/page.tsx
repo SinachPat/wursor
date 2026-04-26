@@ -66,18 +66,33 @@ export default async function WorkspacePage({ params }: { params: Promise<{ wid:
                 : `${projects.length} project${projects.length !== 1 ? 's' : ''}`}
             </p>
           </div>
-          <Link href={`/workspace/${wid}/project/new`} style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            background: '#0A0A0A', color: '#FFFFFF',
-            fontSize: '0.875rem', fontWeight: 600,
-            padding: '9px 18px', borderRadius: 9,
-            textDecoration: 'none', letterSpacing: '-0.01em',
-          }}>
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
-            </svg>
-            New project
-          </Link>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <Link href={`/workspace/${wid}/settings`} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              background: 'transparent', color: '#71717A',
+              fontSize: '0.875rem', fontWeight: 500,
+              padding: '9px 16px', borderRadius: 9,
+              textDecoration: 'none', border: '1px solid rgba(0,0,0,0.1)',
+            }}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <circle cx="7" cy="7" r="2" stroke="currentColor" strokeWidth="1.4"/>
+                <path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.93 2.93l1.06 1.06M10.01 10.01l1.06 1.06M2.93 11.07l1.06-1.06M10.01 3.99l1.06-1.06" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+              </svg>
+              Settings
+            </Link>
+            <Link href={`/workspace/${wid}/project/new`} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              background: '#0A0A0A', color: '#FFFFFF',
+              fontSize: '0.875rem', fontWeight: 600,
+              padding: '9px 18px', borderRadius: 9,
+              textDecoration: 'none', letterSpacing: '-0.01em',
+            }}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+              </svg>
+              New project
+            </Link>
+          </div>
         </div>
 
         {/* Empty state */}

@@ -126,7 +126,10 @@
       "Bash(mkdir -p \"/Users/USER/Desktop/originmain/packages/app/src/app/workspace/[wid]/project/[pid]\")",
       "Bash(git -C /Users/USER/Desktop/originmain log --oneline --follow -- packages/origin-graph/migrations/002_artboard_ancestry.sql packages/origin-graph/migrations/003_rls_policies.sql packages/origin-graph/migrations/004_add_notes_to_diffs.sql)",
       "Bash(git -C /Users/USER/Desktop/originmain diff --stat HEAD)",
-      "Bash(git -C /Users/USER/Desktop/originmain status --short)"
+      "Bash(git -C /Users/USER/Desktop/originmain status --short)",
+      "Bash(mkdir -p /Users/USER/Desktop/originmain/packages/app/src/app/api/workspace/\\\\[id\\\\]/tokens)",
+      "Bash(mkdir -p /Users/USER/Desktop/originmain/packages/app/src/app/api/workspace/\\\\[id\\\\]/projects/\\\\[pid\\\\])",
+      "Bash(mkdir -p /Users/USER/Desktop/originmain/packages/app/src/app/api/workspace/\\\\[id\\\\]/invite)"
     ]
   }
 }

@@ -248,4 +248,84 @@ Actual `createClient` / `createRoomContext` calls go in `packages/app/src/lib/li
 
 ---
 
-*Last updated: 2026-04-26 after Layers 9–10 foundation completion*
+---
+
+## Product Bug Audit (2026-04-26) — Work In Progress
+
+The following is a second-pass audit of all real product gaps, independent of layer status. These are being worked on in the current session.
+
+### ✅ Completed — Session 1
+- `.env.example` fixed: `CLERK_PUBLISHABLE_KEY` → `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, added `AGENT_BRIDGE_SECRET`, `GITHUB_WEBHOOK_SECRET`, `INTERCOM_WEBHOOK_SECRET`
+- `project_id` added to `ArtboardSchema` in `types.ts` and `getArtboards` query
+- `createArtboardMutation` exported from `useArtboards.ts`, used in `Canvas.tsx` artboard tool
+- `useArtboards` returns `rawArtboards: Artboard[]` (full DB rows) alongside canvas-mapped shapes
+- Inspector props tab now shows real `metadata_jsonb` fields from selected artboard
+- ArtboardNavigator shows real artboard names (not hardcoded FILE_PATHS)
+- Canvas keyboard shortcuts: V/H/A/Z for tools, Escape to cancel
+- All 4 error boundary files created (global, workspaces, workspace, canvas)
+- Design Language upload UI in workspace page
+- Webhook `project_id: null` placeholder added (awaiting full project param support)
+- `PATCH /api/artboards/[id]` + `DELETE /api/artboards/[id]` + origin-graph helpers
+- `POST /api/workspace/[id]/tokens` — workspace token issuance for IDE integration
+- `WorkspaceCard.tsx` + `ProjectCard.tsx` extracted as `'use client'` components → fixed server-side exception on breadcrumb click
+
+### ✅ Completed — Session 2 (2026-04-26)
+- **Server-side crash fixed**: `workspaces/page.tsx` and `workspace/[wid]/page.tsx` confirmed using `WorkspaceCard`/`ProjectCard` client components (no `onMouseEnter` in server components)
+- **Inspector fully rewired**: removed `useDiff`/`ARTBOARD_SNAPSHOTS` hardcoded data; now uses `useDiffs` (real DB diffs) + `useHistory` (pending local changes)
+- **Export Diff button**: Inspector Diff tab shows pending `PropChange[]` from history store with "Export diff →" button that calls `POST /api/diffs`
+- **`renderUrl` inline editor**: Inspector Props tab has inline input for `renderUrl`; saves via `PATCH /api/artboards/[id]`; `patchArtboard()` added to `useArtboards.ts`
+- **Inspector status bar**: now reads `liveArtboardIds` from canvas store — shows pulsing green dot when live render connected, grey + hint when not
+- **Empty canvas state**: removed `DEMO_ARTBOARDS` fallback from `useArtboards.ts`; Canvas shows dashed hint "Press A to create an artboard" when empty
+- **Zone tool drag preview**: Canvas draws live dashed rectangle + dimension label during zone drag; cleans up on mouse-up
+- **Workspace settings page**: `GET+PATCH /api/workspace/[id]`, `/workspace/[wid]/settings` page + `WorkspaceSettingsForm` client component (rename, IDE token issuance with full config snippets, danger zone)
+- **Settings link in workspace page**: gear icon button added next to "New project"
+
+### 🔧 Remaining — In Order of Priority
+
+**CRITICAL** — all done ✅
+
+**HIGH**
+- [x] Replace `useDiff.ts` with real `useDiffs.ts` ✅
+- [x] `renderUrl` edit UI ✅
+- [x] Export Diff button ✅
+- [x] Zone tool canvas drag preview ✅
+- [x] Empty canvas state ✅
+- [x] Workspace settings page ✅
+- [ ] Artboard content fallback — Artboard.tsx still shows UUID as a placeholder title when no fiber tree is connected
+
+**MEDIUM**
+- [ ] `handleComponentSelected` → canvas `selectComponent()` → Inspector shows selected component's fiber props
+- [ ] Graph tab wired to real fiber tree (currently shows hardcoded DashboardCard tree)
+- [ ] Navigator files tree selectable + artboard delete/rename actions
+- [ ] Artboard drag-to-move (label drag → `PATCH /api/artboards/[id]` with new x/y in metadata_jsonb)
+- [ ] Artboard delete (trash icon → confirm → `DELETE /api/artboards/[id]`)
+- [ ] Artboard rename (double-click label → inline edit → PATCH name)
+- [ ] Viewport persistence to localStorage
+- [ ] Webhook `project_id` from `?project=` query param
+- [ ] `@anthropic-ai/sdk` upgrade to ≥0.58 for `thinking: {type: 'adaptive'}`
+
+**LOW**
+- [ ] Project settings page
+- [ ] Team invitation UI (in workspace settings — `POST /api/workspace/[id]/invite` exists)
+- [ ] Drift Report UI (in Inspector AI section)
+- [ ] Cross-Artboard Query UI (in navigator)
+- [ ] Vitest test files (diff-engine + origin-graph)
+- [ ] Multiplayer basic Liveblocks wiring
+- [ ] Plugin system stub page
+- [ ] Zone tool: after drag, show prompt input → `POST /api/ai/completion-zone` with bounds
+
+### Key Technical Notes for Next Agent
+
+**Artboard.tsx and component selection:**
+The `handleComponentSelected` callback inside `Artboard.tsx` receives the clicked `FiberNode` (from `LiveArtboard`). It needs to call `useCanvas.getState().selectComponent(node.id, node)`. The Inspector's PropsTab should check `selectedComponentId`/`selectedComponentData` and show the fiber node's props when a component is selected (vs. showing artboard metadata when nothing is selected).
+
+**Artboard drag-to-move:**
+The `Artboard` component label area needs `onMouseDown` → tracks mouse delta → `PATCH /api/artboards/[id]` with `{ metadata_jsonb: { ...meta, x: newX, y: newY } }`. Use `patchArtboard(id, { metadata_jsonb: ... })` from `useArtboards.ts` then `queryClient.invalidateQueries`.
+
+**Zone tool completion:**
+After the zone drag ends (mouse-up), show a floating prompt input at the zone position. On submit → `POST /api/ai/completion-zone` with `{ artboard_id, bounds: {x,y,w,h}, prompt }`. Show result inline in the canvas.
+
+**`@anthropic-ai/sdk` upgrade path:**
+All 5 AI feature files in `packages/ai-layer/src/` have `// TODO: upgrade to adaptive thinking when SDK ≥0.58` comments. After `pnpm add @anthropic-ai/sdk@latest` in `packages/ai-layer`, replace the temperature-based calls with `thinking: {type: 'adaptive'}` on the `gateway.complete()` calls.
+
+*Last updated: 2026-04-26 — Session 2 complete*
