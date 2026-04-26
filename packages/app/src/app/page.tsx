@@ -1,9 +1,8 @@
+import { redirect } from 'next/navigation';
+
+// The marketing site lives at /marketing.html (static file in /public).
+// The Clerk middleware will intercept any unauthenticated visit to /canvas
+// and redirect to /sign-in, so we simply send everyone to the marketing page.
 export default function Home() {
-  return (
-    <main style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-      <p style={{ fontFamily: 'system-ui, sans-serif', color: '#888', fontSize: '0.875rem' }}>
-        Originmain — coming soon
-      </p>
-    </main>
-  );
+  redirect('/marketing.html');
 }

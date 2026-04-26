@@ -117,7 +117,9 @@
       "WebFetch(domain:simpleicons.org)",
       "WebFetch(domain:www.svgrepo.com)",
       "WebFetch(domain:worldvectorlogo.com)",
-      "Bash(pnpm --filter @originmain/app exec tsc --noEmit)"
+      "Bash(pnpm --filter @originmain/app exec tsc --noEmit)",
+      "Bash(mkdir -p /Users/USER/Desktop/originmain/packages/app/src/app/sign-in/\\\\[\\\\[...sign-in\\\\]\\\\])",
+      "Bash(mkdir -p /Users/USER/Desktop/originmain/packages/app/src/app/sign-up/\\\\[\\\\[...sign-up\\\\]\\\\])"
     ]
   }
 }

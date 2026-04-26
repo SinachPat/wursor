@@ -80,7 +80,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;}
 .nav-dd-item{display:flex;align-items:flex-start;gap:10px;padding:9px 10px;border-radius:var(--r-2);transition:background 0.1s;cursor:pointer;}
 .nav-dd-item:hover{background:var(--bg-muted);}
 .nav-dd-item.active{background:var(--teal-soft);}
-.nav-dd-icon{width:30px;height:30px;background:var(--teal-soft);border:1px solid var(--teal-mid);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;}
+.nav-dd-icon{width:30px;height:30px;background:var(--teal-soft);border:1px solid var(--teal-mid);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;color:var(--blue);}
 .nav-dd-icon.blue-icon{background:var(--blue-soft);border-color:var(--blue-mid);}
 .nav-dd-text{display:flex;flex-direction:column;}
 .nav-dd-name{font-size:0.8125rem;font-weight:600;color:var(--fg);letter-spacing:-0.01em;}
@@ -242,28 +242,28 @@ footer{background:#08080C;border-top:1px solid rgba(255,255,255,0.06);padding:72
         </a>
         <div class="nav-dropdown-menu">
           <a class="nav-dd-item" href="/features/live-artboard.html">
-            <div class="nav-dd-icon blue-icon">⬜</div>
+            <div class="nav-dd-icon blue-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1.5" y="2.5" width="11" height="9" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M5 6.5l1.8 2 1.2-1.6 1.4 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
             <div class="nav-dd-text"><span class="nav-dd-name">Live Artboard</span><span class="nav-dd-desc">Your app rendered live in the canvas</span></div>
           </a>
           <a class="nav-dd-item active" href="/features/origin-graph.html">
-            <div class="nav-dd-icon">◉</div>
+            <div class="nav-dd-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="2.5" r="1.5" fill="currentColor"/><circle cx="2.5" cy="11" r="1.5" fill="currentColor"/><circle cx="11.5" cy="11" r="1.5" fill="currentColor"/><path d="M6.2 3.8L3.2 9.6M7.8 3.8l3 5.8M3.8 11h6.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></div>
             <div class="nav-dd-text"><span class="nav-dd-name">◉ Origin Graph</span><span class="nav-dd-desc">Every component, indexed and queryable</span></div>
           </a>
           <a class="nav-dd-item" href="/features/intent-diff.html">
-            <div class="nav-dd-icon blue-icon">△</div>
+            <div class="nav-dd-icon blue-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1.5" y="4" width="6.5" height="7.5" rx="1.3" stroke="currentColor" stroke-width="1.3"/><rect x="6" y="2.5" width="6.5" height="7.5" rx="1.3" stroke="currentColor" stroke-width="1.3"/></svg></div>
             <div class="nav-dd-text"><span class="nav-dd-name">Intent Diff</span><span class="nav-dd-desc">Ship component-level diffs, not redlines</span></div>
           </a>
           <div class="nav-dd-sep"></div>
           <a class="nav-dd-item" href="/features/completion-zone.html">
-            <div class="nav-dd-icon blue-icon">◈</div>
+            <div class="nav-dd-icon blue-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><path d="M7 1.5L8.1 5.4 12 6.5l-3.9 1.1L7 11.5 5.9 7.6 2 6.5l3.9-1.1z"/><circle cx="11" cy="2.5" r="1" fill="currentColor" opacity="0.5"/></svg></div>
             <div class="nav-dd-text"><span class="nav-dd-name">Completion Zone</span><span class="nav-dd-desc">AI-filled design, constrained to your system</span></div>
           </a>
           <a class="nav-dd-item" href="/features/agent-bridge.html">
-            <div class="nav-dd-icon blue-icon">⇄</div>
+            <div class="nav-dd-icon blue-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 5h11M9.5 2.5l3 2.5-3 2.5"/><path d="M12.5 9h-11M4.5 6.5L1.5 9l3 2.5"/></svg></div>
             <div class="nav-dd-text"><span class="nav-dd-name">Agent Bridge</span><span class="nav-dd-desc">MCP channel to Cursor, Claude Code &amp; more</span></div>
           </a>
           <a class="nav-dd-item" href="/features/integrations.html">
-            <div class="nav-dd-icon blue-icon">🔗</div>
+            <div class="nav-dd-icon blue-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M5.5 8.5l3-3"/><path d="M3.8 6.8L2.8 7.8A2.5 2.5 0 006.3 11l1-1"/><path d="M10.2 7.2l1-1A2.5 2.5 0 007.7 3l-1 1"/></svg></div>
             <div class="nav-dd-text"><span class="nav-dd-name">Integrations</span><span class="nav-dd-desc">Linear, Slack, GitHub, Figma &amp; more</span></div>
           </a>
         </div>
@@ -499,9 +499,9 @@ footer{background:#08080C;border-top:1px solid rgba(255,255,255,0.06);padding:72
       <h2 class="d3">Change a token.<br>See all 47 components affected — instantly.</h2>
       <p class="subtitle">Because every design-token link is a first-class edge in the graph, changing <code style="font-family:var(--mono);font-size:0.85em;background:var(--bg-muted);padding:2px 6px;border-radius:4px;">--color-primary</code> immediately highlights every component downstream. No Storybook trawl. No grep. Just the answer.</p>
       <ul class="feat-pts">
-        <li><span class="feat-pt-icon">◉</span>Token edges are resolved at index time — the graph knows before you even ask.</li>
-        <li><span class="feat-pt-icon">◉</span>Affected nodes are ranked by depth: direct consumers first, transitive next.</li>
-        <li><span class="feat-pt-icon">◉</span>The result feeds directly into Intent Diff, so every PR ships with a complete blast-radius audit.</li>
+        <li><span class="feat-pt-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="2.5" r="1.5" fill="currentColor"/><circle cx="2.5" cy="11" r="1.5" fill="currentColor"/><circle cx="11.5" cy="11" r="1.5" fill="currentColor"/><path d="M6.2 3.8L3.2 9.6M7.8 3.8l3 5.8M3.8 11h6.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>Token edges are resolved at index time — the graph knows before you even ask.</li>
+        <li><span class="feat-pt-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="2.5" r="1.5" fill="currentColor"/><circle cx="2.5" cy="11" r="1.5" fill="currentColor"/><circle cx="11.5" cy="11" r="1.5" fill="currentColor"/><path d="M6.2 3.8L3.2 9.6M7.8 3.8l3 5.8M3.8 11h6.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>Affected nodes are ranked by depth: direct consumers first, transitive next.</li>
+        <li><span class="feat-pt-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="2.5" r="1.5" fill="currentColor"/><circle cx="2.5" cy="11" r="1.5" fill="currentColor"/><circle cx="11.5" cy="11" r="1.5" fill="currentColor"/><path d="M6.2 3.8L3.2 9.6M7.8 3.8l3 5.8M3.8 11h6.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>The result feeds directly into Intent Diff, so every PR ships with a complete blast-radius audit.</li>
       </ul>
       <a href="#" class="btn btn-primary">Request early access</a>
     </div>
@@ -574,9 +574,9 @@ footer{background:#08080C;border-top:1px solid rgba(255,255,255,0.06);padding:72
       <h2 class="d3">Not just a visualization.<br>A queryable API.</h2>
       <p class="subtitle">Every node in the graph is a structured JSON object accessible via REST or MCP tools. AI agents, CI pipelines, and custom tooling can query your entire component ecosystem programmatically — no scraping, no docs to keep in sync.</p>
       <ul class="feat-pts">
-        <li><span class="feat-pt-icon">◉</span>REST endpoints return nodes, edges, and subgraphs with fully typed results.</li>
-        <li><span class="feat-pt-icon">◉</span>MCP tools let AI agents query the graph via natural language through Agent Bridge.</li>
-        <li><span class="feat-pt-icon">◉</span>Completion Zone AI pulls the relevant graph neighborhood as context automatically — no manual prompt engineering.</li>
+        <li><span class="feat-pt-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="2.5" r="1.5" fill="currentColor"/><circle cx="2.5" cy="11" r="1.5" fill="currentColor"/><circle cx="11.5" cy="11" r="1.5" fill="currentColor"/><path d="M6.2 3.8L3.2 9.6M7.8 3.8l3 5.8M3.8 11h6.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>REST endpoints return nodes, edges, and subgraphs with fully typed results.</li>
+        <li><span class="feat-pt-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="2.5" r="1.5" fill="currentColor"/><circle cx="2.5" cy="11" r="1.5" fill="currentColor"/><circle cx="11.5" cy="11" r="1.5" fill="currentColor"/><path d="M6.2 3.8L3.2 9.6M7.8 3.8l3 5.8M3.8 11h6.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>MCP tools let AI agents query the graph via natural language through Agent Bridge.</li>
+        <li><span class="feat-pt-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="2.5" r="1.5" fill="currentColor"/><circle cx="2.5" cy="11" r="1.5" fill="currentColor"/><circle cx="11.5" cy="11" r="1.5" fill="currentColor"/><path d="M6.2 3.8L3.2 9.6M7.8 3.8l3 5.8M3.8 11h6.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>Completion Zone AI pulls the relevant graph neighborhood as context automatically — no manual prompt engineering.</li>
       </ul>
     </div>
     <div class="feat-vis feat-vis-dark reveal">
@@ -639,7 +639,7 @@ footer{background:#08080C;border-top:1px solid rgba(255,255,255,0.06);padding:72
         <span class="tech-tag">Persistence</span>
       </div>
       <div class="tech-card">
-        <div class="tech-icon">🔗</div>
+        <div class="tech-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M5.5 8.5l3-3"/><path d="M3.8 6.8L2.8 7.8A2.5 2.5 0 006.3 11l1-1"/><path d="M10.2 7.2l1-1A2.5 2.5 0 007.7 3l-1 1"/></svg></div>
         <h3>Typed edges</h3>
         <p>Three edge types — <code style="font-family:var(--mono);font-size:0.8em;background:var(--bg-muted);padding:1px 4px;border-radius:3px;">usage</code>, <code style="font-family:var(--mono);font-size:0.8em;background:var(--bg-muted);padding:1px 4px;border-radius:3px;">inheritance</code>, <code style="font-family:var(--mono);font-size:0.8em;background:var(--bg-muted);padding:1px 4px;border-radius:3px;">token</code> — are stored with directionality and metadata, making impact analysis a simple graph traversal rather than a heuristic search.</p>
         <span class="tech-tag">Data model</span>
@@ -670,19 +670,19 @@ footer{background:#08080C;border-top:1px solid rgba(255,255,255,0.06);padding:72
     </div>
     <div class="related-grid stagger">
       <a class="related-card" href="/features/live-artboard.html">
-        <div class="related-icon">⬜</div>
+        <div class="related-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1.5" y="2.5" width="11" height="9" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M5 6.5l1.8 2 1.2-1.6 1.4 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
         <h3>Live Artboard</h3>
         <p>The Fiber hook that powers Live Artboard is the same one feeding runtime usage data into Origin Graph. Both features share a single, lightweight injection.</p>
         <span class="related-link">Explore Live Artboard →</span>
       </a>
       <a class="related-card" href="/features/intent-diff.html">
-        <div class="related-icon">△</div>
+        <div class="related-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1.5" y="4" width="6.5" height="7.5" rx="1.3" stroke="currentColor" stroke-width="1.3"/><rect x="6" y="2.5" width="6.5" height="7.5" rx="1.3" stroke="currentColor" stroke-width="1.3"/></svg></div>
         <h3>Intent Diff</h3>
         <p>When Intent Diff calculates the blast radius of a change, it queries Origin Graph. The complete token and usage graph makes the diff semantically complete.</p>
         <span class="related-link">Explore Intent Diff →</span>
       </a>
       <a class="related-card" href="/features/completion-zone.html">
-        <div class="related-icon">◈</div>
+        <div class="related-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><path d="M7 1.5L8.1 5.4 12 6.5l-3.9 1.1L7 11.5 5.9 7.6 2 6.5l3.9-1.1z"/><circle cx="11" cy="2.5" r="1" fill="currentColor" opacity="0.5"/></svg></div>
         <h3>Completion Zone</h3>
         <p>Completion Zone AI pulls the relevant graph neighborhood as context before generating. Your design system constraints arrive as graph data — not a prompt you maintain.</p>
         <span class="related-link">Explore Completion Zone →</span>

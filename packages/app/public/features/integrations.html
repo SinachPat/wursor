@@ -81,7 +81,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;}
 .nav-dd-item{display:flex;align-items:flex-start;gap:10px;padding:9px 10px;border-radius:var(--r-2);transition:background 0.1s;cursor:pointer;}
 .nav-dd-item:hover{background:var(--bg-muted);}
 .nav-dd-item.current{background:var(--blue-soft);}
-.nav-dd-icon{width:30px;height:30px;background:var(--blue-soft);border:1px solid var(--blue-mid);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;}
+.nav-dd-icon{width:30px;height:30px;background:var(--blue-soft);border:1px solid var(--blue-mid);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;color:var(--blue);}
 .nav-dd-text{display:flex;flex-direction:column;}
 .nav-dd-name{font-size:0.8125rem;font-weight:600;color:var(--fg);letter-spacing:-0.01em;}
 .nav-dd-desc{font-size:0.6875rem;color:var(--fg-3);margin-top:1px;line-height:1.4;}
@@ -254,28 +254,28 @@ footer{background:#08080C;border-top:1px solid rgba(255,255,255,0.06);padding:72
         </a>
         <div class="nav-dropdown-menu">
           <a class="nav-dd-item" href="/features/live-artboard.html">
-            <div class="nav-dd-icon">⬜</div>
+            <div class="nav-dd-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1.5" y="2.5" width="11" height="9" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M5 6.5l1.8 2 1.2-1.6 1.4 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
             <div class="nav-dd-text"><span class="nav-dd-name">Live Artboard</span><span class="nav-dd-desc">Your app rendered live in the canvas</span></div>
           </a>
           <a class="nav-dd-item" href="/features/origin-graph.html">
-            <div class="nav-dd-icon">◉</div>
+            <div class="nav-dd-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="2.5" r="1.5" fill="currentColor"/><circle cx="2.5" cy="11" r="1.5" fill="currentColor"/><circle cx="11.5" cy="11" r="1.5" fill="currentColor"/><path d="M6.2 3.8L3.2 9.6M7.8 3.8l3 5.8M3.8 11h6.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></div>
             <div class="nav-dd-text"><span class="nav-dd-name">Origin Graph</span><span class="nav-dd-desc">Every component, indexed and queryable</span></div>
           </a>
           <a class="nav-dd-item" href="/features/intent-diff.html">
-            <div class="nav-dd-icon">△</div>
+            <div class="nav-dd-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1.5" y="4" width="6.5" height="7.5" rx="1.3" stroke="currentColor" stroke-width="1.3"/><rect x="6" y="2.5" width="6.5" height="7.5" rx="1.3" stroke="currentColor" stroke-width="1.3"/></svg></div>
             <div class="nav-dd-text"><span class="nav-dd-name">Intent Diff</span><span class="nav-dd-desc">Ship component-level diffs, not redlines</span></div>
           </a>
           <div class="nav-dd-sep"></div>
           <a class="nav-dd-item" href="/features/completion-zone.html">
-            <div class="nav-dd-icon">◈</div>
+            <div class="nav-dd-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><path d="M7 1.5L8.1 5.4 12 6.5l-3.9 1.1L7 11.5 5.9 7.6 2 6.5l3.9-1.1z"/><circle cx="11" cy="2.5" r="1" fill="currentColor" opacity="0.5"/></svg></div>
             <div class="nav-dd-text"><span class="nav-dd-name">Completion Zone</span><span class="nav-dd-desc">AI-filled design, constrained to your system</span></div>
           </a>
           <a class="nav-dd-item" href="/features/agent-bridge.html">
-            <div class="nav-dd-icon">⇄</div>
+            <div class="nav-dd-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 5h11M9.5 2.5l3 2.5-3 2.5"/><path d="M12.5 9h-11M4.5 6.5L1.5 9l3 2.5"/></svg></div>
             <div class="nav-dd-text"><span class="nav-dd-name">Agent Bridge</span><span class="nav-dd-desc">MCP channel to Cursor, Claude Code &amp; more</span></div>
           </a>
           <a class="nav-dd-item current" href="/features/integrations.html">
-            <div class="nav-dd-icon">🔗</div>
+            <div class="nav-dd-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M5.5 8.5l3-3"/><path d="M3.8 6.8L2.8 7.8A2.5 2.5 0 006.3 11l1-1"/><path d="M10.2 7.2l1-1A2.5 2.5 0 007.7 3l-1 1"/></svg></div>
             <div class="nav-dd-text"><span class="nav-dd-name">Integrations</span><span class="nav-dd-desc">Linear, Slack, GitHub, Figma &amp; more</span></div>
           </a>
         </div>
@@ -466,8 +466,8 @@ footer{background:#08080C;border-top:1px solid rgba(255,255,255,0.06);padding:72
       <p class="subtitle">When a PR is opened, Originmain receives the push event and immediately kicks off a component-level diff across the entire affected subtree. The result is posted back to the PR as a structured comment — no manual review step.</p>
       <ul class="feat-pts">
         <li><span class="feat-pt-icon">⚡</span>PR events trigger automatic diff computation the moment they are received.</li>
-        <li><span class="feat-pt-icon">◉</span>Branch tracking keeps the Origin Graph in sync with every push — not just merges.</li>
-        <li><span class="feat-pt-icon">⇄</span>Originmain posts a structured diff comment directly onto the GitHub PR for inline review.</li>
+        <li><span class="feat-pt-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="2.5" r="1.5" fill="currentColor"/><circle cx="2.5" cy="11" r="1.5" fill="currentColor"/><circle cx="11.5" cy="11" r="1.5" fill="currentColor"/><path d="M6.2 3.8L3.2 9.6M7.8 3.8l3 5.8M3.8 11h6.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>Branch tracking keeps the Origin Graph in sync with every push — not just merges.</li>
+        <li><span class="feat-pt-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 5h11M9.5 2.5l3 2.5-3 2.5"/><path d="M12.5 9h-11M4.5 6.5L1.5 9l3 2.5"/></svg></span>Originmain posts a structured diff comment directly onto the GitHub PR for inline review.</li>
       </ul>
       <a href="#" class="btn btn-blue">Connect GitHub</a>
     </div>
@@ -534,9 +534,9 @@ footer{background:#08080C;border-top:1px solid rgba(255,255,255,0.06);padding:72
       <h2 class="d3">Design changes update<br>the graph automatically.</h2>
       <p class="subtitle">Connect your Figma file and Originmain subscribes to every change. Design tokens, component definitions, and layout compositions are extracted and mapped directly into the Origin Graph — no manual export, no hand-off step.</p>
       <ul class="feat-pts">
-        <li><span class="feat-pt-icon">◈</span>Design tokens (color, spacing, typography) are extracted and kept in sync as you iterate in Figma.</li>
-        <li><span class="feat-pt-icon">⬜</span>Component library updates propagate to every artboard that references them — instantly.</li>
-        <li><span class="feat-pt-icon">△</span>Layout changes generate Intent Diffs that can be handed directly to the Agent Bridge.</li>
+        <li><span class="feat-pt-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><path d="M7 1.5L8.1 5.4 12 6.5l-3.9 1.1L7 11.5 5.9 7.6 2 6.5l3.9-1.1z"/><circle cx="11" cy="2.5" r="1" fill="currentColor" opacity="0.5"/></svg></span>Design tokens (color, spacing, typography) are extracted and kept in sync as you iterate in Figma.</li>
+        <li><span class="feat-pt-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1.5" y="2.5" width="11" height="9" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M5 6.5l1.8 2 1.2-1.6 1.4 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Component library updates propagate to every artboard that references them — instantly.</li>
+        <li><span class="feat-pt-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1.5" y="4" width="6.5" height="7.5" rx="1.3" stroke="currentColor" stroke-width="1.3"/><rect x="6" y="2.5" width="6.5" height="7.5" rx="1.3" stroke="currentColor" stroke-width="1.3"/></svg></span>Layout changes generate Intent Diffs that can be handed directly to the Agent Bridge.</li>
       </ul>
       <a href="#" class="btn btn-blue">Connect Figma</a>
     </div>
@@ -729,19 +729,19 @@ footer{background:#08080C;border-top:1px solid rgba(255,255,255,0.06);padding:72
     </div>
     <div class="related-grid stagger">
       <a class="related-card" href="/features/agent-bridge.html">
-        <div class="related-icon">⇄</div>
+        <div class="related-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 5h11M9.5 2.5l3 2.5-3 2.5"/><path d="M12.5 9h-11M4.5 6.5L1.5 9l3 2.5"/></svg></div>
         <h3>Agent Bridge</h3>
         <p>Cursor and Claude Code receive Origin diffs directly through the Agent Bridge MCP channel. Integrations are what keep the bridge fed with up-to-date component context.</p>
         <span class="related-link">Explore Agent Bridge →</span>
       </a>
       <a class="related-card" href="/features/intent-diff.html">
-        <div class="related-icon">△</div>
+        <div class="related-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1.5" y="4" width="6.5" height="7.5" rx="1.3" stroke="currentColor" stroke-width="1.3"/><rect x="6" y="2.5" width="6.5" height="7.5" rx="1.3" stroke="currentColor" stroke-width="1.3"/></svg></div>
         <h3>Intent Diff</h3>
         <p>GitHub pushes, Figma changes, and Linear milestones all trigger Intent Diff computations. Every integration event has a diff attached — automatically, with no manual review step.</p>
         <span class="related-link">Explore Intent Diff →</span>
       </a>
       <a class="related-card" href="/features/origin-graph.html">
-        <div class="related-icon">◉</div>
+        <div class="related-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="2.5" r="1.5" fill="currentColor"/><circle cx="2.5" cy="11" r="1.5" fill="currentColor"/><circle cx="11.5" cy="11" r="1.5" fill="currentColor"/><path d="M6.2 3.8L3.2 9.6M7.8 3.8l3 5.8M3.8 11h6.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></div>
         <h3>Origin Graph</h3>
         <p>Figma tokens, TypeScript types, and React Fiber data all flow into the Origin Graph through the integration layer, keeping your component index complete and current at all times.</p>
         <span class="related-link">Explore Origin Graph →</span>

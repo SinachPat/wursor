@@ -80,7 +80,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;}
 .nav-dd-item{display:flex;align-items:flex-start;gap:10px;padding:9px 10px;border-radius:var(--r-2);transition:background 0.1s;cursor:pointer;}
 .nav-dd-item:hover{background:var(--bg-muted);}
 .nav-dd-item.active{background:var(--amber-soft);}
-.nav-dd-icon{width:30px;height:30px;background:var(--blue-soft);border:1px solid var(--blue-mid);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;}
+.nav-dd-icon{width:30px;height:30px;background:var(--blue-soft);border:1px solid var(--blue-mid);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;color:var(--blue);}
 .nav-dd-icon.amber{background:var(--amber-soft);border-color:var(--amber-mid);}
 .nav-dd-text{display:flex;flex-direction:column;}
 .nav-dd-name{font-size:0.8125rem;font-weight:600;color:var(--fg);letter-spacing:-0.01em;}
@@ -281,28 +281,28 @@ footer{background:#08080C;border-top:1px solid rgba(255,255,255,0.06);padding:72
         </a>
         <div class="nav-dropdown-menu">
           <a class="nav-dd-item" href="/features/live-artboard.html">
-            <div class="nav-dd-icon">⬜</div>
+            <div class="nav-dd-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1.5" y="2.5" width="11" height="9" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M5 6.5l1.8 2 1.2-1.6 1.4 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
             <div class="nav-dd-text"><span class="nav-dd-name">Live Artboard</span><span class="nav-dd-desc">Your app rendered live in the canvas</span></div>
           </a>
           <a class="nav-dd-item" href="/features/origin-graph.html">
-            <div class="nav-dd-icon">◉</div>
+            <div class="nav-dd-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="2.5" r="1.5" fill="currentColor"/><circle cx="2.5" cy="11" r="1.5" fill="currentColor"/><circle cx="11.5" cy="11" r="1.5" fill="currentColor"/><path d="M6.2 3.8L3.2 9.6M7.8 3.8l3 5.8M3.8 11h6.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></div>
             <div class="nav-dd-text"><span class="nav-dd-name">Origin Graph</span><span class="nav-dd-desc">Every component, indexed and queryable</span></div>
           </a>
           <a class="nav-dd-item" href="/features/intent-diff.html">
-            <div class="nav-dd-icon">△</div>
+            <div class="nav-dd-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1.5" y="4" width="6.5" height="7.5" rx="1.3" stroke="currentColor" stroke-width="1.3"/><rect x="6" y="2.5" width="6.5" height="7.5" rx="1.3" stroke="currentColor" stroke-width="1.3"/></svg></div>
             <div class="nav-dd-text"><span class="nav-dd-name">Intent Diff</span><span class="nav-dd-desc">Ship component-level diffs, not redlines</span></div>
           </a>
           <div class="nav-dd-sep"></div>
           <a class="nav-dd-item" href="/features/completion-zone.html">
-            <div class="nav-dd-icon">◈</div>
+            <div class="nav-dd-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><path d="M7 1.5L8.1 5.4 12 6.5l-3.9 1.1L7 11.5 5.9 7.6 2 6.5l3.9-1.1z"/><circle cx="11" cy="2.5" r="1" fill="currentColor" opacity="0.5"/></svg></div>
             <div class="nav-dd-text"><span class="nav-dd-name">Completion Zone</span><span class="nav-dd-desc">AI-filled design, constrained to your system</span></div>
           </a>
           <a class="nav-dd-item active" href="/features/agent-bridge.html">
-            <div class="nav-dd-icon amber">⇄</div>
+            <div class="nav-dd-icon amber"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 5h11M9.5 2.5l3 2.5-3 2.5"/><path d="M12.5 9h-11M4.5 6.5L1.5 9l3 2.5"/></svg></div>
             <div class="nav-dd-text"><span class="nav-dd-name">Agent Bridge</span><span class="nav-dd-desc">MCP channel to Cursor, Claude Code &amp; more</span></div>
           </a>
           <a class="nav-dd-item" href="/features/integrations.html">
-            <div class="nav-dd-icon">🔗</div>
+            <div class="nav-dd-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M5.5 8.5l3-3"/><path d="M3.8 6.8L2.8 7.8A2.5 2.5 0 006.3 11l1-1"/><path d="M10.2 7.2l1-1A2.5 2.5 0 007.7 3l-1 1"/></svg></div>
             <div class="nav-dd-text"><span class="nav-dd-name">Integrations</span><span class="nav-dd-desc">Linear, Slack, GitHub, Figma &amp; more</span></div>
           </a>
         </div>
@@ -407,7 +407,7 @@ footer{background:#08080C;border-top:1px solid rgba(255,255,255,0.06);padding:72
             <div class="bridge-pulse"></div>
             <div class="bridge-pulse bridge-pulse-2"></div>
           </div>
-          <div class="bridge-icon">⇄</div>
+          <div class="bridge-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 5h11M9.5 2.5l3 2.5-3 2.5"/><path d="M12.5 9h-11M4.5 6.5L1.5 9l3 2.5"/></svg></div>
         </div>
         <div class="bridge-line-bottom"></div>
       </div>
@@ -422,7 +422,7 @@ footer{background:#08080C;border-top:1px solid rgba(255,255,255,0.06);padding:72
           <!-- Primary diff card -->
           <div class="diff-card">
             <div class="diff-card-header">
-              <div class="diff-card-icon">△</div>
+              <div class="diff-card-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1.5" y="4" width="6.5" height="7.5" rx="1.3" stroke="currentColor" stroke-width="1.3"/><rect x="6" y="2.5" width="6.5" height="7.5" rx="1.3" stroke="currentColor" stroke-width="1.3"/></svg></div>
               <span class="diff-card-title">CardRoot</span>
               <span class="diff-card-agent">Proposed by: Cursor</span>
             </div>
@@ -442,7 +442,7 @@ footer{background:#08080C;border-top:1px solid rgba(255,255,255,0.06);padding:72
           <!-- Secondary pending diff -->
           <div class="diff-card" style="opacity:0.5;">
             <div class="diff-card-header">
-              <div class="diff-card-icon">△</div>
+              <div class="diff-card-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1.5" y="4" width="6.5" height="7.5" rx="1.3" stroke="currentColor" stroke-width="1.3"/><rect x="6" y="2.5" width="6.5" height="7.5" rx="1.3" stroke="currentColor" stroke-width="1.3"/></svg></div>
               <span class="diff-card-title">CardHeader</span>
               <span class="diff-card-agent">Proposed by: Cursor</span>
             </div>
@@ -507,9 +507,9 @@ footer{background:#08080C;border-top:1px solid rgba(255,255,255,0.06);padding:72
       <h2 class="d3">Real tools,<br>not hallucinations.</h2>
       <p class="subtitle">Every agent tool is backed by a live query against your Origin Graph. The agent gets your actual component tree, real prop values, and real token relationships — not documentation that may have drifted from your codebase.</p>
       <ul class="feat-pts">
-        <li><span class="feat-pt-icon">⇄</span>Tool inputs are defined as JSON Schema and validated with Zod on every call. Malformed inputs never reach the graph.</li>
-        <li><span class="feat-pt-icon">◉</span><code style="font-family:var(--mono);font-size:0.875em;background:var(--bg-muted);padding:1px 5px;border-radius:3px;">query_graph</code> runs structured traversals — find components by name, trace token usage, map dependency chains.</li>
-        <li><span class="feat-pt-icon">△</span><code style="font-family:var(--mono);font-size:0.875em;background:var(--bg-muted);padding:1px 5px;border-radius:3px;">answer_question</code> gives agents plain-language answers grounded in the real graph, not training data.</li>
+        <li><span class="feat-pt-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 5h11M9.5 2.5l3 2.5-3 2.5"/><path d="M12.5 9h-11M4.5 6.5L1.5 9l3 2.5"/></svg></span>Tool inputs are defined as JSON Schema and validated with Zod on every call. Malformed inputs never reach the graph.</li>
+        <li><span class="feat-pt-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="2.5" r="1.5" fill="currentColor"/><circle cx="2.5" cy="11" r="1.5" fill="currentColor"/><circle cx="11.5" cy="11" r="1.5" fill="currentColor"/><path d="M6.2 3.8L3.2 9.6M7.8 3.8l3 5.8M3.8 11h6.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span><code style="font-family:var(--mono);font-size:0.875em;background:var(--bg-muted);padding:1px 5px;border-radius:3px;">query_graph</code> runs structured traversals — find components by name, trace token usage, map dependency chains.</li>
+        <li><span class="feat-pt-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1.5" y="4" width="6.5" height="7.5" rx="1.3" stroke="currentColor" stroke-width="1.3"/><rect x="6" y="2.5" width="6.5" height="7.5" rx="1.3" stroke="currentColor" stroke-width="1.3"/></svg></span><code style="font-family:var(--mono);font-size:0.875em;background:var(--bg-muted);padding:1px 5px;border-radius:3px;">answer_question</code> gives agents plain-language answers grounded in the real graph, not training data.</li>
       </ul>
       <a href="#" class="btn btn-primary">Read the MCP docs</a>
     </div>
@@ -565,9 +565,9 @@ footer{background:#08080C;border-top:1px solid rgba(255,255,255,0.06);padding:72
       <h2 class="d3">Auditable agent<br>actions. Always.</h2>
       <p class="subtitle">Every change an agent proposes flows through the exact same Intent Diff review pipeline as a human edit. Nothing is applied silently. Every agent action is stamped, attributable, and reversible.</p>
       <ul class="feat-pts">
-        <li><span class="feat-pt-icon">△</span>Agent-proposed diffs appear in your canvas labeled with the source agent — Cursor, Claude Code, or any MCP-compatible client.</li>
-        <li><span class="feat-pt-icon">◈</span>Accept or reject individual diffs. The agent cannot bypass the review queue or apply changes directly.</li>
-        <li><span class="feat-pt-icon">⇄</span>Every action is written to an append-only audit log with timestamp, agent identity, tool called, and full input/output payload.</li>
+        <li><span class="feat-pt-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1.5" y="4" width="6.5" height="7.5" rx="1.3" stroke="currentColor" stroke-width="1.3"/><rect x="6" y="2.5" width="6.5" height="7.5" rx="1.3" stroke="currentColor" stroke-width="1.3"/></svg></span>Agent-proposed diffs appear in your canvas labeled with the source agent — Cursor, Claude Code, or any MCP-compatible client.</li>
+        <li><span class="feat-pt-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><path d="M7 1.5L8.1 5.4 12 6.5l-3.9 1.1L7 11.5 5.9 7.6 2 6.5l3.9-1.1z"/><circle cx="11" cy="2.5" r="1" fill="currentColor" opacity="0.5"/></svg></span>Accept or reject individual diffs. The agent cannot bypass the review queue or apply changes directly.</li>
+        <li><span class="feat-pt-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 5h11M9.5 2.5l3 2.5-3 2.5"/><path d="M12.5 9h-11M4.5 6.5L1.5 9l3 2.5"/></svg></span>Every action is written to an append-only audit log with timestamp, agent identity, tool called, and full input/output payload.</li>
       </ul>
       <a href="/features/intent-diff.html" class="btn btn-primary">Explore Intent Diff</a>
     </div>
@@ -578,7 +578,7 @@ footer{background:#08080C;border-top:1px solid rgba(255,255,255,0.06);padding:72
         <!-- Agent diff card -->
         <div style="background:rgba(245,158,11,0.05);border:1px solid rgba(245,158,11,0.14);border-radius:9px;padding:11px 13px;">
           <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">
-            <div style="width:22px;height:22px;border-radius:4px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0;">△</div>
+            <div style="width:22px;height:22px;border-radius:4px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0;"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1.5" y="4" width="6.5" height="7.5" rx="1.3" stroke="currentColor" stroke-width="1.3"/><rect x="6" y="2.5" width="6.5" height="7.5" rx="1.3" stroke="currentColor" stroke-width="1.3"/></svg></div>
             <span style="font-family:var(--mono);font-size:0.5625rem;color:rgba(255,255,255,0.72);font-weight:600;">CardRoot</span>
             <span style="margin-left:auto;font-family:var(--mono);font-size:0.4rem;letter-spacing:0.05em;text-transform:uppercase;padding:2px 6px;border-radius:99px;background:rgba(245,158,11,0.1);color:#FCD34D;border:1px solid rgba(245,158,11,0.18);white-space:nowrap;">Proposed by: Claude Code</span>
           </div>
@@ -722,7 +722,7 @@ footer{background:#08080C;border-top:1px solid rgba(255,255,255,0.06);padding:72
         <span class="tech-tag">Protocol</span>
       </div>
       <div class="tech-card">
-        <div class="tech-icon">⇄</div>
+        <div class="tech-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 5h11M9.5 2.5l3 2.5-3 2.5"/><path d="M12.5 9h-11M4.5 6.5L1.5 9l3 2.5"/></svg></div>
         <h3>MCP protocol</h3>
         <p>Agent Bridge registers as a full MCP server — tool discovery, capability negotiation, and streaming all follow the Model Context Protocol spec. Works with Cursor, Claude Code, and any future MCP client.</p>
         <span class="tech-tag">Standard</span>
@@ -765,19 +765,19 @@ footer{background:#08080C;border-top:1px solid rgba(255,255,255,0.06);padding:72
     </div>
     <div class="related-grid stagger">
       <a class="related-card" href="/features/origin-graph.html">
-        <div class="related-icon">◉</div>
+        <div class="related-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="2.5" r="1.5" fill="currentColor"/><circle cx="2.5" cy="11" r="1.5" fill="currentColor"/><circle cx="11.5" cy="11" r="1.5" fill="currentColor"/><path d="M6.2 3.8L3.2 9.6M7.8 3.8l3 5.8M3.8 11h6.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></div>
         <h3>Origin Graph</h3>
         <p>The queryable index that Agent Bridge reads from. Every component, token, and relationship in your codebase — live, traversable, and always in sync with your real code.</p>
         <span class="related-link">Explore Origin Graph →</span>
       </a>
       <a class="related-card" href="/features/intent-diff.html">
-        <div class="related-icon">△</div>
+        <div class="related-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1.5" y="4" width="6.5" height="7.5" rx="1.3" stroke="currentColor" stroke-width="1.3"/><rect x="6" y="2.5" width="6.5" height="7.5" rx="1.3" stroke="currentColor" stroke-width="1.3"/></svg></div>
         <h3>Intent Diff</h3>
         <p>Every change an agent proposes enters the same Intent Diff review pipeline as a human edit. Nothing gets applied without your explicit sign-off — every agent action is auditable.</p>
         <span class="related-link">Explore Intent Diff →</span>
       </a>
       <a class="related-card" href="/features/completion-zone.html">
-        <div class="related-icon">◈</div>
+        <div class="related-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><path d="M7 1.5L8.1 5.4 12 6.5l-3.9 1.1L7 11.5 5.9 7.6 2 6.5l3.9-1.1z"/><circle cx="11" cy="2.5" r="1" fill="currentColor" opacity="0.5"/></svg></div>
         <h3>Completion Zone</h3>
         <p>Mark a region in the canvas and let AI fill it using your design language constraints. Pairs with Agent Bridge for end-to-end agentic design-to-code sessions.</p>
         <span class="related-link">Explore Completion Zone →</span>
