@@ -5,6 +5,7 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 // • /api/webhooks/* — carrier-level HMAC auth (Linear, Slack, GitHub, Intercom)
 // • /api/agent-bridge — workspace Bearer-token auth issued to Cursor / Claude Code
 const isPublicRoute = createRouteMatcher([
+  '/',                       // root → redirects to /marketing.html
   '/sign-in(.*)',
   '/sign-up(.*)',
   '/api/webhooks(.*)',
