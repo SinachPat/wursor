@@ -1000,32 +1000,187 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 /* ════════════════════════════════════════════════════════════
    INTEGRATIONS
    ════════════════════════════════════════════════════════════ */
-#integrations { padding: 128px 0; background: var(--bg-subtle); }
-.int-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  justify-content: center;
-  margin-top: 56px;
+/* ════════════════════════════════════════════════════════════
+   INTEGRATIONS — Dark bento grid with per-brand glows
+   ════════════════════════════════════════════════════════════ */
+#integrations {
+  background: #08080C;
+  padding: 140px 0;
+  position: relative;
+  overflow: hidden;
 }
-.int-pill {
+/* Dot-grid atmosphere */
+#integrations::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.032) 1px, transparent 1px);
+  background-size: 28px 28px;
+  pointer-events: none;
+}
+/* Section header dark overrides */
+#integrations .section-head .label { color: rgba(255,255,255,0.28); }
+#integrations .section-head h2.d2  { color: #fff; }
+#integrations .section-head .subtitle { color: rgba(255,255,255,0.42); }
+
+/* Ambient glow orbs */
+.int-orb {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(80px);
+  opacity: 0.55;
+}
+.int-orb-1 { width:500px;height:300px;top:0;left:50%;transform:translateX(-50%);
+             background:radial-gradient(ellipse,rgba(51,133,255,.15),transparent 70%); }
+.int-orb-2 { width:320px;height:320px;bottom:10%;left:5%;
+             background:radial-gradient(ellipse,rgba(162,89,255,.1),transparent 70%); }
+.int-orb-3 { width:260px;height:260px;bottom:15%;right:8%;
+             background:radial-gradient(ellipse,rgba(97,218,251,.08),transparent 70%); }
+
+/* ── Bento grid ── */
+.int-bento {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-top: 64px;
+  position: relative;
+  z-index: 1;
+}
+.int-card {
+  background: #111115;
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 16px;
+  padding: 26px 28px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 168px;
+  transition: border-color .2s, box-shadow .25s cubic-bezier(.16,1,.3,1), transform .2s cubic-bezier(.16,1,.3,1);
+  cursor: default;
+}
+/* Coloured top accent line */
+.int-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--glow,rgba(255,255,255,.3)) 40%, transparent);
+  opacity: .65;
+}
+/* Fluent reveal radial highlight */
+.int-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background: radial-gradient(
+    ellipse 70% 60% at var(--mx,50%) var(--my,50%),
+    var(--glow-soft,rgba(255,255,255,.04)),
+    transparent
+  );
+  transition: opacity .3s;
+  pointer-events: none;
+}
+.int-card:hover::after { opacity: 1; }
+.int-card:hover {
+  border-color: rgba(255,255,255,.13);
+  box-shadow:
+    0 0 0 1px var(--glow-dim,rgba(255,255,255,.06)),
+    0 20px 48px rgba(0,0,0,.5),
+    0 0 56px var(--glow-ambient,rgba(255,255,255,.02));
+  transform: translateY(-3px);
+}
+/* Wide cards */
+.int-card.w2 { grid-column: span 2; }
+
+/* Icon badge */
+.int-ico {
+  width: 42px; height: 42px;
+  border-radius: 11px;
+  background: var(--ico-bg,rgba(255,255,255,.07));
+  border: 1px solid var(--ico-bd,rgba(255,255,255,.1));
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  position: relative; z-index: 1;
+}
+.int-ico svg { display: block; }
+
+/* Text */
+.int-name {
+  font-size: .9375rem;
+  font-weight: 700;
+  color: rgba(255,255,255,.9);
+  letter-spacing: -.025em;
+  line-height: 1.25;
+  position: relative; z-index: 1;
+}
+.int-desc {
+  font-size: .8rem;
+  color: rgba(255,255,255,.36);
+  line-height: 1.6;
+  flex: 1;
+  position: relative; z-index: 1;
+}
+
+/* Footer row */
+.int-footer {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 20px;
-  border-radius: var(--r-full);
-  background: var(--bg);
-  border: 1px solid var(--border-2);
-  font-size: 0.9375rem;
-  font-weight: 500;
-  color: var(--fg);
-  box-shadow: var(--sh-xs);
-  transition: transform 0.14s cubic-bezier(.16,1,.3,1), box-shadow 0.14s;
-  cursor: default;
-  letter-spacing: -0.01em;
+  justify-content: space-between;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,.05);
+  position: relative; z-index: 1;
+  margin-top: auto;
 }
-.int-pill:hover { transform: translateY(-2px); box-shadow: var(--sh-md); }
-.int-icon { font-size: 1rem; }
+.int-tag {
+  font-family: 'JetBrains Mono',ui-monospace,monospace;
+  font-size: .5rem;
+  font-weight: 500;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.2);
+}
+.int-status {
+  display: flex; align-items: center; gap: 5px;
+  font-family: 'JetBrains Mono',ui-monospace,monospace;
+  font-size: .5rem; font-weight: 500;
+  letter-spacing: .05em;
+  color: rgba(255,255,255,.28);
+}
+.int-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: #10B981;
+  box-shadow: 0 0 6px rgba(16,185,129,.7);
+  animation: int-pulse 2.4s ease-in-out infinite;
+}
+@keyframes int-pulse {
+  0%,100% { opacity:1; box-shadow:0 0 6px rgba(16,185,129,.7); }
+  50%      { opacity:.4; box-shadow:0 0 2px rgba(16,185,129,.3); }
+}
+/* "More" card */
+.int-more {
+  background: transparent !important;
+  border-style: dashed !important;
+  border-color: rgba(255,255,255,.08) !important;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 6px !important;
+  min-height: 168px;
+}
+.int-more::before, .int-more::after { display: none; }
+.int-more-n {
+  font-size: 2rem; font-weight: 900;
+  color: rgba(255,255,255,.1);
+  letter-spacing: -.05em; line-height: 1;
+}
+.int-more-l {
+  font-size: .75rem; color: rgba(255,255,255,.22);
+  font-weight: 500; letter-spacing: -.01em;
+}
 
 /* ════════════════════════════════════════════════════════════
    COMPARISON
@@ -1321,7 +1476,12 @@ footer {
   .cmp-grid, .px-grid { grid-template-columns: 1fr; max-width: 480px; margin-left: auto; margin-right: auto; }
   .px-card.featured { margin: 8px 0; }
 }
+@media (max-width: 1024px) {
+  .int-bento { grid-template-columns: repeat(3, 1fr); }
+}
 @media (max-width: 768px) {
+  .int-bento { grid-template-columns: repeat(2, 1fr); }
+  .int-card.w2 { grid-column: span 2; }
   .wrap, .wrap-wide { padding: 0 24px; }
   #nav { padding: 0 24px; }
   .nav-inner {
@@ -1351,6 +1511,8 @@ footer {
   .ft-top { grid-template-columns: 1fr; }
   .p-app { grid-template-columns: 1fr; height: 320px; }
   .p-nav { display: none; }
+  .int-bento { grid-template-columns: 1fr; }
+  .int-card.w2 { grid-column: span 1; }
 }
 
 </style>
@@ -1799,23 +1961,217 @@ footer {
 
 <!-- ═══════════════════════ INTEGRATIONS ══════════════════ -->
 <section id="integrations">
+  <div class="int-orb int-orb-1"></div>
+  <div class="int-orb int-orb-2"></div>
+  <div class="int-orb int-orb-3"></div>
   <div class="wrap">
     <div class="section-head reveal">
       <span class="label">Integrations</span>
       <h2 class="d2">Connects to your entire stack.</h2>
       <p class="subtitle">Slots into the tools you already use. No migration required.</p>
     </div>
-    <div class="int-grid reveal">
-      <div class="int-pill"><span class="int-icon">🔗</span> Linear</div>
-      <div class="int-pill"><span class="int-icon">💬</span> Slack</div>
-      <div class="int-pill"><span class="int-icon">🐙</span> GitHub</div>
-      <div class="int-pill"><span class="int-icon">🖱</span> Cursor</div>
-      <div class="int-pill"><span class="int-icon">🤖</span> Claude Code</div>
-      <div class="int-pill"><span class="int-icon">◆</span> Figma Import</div>
-      <div class="int-pill"><span class="int-icon">▲</span> Next.js</div>
-      <div class="int-pill"><span class="int-icon">⚛</span> React</div>
-      <div class="int-pill"><span class="int-icon">🟦</span> VS Code</div>
-      <div class="int-pill"><span class="int-icon">🔷</span> TypeScript</div>
+
+    <div class="int-bento">
+
+      <!-- ── GitHub — wide ── -->
+      <div class="int-card w2 reveal"
+           style="--glow:#e6edf3;--glow-dim:rgba(230,237,243,.1);--glow-soft:rgba(230,237,243,.05);--glow-ambient:rgba(230,237,243,.03);--ico-bg:rgba(255,255,255,.07);--ico-bd:rgba(255,255,255,.12)">
+        <div class="int-ico">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="rgba(255,255,255,.85)">
+            <path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.168 6.839 9.49.5.092.682-.217.682-.482 0-.237-.009-.866-.013-1.7-2.782.604-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.942.359.31.678.921.678 1.856 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12c0-5.523-4.477-10-10-10z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="int-name">GitHub</div>
+          <div class="int-desc">PR reviews, branch tracking, and automatic code sync on every push. Full origin-graph diff computed on every merge.</div>
+        </div>
+        <div class="int-footer">
+          <span class="int-tag">Version Control</span>
+          <span class="int-status"><span class="int-dot"></span>Live</span>
+        </div>
+      </div>
+
+      <!-- ── Figma Import ── -->
+      <div class="int-card reveal"
+           style="--glow:#a259ff;--glow-dim:rgba(162,89,255,.14);--glow-soft:rgba(162,89,255,.06);--glow-ambient:rgba(162,89,255,.04);--ico-bg:rgba(162,89,255,.12);--ico-bd:rgba(162,89,255,.22)">
+        <div class="int-ico">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
+            <path d="M8 2h4v6H8a3 3 0 010-6z" fill="#F24E1E"/>
+            <path d="M12 2h4a3 3 0 010 6h-4V2z" fill="#FF7262"/>
+            <path d="M8 8h4v6H8a3 3 0 010-6z" fill="#A259FF"/>
+            <path d="M12 11a3 3 0 116 0 3 3 0 01-6 0z" fill="#1ABCFE"/>
+            <path d="M8 14h4v4a3 3 0 11-4-4z" fill="#0ACF83"/>
+          </svg>
+        </div>
+        <div>
+          <div class="int-name">Figma Import</div>
+          <div class="int-desc">Design tokens, components & layouts synced live into the graph.</div>
+        </div>
+        <div class="int-footer">
+          <span class="int-tag">Design</span>
+          <span class="int-status"><span class="int-dot"></span>Live</span>
+        </div>
+      </div>
+
+      <!-- ── Linear ── -->
+      <div class="int-card reveal"
+           style="--glow:#5e6ad2;--glow-dim:rgba(94,106,210,.14);--glow-soft:rgba(94,106,210,.06);--glow-ambient:rgba(94,106,210,.04);--ico-bg:rgba(94,106,210,.12);--ico-bd:rgba(94,106,210,.22)">
+        <div class="int-ico">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
+            <path d="M4 20L20 4" stroke="#5e6ad2" stroke-width="2.5" stroke-linecap="round"/>
+            <path d="M20 4v10M20 4H10" stroke="#5e6ad2" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="int-name">Linear</div>
+          <div class="int-desc">Issue tracking & milestone sync tied to every component change.</div>
+        </div>
+        <div class="int-footer">
+          <span class="int-tag">Project Mgmt</span>
+          <span class="int-status"><span class="int-dot"></span>Live</span>
+        </div>
+      </div>
+
+      <!-- ── Slack ── -->
+      <div class="int-card reveal"
+           style="--glow:#2eb67d;--glow-dim:rgba(46,182,125,.12);--glow-soft:rgba(46,182,125,.05);--glow-ambient:rgba(46,182,125,.04);--ico-bg:rgba(46,182,125,.1);--ico-bd:rgba(46,182,125,.18)">
+        <div class="int-ico">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
+            <path d="M9.07 3a2.07 2.07 0 00-2.07 2.07v5.79M7 10.86A2.07 2.07 0 113 10.86M16.93 3a2.07 2.07 0 012.07 2.07v5.79" stroke="#2eb67d" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M19 10.86a2.07 2.07 0 110 4.14M9.07 21a2.07 2.07 0 002.07-2.07v-5.79M11.14 13.14a2.07 2.07 0 110-4.14" stroke="#e01d5a" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M7 13.14h5.79M5 15.21a2.07 2.07 0 104.14 0" stroke="#ecb22e" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M13.14 15a2.07 2.07 0 104.14 0v-2.07M13.14 17.07a2.07 2.07 0 100 4.14" stroke="#36c5f0" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="int-name">Slack</div>
+          <div class="int-desc">Deploy alerts, review pings & diff summaries in your channels.</div>
+        </div>
+        <div class="int-footer">
+          <span class="int-tag">Communication</span>
+          <span class="int-status"><span class="int-dot"></span>Live</span>
+        </div>
+      </div>
+
+      <!-- ── Cursor — wide ── -->
+      <div class="int-card w2 reveal"
+           style="--glow:#d4d4d4;--glow-dim:rgba(212,212,212,.09);--glow-soft:rgba(212,212,212,.04);--glow-ambient:rgba(212,212,212,.02);--ico-bg:rgba(255,255,255,.06);--ico-bd:rgba(255,255,255,.1)">
+        <div class="int-ico">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
+            <path d="M5 3l14 9.5-8.5 1.5L8 21 5 3z" fill="rgba(255,255,255,.8)" stroke="rgba(255,255,255,.5)" stroke-width="1" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="int-name">Cursor</div>
+          <div class="int-desc">Origin diffs surface inline as Cursor suggestions. Accept or reject component changes without leaving your editor — zero context-switching.</div>
+        </div>
+        <div class="int-footer">
+          <span class="int-tag">AI IDE</span>
+          <span class="int-status"><span class="int-dot"></span>Live</span>
+        </div>
+      </div>
+
+      <!-- ── VS Code ── -->
+      <div class="int-card reveal"
+           style="--glow:#007acc;--glow-dim:rgba(0,122,204,.14);--glow-soft:rgba(0,122,204,.06);--glow-ambient:rgba(0,122,204,.04);--ico-bg:rgba(0,122,204,.12);--ico-bd:rgba(0,122,204,.22)">
+        <div class="int-ico">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
+            <path d="M17.5 2L3 9.5l4.5 3.5L17.5 6v12L7.5 12 3 15.5 17.5 22l3-1.5V3.5L17.5 2z" fill="#007acc"/>
+          </svg>
+        </div>
+        <div>
+          <div class="int-name">VS Code</div>
+          <div class="int-desc">Extension & workspace sync, inline diff annotations.</div>
+        </div>
+        <div class="int-footer">
+          <span class="int-tag">IDE</span>
+          <span class="int-status"><span class="int-dot"></span>Live</span>
+        </div>
+      </div>
+
+      <!-- ── Claude Code ── -->
+      <div class="int-card reveal"
+           style="--glow:#f59e0b;--glow-dim:rgba(245,158,11,.13);--glow-soft:rgba(245,158,11,.05);--glow-ambient:rgba(245,158,11,.04);--ico-bg:rgba(245,158,11,.1);--ico-bd:rgba(245,158,11,.2)">
+        <div class="int-ico">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
+            <path d="M12 3L5 19h4.5l2.5-5 2.5 5H19L12 3z" fill="#f59e0b"/>
+          </svg>
+        </div>
+        <div>
+          <div class="int-name">Claude Code</div>
+          <div class="int-desc">AI pair programming with full graph context.</div>
+        </div>
+        <div class="int-footer">
+          <span class="int-tag">AI</span>
+          <span class="int-status"><span class="int-dot"></span>Live</span>
+        </div>
+      </div>
+
+      <!-- ── TypeScript ── -->
+      <div class="int-card reveal"
+           style="--glow:#3b82f6;--glow-dim:rgba(59,130,246,.14);--glow-soft:rgba(59,130,246,.06);--glow-ambient:rgba(59,130,246,.04);--ico-bg:#1e3a5f;--ico-bd:rgba(59,130,246,.3)">
+        <div class="int-ico" style="background:#1d4ed8;border-color:rgba(59,130,246,.4)">
+          <svg viewBox="0 0 18 18" width="18" height="18">
+            <rect width="18" height="18" rx="2" fill="#3178c6"/>
+            <path d="M3 10.5h4.5M5.25 8v5M10 10.5c.5-1.5 3.5-1.5 3.5.5s-3.5 1-3.5 2.5 3 2 3.5.5" stroke="white" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="int-name">TypeScript</div>
+          <div class="int-desc">Type-safe component contracts and prop inference.</div>
+        </div>
+        <div class="int-footer">
+          <span class="int-tag">Language</span>
+          <span class="int-status"><span class="int-dot"></span>Live</span>
+        </div>
+      </div>
+
+      <!-- ── Next.js ── -->
+      <div class="int-card reveal"
+           style="--glow:#ffffff;--glow-dim:rgba(255,255,255,.07);--glow-soft:rgba(255,255,255,.03);--glow-ambient:rgba(255,255,255,.02);--ico-bg:rgba(255,255,255,.06);--ico-bd:rgba(255,255,255,.1)">
+        <div class="int-ico">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,.5)" stroke-width="1.2"/>
+            <path d="M8 8v8l8-8v8" stroke="rgba(255,255,255,.85)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="int-name">Next.js</div>
+          <div class="int-desc">App Router, RSC, and server actions — fully understood.</div>
+        </div>
+        <div class="int-footer">
+          <span class="int-tag">Framework</span>
+          <span class="int-status"><span class="int-dot"></span>Live</span>
+        </div>
+      </div>
+
+      <!-- ── React ── -->
+      <div class="int-card reveal"
+           style="--glow:#61dafb;--glow-dim:rgba(97,218,251,.12);--glow-soft:rgba(97,218,251,.05);--glow-ambient:rgba(97,218,251,.04);--ico-bg:rgba(97,218,251,.08);--ico-bd:rgba(97,218,251,.15)">
+        <div class="int-ico">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none">
+            <ellipse cx="12" cy="12" rx="10" ry="4" stroke="#61dafb" stroke-width="1.3"/>
+            <ellipse cx="12" cy="12" rx="10" ry="4" stroke="#61dafb" stroke-width="1.3" transform="rotate(60 12 12)"/>
+            <ellipse cx="12" cy="12" rx="10" ry="4" stroke="#61dafb" stroke-width="1.3" transform="rotate(120 12 12)"/>
+            <circle cx="12" cy="12" r="2" fill="#61dafb"/>
+          </svg>
+        </div>
+        <div>
+          <div class="int-name">React</div>
+          <div class="int-desc">Component tree, hooks, and context — mapped to the graph.</div>
+        </div>
+        <div class="int-footer">
+          <span class="int-tag">Library</span>
+          <span class="int-status"><span class="int-dot"></span>Live</span>
+        </div>
+      </div>
+
+      <!-- ── +8 more ── -->
+      <div class="int-card int-more reveal">
+        <div class="int-more-n">+8</div>
+        <div class="int-more-l">More integrations<br>shipping soon</div>
+      </div>
+
     </div>
   </div>
 </section>
@@ -2022,6 +2378,15 @@ const nav = document.getElementById('nav');
 window.addEventListener('scroll', () => {
   nav.classList.toggle('scrolled', window.scrollY > 20);
 }, { passive: true });
+
+// ── Integration card — Fluent Reveal Effect ───────────────
+document.querySelectorAll('.int-card:not(.int-more)').forEach(card => {
+  card.addEventListener('mousemove', e => {
+    const r = card.getBoundingClientRect();
+    card.style.setProperty('--mx', ((e.clientX - r.left) / r.width  * 100) + '%');
+    card.style.setProperty('--my', ((e.clientY - r.top)  / r.height * 100) + '%');
+  });
+});
 
 // ── Mobile hamburger ──────────────────────────────────────
 const burger     = document.getElementById('nav-burger');
