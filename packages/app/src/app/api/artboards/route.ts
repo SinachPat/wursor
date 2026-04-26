@@ -1,5 +1,5 @@
-// GET  /api/artboards?workspaceId=<uuid>  → list artboards for workspace
-// POST /api/artboards                     → create artboard
+// GET  /api/artboards?workspaceId=<uuid>[&projectId=<uuid>]  → list artboards
+// POST /api/artboards                                        → create artboard
 
 import { auth } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
@@ -14,9 +14,11 @@ export async function GET(req: NextRequest) {
   const workspaceId = req.nextUrl.searchParams.get('workspaceId');
   if (!workspaceId) return NextResponse.json({ error: 'workspaceId is required' }, { status: 400 });
 
+  const projectId = req.nextUrl.searchParams.get('projectId') ?? undefined;
+
   try {
     const db = serverClient();
-    const artboards = await getArtboards(db, workspaceId);
+    const artboards = await getArtboards(db, workspaceId, projectId);
     return NextResponse.json(artboards);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';

@@ -1,9 +1,10 @@
 'use client';
 
 import { useRef, useEffect, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useViewport } from '@/store/viewport';
 import { useCanvas } from '@/store/canvas';
-import { useArtboards } from '@/hooks/useArtboards';
+import { useArtboards, createArtboardMutation } from '@/hooks/useArtboards';
 import { Artboard } from './Artboard';
 
 export function Canvas() {
@@ -11,8 +12,9 @@ export function Canvas() {
   const panX          = useViewport((s) => s.panX);
   const panY          = useViewport((s) => s.panY);
   const zoom          = useViewport((s) => s.zoom);
-  const { activeTool, selectArtboard, workspaceId } = useCanvas();
-  const { artboards } = useArtboards(workspaceId ?? undefined);
+  const { activeTool, setActiveTool, selectArtboard, workspaceId, projectId } = useCanvas();
+  const { artboards } = useArtboards(workspaceId ?? undefined, projectId ?? undefined);
+  const queryClient   = useQueryClient();
 
   const isPanning = useRef(false);
   const lastPos   = useRef({ x: 0, y: 0 });
@@ -47,14 +49,43 @@ export function Canvas() {
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     const startPan = e.button === 1 || spaceDown.current || activeTool === 'pan';
+
     if (startPan) {
       e.preventDefault();
       isPanning.current = true;
       lastPos.current = { x: e.clientX, y: e.clientY };
-    } else if (e.target === e.currentTarget) {
+      return;
+    }
+
+    // Artboard creation tool: click on canvas to place a new artboard
+    if (activeTool === 'artboard' && e.target === e.currentTarget && workspaceId) {
+      const rect = containerRef.current!.getBoundingClientRect();
+      // Convert screen → canvas space (invert matrix(zoom,0,0,zoom,panX,panY))
+      const { panX, panY, zoom } = useViewport.getState();
+      const canvasX = Math.round((e.clientX - rect.left - panX) / zoom);
+      const canvasY = Math.round((e.clientY - rect.top  - panY) / zoom);
+
+      const label = `Artboard ${Date.now().toString(36).slice(-4).toUpperCase()}`;
+      createArtboardMutation({
+        workspace_id: workspaceId,
+        project_id: projectId ?? null,
+        name: label,
+        origin_id: null,
+        parent_artboard_id: null,
+        metadata_jsonb: { x: canvasX, y: canvasY, width: 360, height: 240 },
+      }).then(() => {
+        queryClient.invalidateQueries({ queryKey: ['artboards', workspaceId, projectId ?? undefined] });
+        setActiveTool('select');
+      }).catch((err: unknown) => {
+        console.error('[Canvas] Failed to create artboard', err);
+      });
+      return;
+    }
+
+    if (e.target === e.currentTarget) {
       selectArtboard(null);
     }
-  }, [activeTool, selectArtboard]);
+  }, [activeTool, setActiveTool, selectArtboard, workspaceId, projectId, queryClient]);
 
   const onMouseMove = useCallback((e: React.MouseEvent) => {
     if (!isPanning.current) return;
@@ -69,7 +100,10 @@ export function Canvas() {
 
   // Dot grid that shifts with pan and scales with zoom
   const gridSpacing = Math.max(6, 20 * zoom);
-  const cursor = activeTool === 'pan' || isPanning.current ? 'grab' : 'default';
+  const cursor =
+    activeTool === 'pan' || isPanning.current ? 'grab' :
+    activeTool === 'artboard' ? 'crosshair' :
+    'default';
 
   return (
     <div

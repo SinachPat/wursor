@@ -7,18 +7,6 @@ import { SquareRegular } from '@fluentui/react-icons';
 import { useCanvas } from '@/store/canvas';
 import { useArtboards } from '@/hooks/useArtboards';
 
-const FILE_PATHS = [
-  'src/components/DashboardCard.tsx',
-  'src/components/UserProfile.tsx',
-  'src/components/NavSidebar.tsx',
-  'src/components/DataTable.tsx',
-  'src/components/StatsCard.tsx',
-  'src/app/canvas/page.tsx',
-  'src/app/layout.tsx',
-  'src/store/canvas.ts',
-  'src/store/viewport.ts',
-];
-
 const T = {
   bg:      '#111115',
   border:  'rgba(255,255,255,0.055)',
@@ -47,11 +35,16 @@ const treeThemeStyles = themeToTreeStyles({
 });
 
 export function ArtboardNavigator() {
-  const { selectedArtboardId, selectArtboard, workspaceId } = useCanvas();
-  const { artboards } = useArtboards(workspaceId ?? undefined);
+  const { selectedArtboardId, selectArtboard, workspaceId, projectId } = useCanvas();
+  const { artboards, rawArtboards } = useArtboards(workspaceId ?? undefined, projectId ?? undefined);
+
+  // Build file tree paths from artboard names (strip .tsx suffix if present, else use name as path)
+  const filePaths = rawArtboards.length > 0
+    ? rawArtboards.map((ab) => `artboards/${ab.name}`)
+    : ['artboards/(no artboards yet)'];
 
   const { model } = useFileTree({
-    paths: FILE_PATHS,
+    paths: filePaths,
     initialExpansion: 2,
     density: 'compact',
     icons: 'minimal',
@@ -115,9 +108,9 @@ export function ArtboardNavigator() {
       {/* ── Graph stats ── */}
       <SectionLabel>Graph</SectionLabel>
       <div style={{ padding: '4px 14px 14px', display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
-        <GraphStat label="nodes"      value="284" color={T.accent} />
-        <GraphStat label="components" value="47"  color="rgba(255,255,255,0.45)" />
-        <GraphStat label="tokens"     value="112" color="rgba(255,255,255,0.45)" />
+        <GraphStat label="artboards"  value={String(rawArtboards.length || artboards.length)} color={T.accent} />
+        <GraphStat label="components" value="—"  color="rgba(255,255,255,0.45)" />
+        <GraphStat label="tokens"     value="—"  color="rgba(255,255,255,0.45)" />
       </div>
     </div>
   );

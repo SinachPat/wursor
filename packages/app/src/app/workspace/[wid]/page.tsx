@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { serverClient } from '@/lib/supabase';
 import { AppHeader } from '@/components/shell/AppHeader';
 import { ProjectCard } from '@/components/shell/ProjectCard';
+import { DesignLanguageUpload } from '@/components/shell/DesignLanguageUpload';
+import { getActiveDesignLanguageFile } from '@originmain/origin-graph';
 import type { Workspace, Project } from '@originmain/origin-graph';
 
 export async function generateMetadata({ params }: { params: Promise<{ wid: string }> }) {
@@ -31,10 +33,11 @@ export default async function WorkspacePage({ params }: { params: Promise<{ wid:
 
   if (!member) redirect('/workspaces');
 
-  // Fetch workspace + projects in parallel
-  const [{ data: wsData }, { data: projectsData }] = await Promise.all([
+  // Fetch workspace + projects + design language in parallel
+  const [{ data: wsData }, { data: projectsData }, designLanguage] = await Promise.all([
     db.from('workspaces').select('*').eq('id', wid).single(),
     db.from('projects').select('*').eq('workspace_id', wid).order('created_at', { ascending: true }),
+    getActiveDesignLanguageFile(db, wid).catch(() => null),
   ]);
 
   if (!wsData) redirect('/workspaces');
@@ -126,6 +129,9 @@ export default async function WorkspacePage({ params }: { params: Promise<{ wid:
             ))}
           </div>
         )}
+        {/* Design Language */}
+        <DesignLanguageUpload workspaceId={wid} current={designLanguage} />
+
       </main>
     </div>
   );

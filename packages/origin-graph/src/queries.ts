@@ -55,12 +55,17 @@ export interface DbError {
 
 // ── Artboard queries ──────────────────────────────────────────────────────────
 
-export async function getArtboards(db: DbClient, workspaceId: string): Promise<Artboard[]> {
-  const { data, error } = await (db
+export async function getArtboards(
+  db: DbClient,
+  workspaceId: string,
+  projectId?: string,
+): Promise<Artboard[]> {
+  let q: DbQuery = db
     .from('artboards')
     .select('*')
-    .eq('workspace_id', workspaceId)
-    .order('created_at', { ascending: false }) as unknown as Promise<{ data: Artboard[]; error: DbError | null }>);
+    .eq('workspace_id', workspaceId);
+  if (projectId) q = q.eq('project_id', projectId);
+  const { data, error } = await (q.order('created_at', { ascending: false }) as unknown as Promise<{ data: Artboard[]; error: DbError | null }>);
   if (error) throw new Error(error.message);
   return data;
 }

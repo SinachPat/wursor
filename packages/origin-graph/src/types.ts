@@ -50,6 +50,7 @@ export type Workspace = z.infer<typeof WorkspaceSchema>;
 export const ArtboardSchema = z.object({
   id: z.string().uuid(),
   workspace_id: z.string().uuid(),
+  project_id: z.string().uuid().nullable(),
   name: z.string(),
   origin_id: z.string().uuid().nullable(),
   parent_artboard_id: z.string().uuid().nullable(),

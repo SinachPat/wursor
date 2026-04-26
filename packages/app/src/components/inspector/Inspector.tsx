@@ -2,17 +2,11 @@
 
 import { useState } from 'react';
 import { useCanvas } from '@/store/canvas';
+import { useArtboards } from '@/hooks/useArtboards';
 import { useDiff } from '@/hooks/useDiff';
 import { ARTBOARD_SNAPSHOTS } from '@/data/artboard-snapshots';
 import type { DiffResult, PropChange } from '@originmain/diff-engine';
-
-const PROPS = [
-  { key: 'title',   val: '"Revenue Overview"', type: 's' },
-  { key: 'value',   val: '"$12,450"',           type: 's' },
-  { key: 'delta',   val: '+2.4',                type: 'n' },
-  { key: 'period',  val: '"monthly"',           type: 's' },
-  { key: 'loading', val: 'false',               type: 'b' },
-];
+import type { Artboard } from '@originmain/origin-graph';
 
 const TYPE_COLORS: Record<string, string> = {
   s: '#7DD3A8',
@@ -36,9 +30,11 @@ const T = {
 };
 
 export function Inspector() {
-  const { selectedArtboardId } = useCanvas();
+  const { selectedArtboardId, workspaceId, projectId } = useCanvas();
   const [tab, setTab] = useState<TabId>('props');
   const diffResult = useDiff(selectedArtboardId);
+  const { rawArtboards } = useArtboards(workspaceId ?? undefined, projectId ?? undefined);
+  const selectedArtboard = rawArtboards.find((ab) => ab.id === selectedArtboardId) ?? null;
 
   return (
     <div
@@ -113,19 +109,8 @@ export function Inspector() {
             </span>
           </div>
         ) : tab === 'props' ? (
-          <>
-            <Section label="Component Props">
-              {PROPS.map(({ key, val, type }) => (
-                <PropRow key={key} label={key} value={val} color={TYPE_COLORS[type] ?? T.key} />
-              ))}
-            </Section>
-            <HSep />
-            <Section label="Render Target">
-              <PropRow label="file"   value="dashboard.tsx:42" color="#7EB8FF" />
-              <PropRow label="status" value="connected"        color="#7DD3A8" />
-              <PropRow label="agent"  value="claude-code"      color="#7DD3A8" />
-            </Section>
-          </>
+          <PropsTab artboard={selectedArtboard} />
+
         ) : tab === 'diff' ? (
           <DiffTab artboardId={selectedArtboardId} diffResult={diffResult} />
         ) : (
@@ -164,10 +149,71 @@ export function Inspector() {
           Live render connected
         </span>
         <span style={{ marginLeft: 'auto', fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: '0.5625rem', color: 'rgba(255,255,255,0.22)' }}>
-          284 nodes
+          {selectedArtboard
+            ? `${selectedArtboard.metadata_jsonb['width'] ?? '?'} × ${selectedArtboard.metadata_jsonb['height'] ?? '?'}`
+            : '—'}
         </span>
       </div>
     </div>
+  );
+}
+
+/* ── Props tab ────────────────────────────────────────────── */
+function PropsTab({ artboard }: { artboard: Artboard | null }) {
+  if (!artboard) return null;
+
+  const meta = artboard.metadata_jsonb;
+
+  const N = TYPE_COLORS['n']!;
+  const B = TYPE_COLORS['b']!;
+  const S = TYPE_COLORS['s']!;
+
+  // Extract canvas geometry
+  const canvasProps: Array<{ key: string; val: string; color: string }> = [
+    { key: 'x',      val: String(meta['x']      ?? 0),   color: N },
+    { key: 'y',      val: String(meta['y']      ?? 0),   color: N },
+    { key: 'width',  val: String(meta['width']  ?? 0),   color: N },
+    { key: 'height', val: String(meta['height'] ?? 0),   color: N },
+  ];
+
+  // Any extra metadata keys beyond the canvas geometry
+  const reservedKeys = new Set(['x', 'y', 'width', 'height', 'renderUrl']);
+  const extraProps = Object.entries(meta)
+    .filter(([k]) => !reservedKeys.has(k))
+    .map(([k, v]) => {
+      const t = typeof v;
+      const color = t === 'number' ? N : t === 'boolean' ? B : S;
+      const val = t === 'string' ? `"${v}"` : String(v);
+      return { key: k, val, color };
+    });
+
+  const renderUrl = typeof meta['renderUrl'] === 'string' ? meta['renderUrl'] as string : null;
+
+  return (
+    <>
+      {extraProps.length > 0 && (
+        <>
+          <Section label="Component Props">
+            {extraProps.map(({ key, val, color }) => (
+              <PropRow key={key} label={key} value={val} color={color} />
+            ))}
+          </Section>
+          <HSep />
+        </>
+      )}
+      <Section label="Canvas">
+        {canvasProps.map(({ key, val, color }) => (
+          <PropRow key={key} label={key} value={val} color={color} />
+        ))}
+      </Section>
+      <HSep />
+      <Section label="Render Target">
+        <PropRow label="name"   value={artboard.name}                     color="#7EB8FF" />
+        <PropRow label="status" value={renderUrl ? 'connected' : 'none'}  color={renderUrl ? '#7DD3A8' : 'rgba(255,255,255,0.28)'} />
+        {renderUrl && <PropRow label="url" value={renderUrl} color="#7DD3A8" />}
+        <PropRow label="id"     value={artboard.id.slice(0, 8) + '…'}     color="rgba(255,255,255,0.28)" />
+      </Section>
+    </>
   );
 }
 

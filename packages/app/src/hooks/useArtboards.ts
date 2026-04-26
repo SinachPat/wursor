@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
-import type { Artboard } from '@originmain/origin-graph';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import type { Artboard, InsertArtboard } from '@originmain/origin-graph';
 
 export interface CanvasArtboard {
   id: string;
@@ -30,24 +30,53 @@ function toCanvasArtboard(ab: Artboard): CanvasArtboard | null {
   return base;
 }
 
-async function fetchArtboards(workspaceId: string): Promise<CanvasArtboard[]> {
-  const res = await fetch(`/api/artboards?workspaceId=${encodeURIComponent(workspaceId)}`);
-  if (!res.ok) throw new Error(`Artboard fetch failed: ${res.status}`);
-  const rows = (await res.json()) as Artboard[];
-  return rows.map(toCanvasArtboard).filter((ab): ab is CanvasArtboard => ab !== null);
+interface ArtboardQueryResult {
+  rows: Artboard[];
+  canvas: CanvasArtboard[];
 }
 
-export function useArtboards(workspaceId: string | undefined) {
+async function fetchArtboards(workspaceId: string, projectId?: string): Promise<ArtboardQueryResult> {
+  const url = new URL('/api/artboards', window.location.origin);
+  url.searchParams.set('workspaceId', workspaceId);
+  if (projectId) url.searchParams.set('projectId', projectId);
+  const res = await fetch(url.toString());
+  if (!res.ok) throw new Error(`Artboard fetch failed: ${res.status}`);
+  const rows = (await res.json()) as Artboard[];
+  return { rows, canvas: rows.map(toCanvasArtboard).filter((ab): ab is CanvasArtboard => ab !== null) };
+}
+
+/** Create a new artboard via POST /api/artboards and invalidate the cache. */
+export async function createArtboardMutation(
+  body: InsertArtboard,
+): Promise<Artboard> {
+  const res = await fetch('/api/artboards', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error ?? `Create failed: ${res.status}`);
+  }
+  return res.json() as Promise<Artboard>;
+}
+
+export function useArtboards(workspaceId: string | undefined, projectId?: string) {
   const query = useQuery({
-    queryKey: ['artboards', workspaceId],
-    queryFn: () => fetchArtboards(workspaceId!),
+    queryKey: ['artboards', workspaceId, projectId],
+    queryFn: () => fetchArtboards(workspaceId!, projectId),
     enabled: workspaceId !== undefined,
     staleTime: 30_000,
   });
 
-  // Show demo artboards while loading or when workspace has no artboards yet.
-  const artboards =
-    !query.data || query.data.length === 0 ? DEMO_ARTBOARDS : query.data;
+  const canvasArtboards = query.data?.canvas ?? [];
+  // Show demo artboards while loading or when workspace/project has no artboards yet.
+  const artboards = canvasArtboards.length === 0 ? DEMO_ARTBOARDS : canvasArtboards;
 
-  return { artboards, isLoading: query.isLoading, error: query.error };
+  return {
+    artboards,
+    rawArtboards: query.data?.rows ?? [],
+    isLoading: query.isLoading,
+    error: query.error,
+  };
 }

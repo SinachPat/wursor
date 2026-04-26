@@ -147,6 +147,7 @@ export async function POST(
 
     const artboard = await createArtboard(db, {
       workspace_id: workspaceId,
+      project_id: null,
       name: result.artboardTitle,
       origin_id: origin.id,
       parent_artboard_id: null,

@@ -8,7 +8,7 @@ import { ArtboardNavigator } from '../navigator/ArtboardNavigator';
 import { Canvas } from '../canvas/Canvas';
 import { Inspector } from '../inspector/Inspector';
 import { useHistory } from '@/store/history';
-import { useCanvas } from '@/store/canvas';
+import { useCanvas, type Tool } from '@/store/canvas';
 
 interface AppChromeProps {
   workspaceId?: string;
@@ -19,7 +19,8 @@ interface AppChromeProps {
 
 export function AppChrome({ workspaceId, projectId, workspaceName, projectName }: AppChromeProps) {
   const selectedArtboardId = useCanvas((s) => s.selectedArtboardId);
-  const setContext = useCanvas((s) => s.setContext);
+  const setContext         = useCanvas((s) => s.setContext);
+  const setActiveTool      = useCanvas((s) => s.setActiveTool);
 
   // Push workspace/project IDs into the store so Canvas and Navigator can read them.
   useEffect(() => {
@@ -28,6 +29,26 @@ export function AppChrome({ workspaceId, projectId, workspaceName, projectName }
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
+      // Skip if user is typing in an input
+      if ((e.target as HTMLElement).matches('input, textarea, [contenteditable]')) return;
+
+      // Tool shortcuts (no modifier)
+      if (!e.metaKey && !e.ctrlKey) {
+        const toolKeys: Record<string, Tool> = { v: 'select', h: 'pan', a: 'artboard', z: 'zone' };
+        const mapped = toolKeys[e.key.toLowerCase()];
+        if (mapped !== undefined) {
+          e.preventDefault();
+          setActiveTool(mapped);
+          return;
+        }
+        // Escape cancels active tool back to select
+        if (e.key === 'Escape') {
+          setActiveTool('select');
+          return;
+        }
+      }
+
+      // Undo/Redo require a selected artboard
       if (!(e.metaKey || e.ctrlKey)) return;
       if (!selectedArtboardId) return;
 
@@ -42,7 +63,7 @@ export function AppChrome({ workspaceId, projectId, workspaceName, projectName }
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [selectedArtboardId]);
+  }, [selectedArtboardId, setActiveTool]);
 
   const showBreadcrumb = Boolean(workspaceId && projectId);
 
