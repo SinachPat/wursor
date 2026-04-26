@@ -338,11 +338,16 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .nav-mobile ul li a:hover { color: var(--fg); }
 .nav-mobile-ctas {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 8px;
   margin-top: 16px;
 }
-.nav-mobile-ctas .btn { text-align: center; padding: 11px 0; font-size: .9375rem; }
+.nav-mobile-ctas .btn {
+  flex: 1;
+  justify-content: center;
+  padding: 10px 12px;
+  font-size: .875rem;
+}
 
 /* ════════════════════════════════════════════════════════════
    HERO — Figma Sites: product-forward, massive type
@@ -1387,7 +1392,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
    FOOTER
    ════════════════════════════════════════════════════════════ */
 footer {
-  background: var(--bg-inv-2);
+  background: #08080C;
   border-top: 1px solid rgba(255,255,255,0.06);
   padding: 80px 40px 40px;
 }
