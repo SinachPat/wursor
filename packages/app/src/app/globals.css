@@ -4,10 +4,13 @@
   padding: 0;
 }
 
-html, body, #__next {
+html, body {
   height: 100%;
-  overflow: hidden;
 }
+
+/* overflow: hidden is applied by AppChrome directly on its root div
+   for the canvas route only. Setting it globally here would break
+   scrolling on settings, workspace, and other non-canvas pages. */
 
 body {
   font-family: 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
