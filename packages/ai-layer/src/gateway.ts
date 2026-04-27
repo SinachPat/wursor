@@ -73,10 +73,8 @@ export interface GatewayRequest {
   messages: Anthropic.Messages.MessageParam[];
   system?: Anthropic.Messages.TextBlockParam[];
   maxTokens?: number;
-  // NOTE: adaptive thinking (`thinking: { type: 'adaptive' }`) requires SDK >=0.58.
-  // Upgrade @anthropic-ai/sdk and uncomment when available.
-  /** Temperature: 0.3 for deterministic, 0.7 for generative */
-  temperature?: number;
+  // NOTE: temperature is intentionally omitted — Opus 4.7 with adaptive thinking
+  // rejects temperature, top_p, and top_k with a 400 error.
 }
 
 export interface GatewayResponse {
@@ -106,7 +104,7 @@ export class AIGateway {
         const response = await this.client.messages.create({
           model: MODEL,
           max_tokens: req.maxTokens ?? 4096,
-          ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
+          thinking: { type: 'adaptive' },
           ...(req.system !== undefined ? { system: req.system } : {}),
           messages: req.messages,
         });

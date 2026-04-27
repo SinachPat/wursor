@@ -9,6 +9,7 @@ import { Canvas } from '../canvas/Canvas';
 import { Inspector } from '../inspector/Inspector';
 import { useHistory } from '@/store/history';
 import { useCanvas, type Tool } from '@/store/canvas';
+import { useViewport } from '@/store/viewport';
 
 interface AppChromeProps {
   workspaceId?: string;
@@ -26,6 +27,25 @@ export function AppChrome({ workspaceId, projectId, workspaceName, projectName }
   useEffect(() => {
     if (workspaceId && projectId) setContext(workspaceId, projectId);
   }, [workspaceId, projectId, setContext]);
+
+  // Per-workspace viewport persistence: restore saved pan/zoom on mount,
+  // save current state back to localStorage on unmount.
+  useEffect(() => {
+    if (!workspaceId) return;
+    const key = `originmain:viewport:${workspaceId}`;
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const saved = JSON.parse(raw) as { panX: number; panY: number; zoom: number };
+        useViewport.getState().restore(saved);
+      }
+    } catch { /* ignore parse errors */ }
+
+    return () => {
+      const { panX, panY, zoom } = useViewport.getState();
+      localStorage.setItem(key, JSON.stringify({ panX, panY, zoom }));
+    };
+  }, [workspaceId]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -115,6 +135,28 @@ export function AppChrome({ workspaceId, projectId, workspaceName, projectName }
           <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
             {projectName ?? 'Canvas'}
           </span>
+
+          {/* Project settings link */}
+          {workspaceId && projectId && (
+            <Link
+              href={`/workspace/${workspaceId}/project/${projectId}/settings`}
+              title="Project settings"
+              style={{
+                marginLeft: 8,
+                display: 'flex', alignItems: 'center',
+                textDecoration: 'none',
+                color: 'rgba(255,255,255,0.25)',
+                transition: 'color 0.12s',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.65)')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.25)')}
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M6 7.5A1.5 1.5 0 1 0 6 4.5 1.5 1.5 0 0 0 6 7.5Z" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+                <path d="M9.2 4.6l.4-1.4-1.2-.7-.9 1.1a3.5 3.5 0 0 0-3 0L3.6 2.5 2.4 3.2l.4 1.4A3.4 3.4 0 0 0 2 6c0 .5.1.9.3 1.4L1.9 8.7 3 9.5l1.1-1a3.5 3.5 0 0 0 3.8 0l1.1 1 1.2-.8-.4-1.3c.2-.5.3-1 .3-1.4a3.4 3.4 0 0 0-.9-2.4Z" stroke="currentColor" strokeWidth="1" strokeLinejoin="round"/>
+              </svg>
+            </Link>
+          )}
 
           <div style={{ flex: 1 }} />
 

@@ -57,7 +57,6 @@ export async function fillCompletionZone(
       system,
       messages: [{ role: 'user', content: userContent }],
       maxTokens: 4096,
-      temperature: 0.3,
     });
 
     try {

@@ -34,7 +34,6 @@ export async function queryCrossArtboard(
       },
     ],
     maxTokens: 1024,
-    temperature: 0.3,
   });
 
   // Returning empty results on parse failure is indistinguishable from "no match".
@@ -45,6 +44,20 @@ export async function queryCrossArtboard(
   } catch (err) {
     throw new Error(
       `Artboard query returned unparseable JSON: ${String(err)}. ` +
+      `Raw response (first 300 chars): ${response.text.slice(0, 300)}`
+    );
+  }
+
+  // Runtime guard: ensure the parsed value has the expected shape before casting.
+  // Without this, a malformed AI response (e.g. { results: null }) would let
+  // callers hit a TypeError on `.results.map()` instead of a clear error message.
+  if (
+    typeof parsed !== 'object' ||
+    parsed === null ||
+    !Array.isArray((parsed as Record<string, unknown>)['results'])
+  ) {
+    throw new Error(
+      `Artboard query response missing "results" array. ` +
       `Raw response (first 300 chars): ${response.text.slice(0, 300)}`
     );
   }

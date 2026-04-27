@@ -8,6 +8,8 @@ interface ViewportState {
   setPan: (x: number, y: number) => void;
   setZoom: (zoom: number, originX?: number, originY?: number) => void;
   reset: () => void;
+  /** Restore from a saved snapshot (used for per-workspace persistence). */
+  restore: (data: { panX: number; panY: number; zoom: number }) => void;
 }
 
 export const useViewport = create<ViewportState>()(
@@ -31,6 +33,7 @@ export const useViewport = create<ViewportState>()(
       },
 
       reset: () => set({ panX: 0, panY: 0, zoom: 1 }),
+      restore: (data) => set(data),
     }),
     {
       name: 'originmain:viewport',

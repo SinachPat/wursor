@@ -7,6 +7,7 @@ import { useArtboards, patchArtboard } from '@/hooks/useArtboards';
 import { useDiffs } from '@/hooks/useDiffs';
 import { useQueryClient } from '@tanstack/react-query';
 import type { PropChange } from '@originmain/diff-engine';
+import type { FiberNode } from '@originmain/renderer';
 import type { Artboard, IntentDiff } from '@originmain/origin-graph';
 
 const TYPE_COLORS: Record<string, string> = {
@@ -31,7 +32,7 @@ const T = {
 };
 
 export function Inspector() {
-  const { selectedArtboardId, liveArtboardIds, workspaceId, projectId } = useCanvas();
+  const { selectedArtboardId, liveArtboardIds, artboardFiberRoots, selectedComponentId, selectedComponentData, workspaceId, projectId } = useCanvas();
   const [tab, setTab] = useState<TabId>('props');
   const { rawArtboards } = useArtboards(workspaceId ?? undefined, projectId ?? undefined);
   const selectedArtboard = rawArtboards.find((ab) => ab.id === selectedArtboardId) ?? null;
@@ -104,24 +105,16 @@ export function Inspector() {
             </span>
           </div>
         ) : tab === 'props' ? (
-          <PropsTab artboard={selectedArtboard} workspaceId={workspaceId} projectId={projectId} />
+          <PropsTab
+            artboard={selectedArtboard}
+            selectedComponentData={selectedComponentId ? selectedComponentData : null}
+            workspaceId={workspaceId}
+            projectId={projectId}
+          />
         ) : tab === 'diff' ? (
           <DiffTab artboardId={selectedArtboardId} />
         ) : (
-          <Section label="Origin Graph">
-            <GraphNode label="DashboardCard" depth={0} isRoot />
-            <GraphNode label="StatsCard" depth={1} />
-            <GraphNode label="ProgressBar" depth={2} />
-            <GraphNode label="ValueDisplay" depth={2} />
-            <GraphNode label="CardBase" depth={1} />
-            <GraphNode label="Elevation" depth={2} />
-            <HSep />
-            <div style={{ padding: '4px 0 8px' }}>
-              <PropRow label="nodes" value="284" color="#7EB8FF" />
-              <PropRow label="depth" value="4" color="#7EB8FF" />
-              <PropRow label="tokens used" value="12" color="#FFBA7B" />
-            </div>
-          </Section>
+          <GraphTab fiberRoot={selectedArtboardId ? artboardFiberRoots[selectedArtboardId] : undefined} />
         )}
       </div>
 
@@ -160,16 +153,41 @@ export function Inspector() {
 /* ── Props tab ────────────────────────────────────────────── */
 function PropsTab({
   artboard,
+  selectedComponentData,
   workspaceId,
   projectId,
 }: {
   artboard: Artboard | null;
+  selectedComponentData: FiberNode | null;
   workspaceId: string | null;
   projectId: string | null;
 }) {
   const queryClient = useQueryClient();
   const [editingUrl, setEditingUrl] = useState(false);
   const [urlDraft, setUrlDraft] = useState('');
+
+  // Drift report state
+  const [driftStatus, setDriftStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [driftReport, setDriftReport] = useState('');
+
+  const generateDriftReport = useCallback(async () => {
+    if (!artboard) return;
+    setDriftStatus('loading');
+    setDriftReport('');
+    try {
+      const res = await fetch('/api/ai/drift-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ artboard_id: artboard.id }),
+      });
+      if (!res.ok) throw new Error(`${res.status}`);
+      const data = await res.json() as { report?: string; result?: string };
+      setDriftReport(data.report ?? data.result ?? '— No report returned');
+      setDriftStatus('done');
+    } catch {
+      setDriftStatus('error');
+    }
+  }, [artboard]);
 
   const saveRenderUrl = useCallback(async () => {
     if (!artboard) return;
@@ -214,6 +232,26 @@ function PropsTab({
 
   return (
     <>
+      {/* Selected fiber component props — shown when a component is clicked in canvas */}
+      {selectedComponentData && (
+        <>
+          <Section label={`↳ ${selectedComponentData.name}`}>
+            {Object.entries(selectedComponentData.props ?? {}).map(([k, v]) => {
+              const t = typeof v;
+              const color = t === 'number' ? N : t === 'boolean' ? B : S;
+              const display = t === 'string' ? `"${v as string}"` : String(v);
+              return <PropRow key={k} label={k} value={display} color={color} />;
+            })}
+            {Object.keys(selectedComponentData.props ?? {}).length === 0 && (
+              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.625rem', color: 'rgba(255,255,255,0.22)' }}>
+                No props
+              </span>
+            )}
+          </Section>
+          <HSep />
+        </>
+      )}
+
       {extraProps.length > 0 && (
         <>
           <Section label="Component Props">
@@ -237,6 +275,7 @@ function PropsTab({
         <PropRow label="id"   value={artboard.id.slice(0, 8) + '…'} color="rgba(255,255,255,0.28)" />
 
         {/* renderUrl — inline editable */}
+
         <div style={{ marginBottom: 8 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: editingUrl ? 6 : 0 }}>
             <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.625rem', color: T.key }}>
@@ -298,6 +337,56 @@ function PropsTab({
             </span>
           )}
         </div>
+      </Section>
+
+      <HSep />
+
+      {/* ── Drift Report ───────────────────────────────────── */}
+      <Section label="Drift Report">
+        <button
+          onClick={() => void generateDriftReport()}
+          disabled={driftStatus === 'loading'}
+          style={{
+            width: '100%',
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: '0.5875rem',
+            background: driftStatus === 'loading' ? 'rgba(255,255,255,0.06)' : 'rgba(51,133,255,0.12)',
+            border: `1px solid ${driftStatus === 'loading' ? 'rgba(255,255,255,0.08)' : 'rgba(51,133,255,0.25)'}`,
+            borderRadius: 6, padding: '6px 0',
+            color: driftStatus === 'loading' ? 'rgba(255,255,255,0.35)' : T.accent,
+            cursor: driftStatus === 'loading' ? 'wait' : 'pointer',
+            letterSpacing: '0.04em',
+            transition: 'background 0.15s, border-color 0.15s, color 0.15s',
+          }}
+        >
+          {driftStatus === 'loading' ? 'Analysing…' : '↻ Generate drift report'}
+        </button>
+
+        {driftStatus === 'error' && (
+          <div style={{ marginTop: 6, fontSize: '0.5rem', color: '#FF8080', fontFamily: 'monospace' }}>
+            Report failed — try again
+          </div>
+        )}
+
+        {driftStatus === 'done' && driftReport && (
+          <div style={{
+            marginTop: 8,
+            padding: '8px 10px',
+            background: 'rgba(0,0,0,0.35)',
+            border: '1px solid rgba(255,255,255,0.06)',
+            borderRadius: 6,
+            maxHeight: 220,
+            overflow: 'auto',
+            fontSize: '0.5875rem',
+            fontFamily: "'Inter', sans-serif",
+            color: 'rgba(255,255,255,0.62)',
+            lineHeight: 1.65,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+          }}>
+            {driftReport}
+          </div>
+        )}
       </Section>
     </>
   );
@@ -365,6 +454,81 @@ function GraphNode({ label, depth, isRoot }: { label: string; depth: number; isR
       </span>
     </div>
   );
+}
+
+/* ── Graph tab ────────────────────────────────────────────── */
+function GraphTab({ fiberRoot }: { fiberRoot: FiberNode | undefined }) {
+  if (!fiberRoot) {
+    return (
+      <Section label="Origin Graph">
+        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.625rem', color: 'rgba(255,255,255,0.22)' }}>
+          No live render — connect a URL in Props to see the fiber tree
+        </span>
+      </Section>
+    );
+  }
+
+  const nodeCount = countFiberNodes(fiberRoot);
+  const treeDepth = measureFiberDepth(fiberRoot);
+
+  return (
+    <Section label="Origin Graph">
+      <FiberTreeView node={fiberRoot} depth={0} />
+      <HSep />
+      <div style={{ padding: '4px 0 8px' }}>
+        <PropRow label="nodes" value={String(nodeCount)} color="#7EB8FF" />
+        <PropRow label="depth" value={String(treeDepth)} color="#7EB8FF" />
+      </div>
+    </Section>
+  );
+}
+
+function FiberTreeView({ node, depth }: { node: FiberNode; depth: number }) {
+  const [collapsed, setCollapsed] = useState(depth > 2);
+  const hasChildren = node.children && node.children.length > 0;
+
+  return (
+    <div>
+      <div
+        style={{
+          display: 'flex', alignItems: 'center', gap: 5,
+          paddingLeft: depth * 12, marginBottom: 4,
+          cursor: hasChildren ? 'pointer' : 'default',
+        }}
+        onClick={() => hasChildren && setCollapsed(c => !c)}
+      >
+        <div style={{
+          width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
+          background: depth === 0 ? T.accent : 'rgba(255,255,255,0.2)',
+        }} />
+        {hasChildren && (
+          <span style={{ fontSize: '0.5rem', color: 'rgba(255,255,255,0.3)', marginRight: -2 }}>
+            {collapsed ? '▶' : '▼'}
+          </span>
+        )}
+        <span style={{
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: '0.625rem',
+          color: depth === 0 ? T.accent : 'rgba(255,255,255,0.55)',
+          letterSpacing: '-0.01em',
+        }}>
+          {node.name}
+        </span>
+      </div>
+      {!collapsed && hasChildren && node.children!.map((child, i) => (
+        <FiberTreeView key={i} node={child} depth={depth + 1} />
+      ))}
+    </div>
+  );
+}
+
+function countFiberNodes(node: FiberNode): number {
+  return 1 + (node.children ?? []).reduce((acc, c) => acc + countFiberNodes(c), 0);
+}
+
+function measureFiberDepth(node: FiberNode, d = 0): number {
+  if (!node.children?.length) return d;
+  return Math.max(...node.children.map(c => measureFiberDepth(c, d + 1)));
 }
 
 function HSep() {

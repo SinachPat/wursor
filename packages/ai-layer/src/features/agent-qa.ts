@@ -36,7 +36,6 @@ export async function answerAgentQuestion(
       },
     ],
     maxTokens: 1024,
-    temperature: 0.7,
   });
 
   let parsed: unknown;

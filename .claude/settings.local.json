@@ -129,7 +129,15 @@
       "Bash(git -C /Users/USER/Desktop/originmain status --short)",
       "Bash(mkdir -p /Users/USER/Desktop/originmain/packages/app/src/app/api/workspace/\\\\[id\\\\]/tokens)",
       "Bash(mkdir -p /Users/USER/Desktop/originmain/packages/app/src/app/api/workspace/\\\\[id\\\\]/projects/\\\\[pid\\\\])",
-      "Bash(mkdir -p /Users/USER/Desktop/originmain/packages/app/src/app/api/workspace/\\\\[id\\\\]/invite)"
+      "Bash(mkdir -p /Users/USER/Desktop/originmain/packages/app/src/app/api/workspace/\\\\[id\\\\]/invite)",
+      "Bash(grep anthropic *)",
+      "Bash(npx --yes npm-check-updates --packageFile /Users/USER/Desktop/originmain/packages/ai-layer/package.json --filter \"@anthropic-ai/sdk\")",
+      "Bash(pnpm --filter @originmain/app tsc --noEmit)",
+      "Bash(pnpm --filter @originmain/ai-layer add @anthropic-ai/sdk@latest)",
+      "Bash(pnpm --filter @originmain/origin-graph test)",
+      "Bash(grep -E \"\\\\.d\\\\.ts$\")",
+      "Bash(pnpm -w ls @anthropic-ai/sdk)",
+      "Bash(grep -v \"\\\\.map$\")"
     ]
   }
 }

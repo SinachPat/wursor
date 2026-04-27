@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface WorkspaceSettingsFormProps {
@@ -46,6 +46,110 @@ const BTN_PRIMARY: React.CSSProperties = {
   border: 'none', cursor: 'pointer', letterSpacing: '-0.01em',
 };
 
+// Matches TeamRoleSchema in @originmain/origin-graph — keep in sync.
+type TeamRole = 'OWNER' | 'DESIGNER' | 'ENGINEER' | 'PM' | 'VIEWER';
+
+function TeamInviteForm({ workspaceId }: { workspaceId: string }) {
+  const [userId, setUserId] = useState('');
+  const [role, setRole] = useState<TeamRole>('DESIGNER');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'conflict' | 'error'>('idle');
+  const [errorMsg, setErrorMsg] = useState('');
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  // Clear any pending reset timers on unmount to avoid setState-after-unmount.
+  useEffect(() => { return () => { clearTimeout(resetTimer.current); }; }, []);
+
+  const submit = useCallback(async () => {
+    const trimmed = userId.trim();
+    if (!trimmed) return;
+    clearTimeout(resetTimer.current);
+    setStatus('loading');
+    setErrorMsg('');
+    try {
+      const res = await fetch(`/api/workspace/${workspaceId}/invite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: trimmed, role }),
+      });
+      if (res.status === 409) { setStatus('conflict'); return; }
+      if (!res.ok) {
+        const data = await res.json() as { error?: string };
+        throw new Error(data.error ?? `HTTP ${res.status}`);
+      }
+      setStatus('done');
+      setUserId('');
+      resetTimer.current = setTimeout(() => setStatus('idle'), 3000);
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : 'Invite failed');
+      setStatus('error');
+      resetTimer.current = setTimeout(() => setStatus('idle'), 4000);
+    }
+  }, [userId, role, workspaceId]);
+
+  const roles: TeamRole[] = ['DESIGNER', 'ENGINEER', 'PM', 'VIEWER', 'OWNER'];
+
+  return (
+    <div>
+      {/* Role picker */}
+      <label style={LABEL}>Role</label>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+        {roles.map(r => (
+          <button
+            key={r}
+            onClick={() => setRole(r)}
+            style={{
+              fontSize: '0.75rem', fontWeight: 600, padding: '5px 13px', borderRadius: 8,
+              border: `1px solid ${role === r ? '#0066FF' : 'rgba(0,0,0,0.12)'}`,
+              background: role === r ? 'rgba(0,102,255,0.08)' : '#FFFFFF',
+              color: role === r ? '#0066FF' : '#52525B',
+              cursor: 'pointer',
+            }}
+          >
+            {r.charAt(0) + r.slice(1).toLowerCase()}
+          </button>
+        ))}
+      </div>
+
+      {/* User ID input + submit */}
+      <label style={LABEL} htmlFor="invite-uid">Clerk user ID</label>
+      <div style={{ display: 'flex', gap: 10 }}>
+        <input
+          id="invite-uid"
+          style={INPUT}
+          placeholder="user_2abc…"
+          value={userId}
+          onChange={e => setUserId(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') void submit(); }}
+          disabled={status === 'loading'}
+        />
+        <button
+          onClick={() => void submit()}
+          disabled={status === 'loading' || !userId.trim()}
+          style={{
+            ...BTN_PRIMARY,
+            flexShrink: 0,
+            opacity: (status === 'loading' || !userId.trim()) ? 0.5 : 1,
+            transition: 'opacity 0.15s',
+          }}
+        >
+          {status === 'loading' ? 'Inviting…' : 'Invite'}
+        </button>
+      </div>
+
+      {/* Feedback */}
+      {status === 'done' && (
+        <p style={{ fontSize: '0.8125rem', color: '#10B981', marginTop: 8 }}>✓ Member added successfully</p>
+      )}
+      {status === 'conflict' && (
+        <p style={{ fontSize: '0.8125rem', color: '#F59E0B', marginTop: 8 }}>User is already a member of this workspace</p>
+      )}
+      {status === 'error' && (
+        <p style={{ fontSize: '0.8125rem', color: '#EF4444', marginTop: 8 }}>{errorMsg || 'Invite failed — try again'}</p>
+      )}
+    </div>
+  );
+}
+
 export function WorkspaceSettingsForm({ workspaceId, workspaceName, memberRole }: WorkspaceSettingsFormProps) {
   const router = useRouter();
   const isOwner = memberRole === 'OWNER';
@@ -53,9 +157,13 @@ export function WorkspaceSettingsForm({ workspaceId, workspaceName, memberRole }
   /* ── Rename ── */
   const [name, setName] = useState(workspaceName);
   const [renameStatus, setRenameStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const renameTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => { return () => { clearTimeout(renameTimer.current); }; }, []);
 
   async function saveName() {
     if (!name.trim() || name.trim() === workspaceName) return;
+    clearTimeout(renameTimer.current);
     setRenameStatus('saving');
     try {
       const res = await fetch(`/api/workspace/${workspaceId}`, {
@@ -66,10 +174,10 @@ export function WorkspaceSettingsForm({ workspaceId, workspaceName, memberRole }
       if (!res.ok) throw new Error('Rename failed');
       setRenameStatus('saved');
       router.refresh();
-      setTimeout(() => setRenameStatus('idle'), 2000);
+      renameTimer.current = setTimeout(() => setRenameStatus('idle'), 2000);
     } catch {
       setRenameStatus('error');
-      setTimeout(() => setRenameStatus('idle'), 3000);
+      renameTimer.current = setTimeout(() => setRenameStatus('idle'), 3000);
     }
   }
 
@@ -240,6 +348,20 @@ export function WorkspaceSettingsForm({ workspaceId, workspaceName, memberRole }
           </div>
         )}
       </div>
+
+      {/* Team */}
+      {isOwner && (
+        <div style={SECTION}>
+          <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#0A0A0A', margin: '0 0 6px' }}>
+            Team
+          </h2>
+          <p style={{ fontSize: '0.8125rem', color: '#71717A', margin: '0 0 20px', lineHeight: 1.6 }}>
+            Add a team member using their Clerk user ID. You can find this in the Clerk dashboard under Users.
+          </p>
+
+          <TeamInviteForm workspaceId={workspaceId} />
+        </div>
+      )}
 
       {/* Danger zone */}
       {isOwner && (

@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.56.0",
+    "@anthropic-ai/sdk": "^0.91.1",
     "@originmain/design-language": "workspace:*",
     "@originmain/diff-engine": "workspace:*",
     "zod": "^3.0.0"

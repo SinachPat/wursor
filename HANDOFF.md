@@ -114,7 +114,7 @@
 - **`src/agent-qa.ts`** — `answerAgentQuestion()`: temp 0.7
 
 ### SDK note
-`@anthropic-ai/sdk` v0.56.0 is installed. Adaptive thinking (`thinking: {type: 'adaptive'}`) requires ≥0.58 — a TODO comment marks all 5 feature files for upgrade. All features remain fully functional at temperature level.
+`@anthropic-ai/sdk` upgraded to **v0.91.1** in Session 4. All 5 feature files now use `thinking: {type: 'adaptive'}` via the gateway. `temperature` parameter removed from `GatewayRequest` interface and all feature call sites (Opus 4.7 with adaptive thinking rejects temperature with HTTP 400).
 
 ---
 
@@ -162,9 +162,9 @@ Each connector validates untrusted webhook JSON at the boundary with Zod (`parse
 | `packages/diff-engine`     | Complete    | 49 tests, ~88% coverage                                     |
 | `packages/ui`              | Active      | Theme + FluentProvider                                      |
 | `packages/renderer`        | Complete    | Layer 2: postMessage protocol, fiber hook, MF config        |
-| `packages/origin-graph`    | Complete    | Layer 4: migrations, RLS, Zod types, query helpers          |
+| `packages/origin-graph`    | Complete    | Layer 4: migrations, RLS, Zod types, query helpers; 45 tests, 100% types.ts coverage |
 | `packages/design-language` | Complete    | Layer 5: DLF schema, validator, token pipeline              |
-| `packages/ai-layer`        | Complete    | Layer 6: gateway, 5 features, prompt library                |
+| `packages/ai-layer`        | Complete    | Layer 6: gateway, 5 features, prompt library; SDK v0.91.1, adaptive thinking |
 | `packages/agent-bridge`    | Complete    | Layer 7: MCP tools, auth, rate limiter, adapters            |
 | `packages/integrations`    | Complete    | Layer 8: OriginIngester + 4 connectors                      |
 | `packages/multiplayer`     | Foundation  | Layer 9: room schema, MultiplayerAdapter, cursor palette    |
@@ -239,12 +239,11 @@ Actual `createClient` / `createRoomContext` calls go in `packages/app/src/lib/li
 
 ## Known Pending Items
 
-1. **`@anthropic-ai/sdk` upgrade to ≥0.58** — unlocks `thinking: {type: 'adaptive'}` in all 5 AI feature files (marked with TODO comments)
-2. **Redis-backed rate limiter** — `packages/agent-bridge/src/rate-limiter.ts` is in-process only; needs Redis for multi-instance MCP server deployment
-3. **Layer 0** — Infrastructure (Vercel, Supabase, Render, GitHub Actions) deferred per plan
-4. **Layer 9 Phase 3** — Wire `MultiplayerAdapter` into app components; add `createClient`/`createRoomContext` in `packages/app/src/lib/liveblocks.ts`; install `@liveblocks/client` + `@liveblocks/react`
-5. **Layer 10 Phase 4** — Plugin sandbox runtime (iframe + postMessage bridge); SCIM webhook endpoint; SSO provider registration UI; audit log Supabase table + extension
-6. **`packages/e2e`** — Playwright E2E tests not yet created
+1. **Redis-backed rate limiter** — `packages/agent-bridge/src/rate-limiter.ts` is in-process only; needs Redis for multi-instance MCP server deployment
+2. **Layer 0** — Infrastructure (Vercel, Supabase, Render, GitHub Actions) deferred per plan
+3. **Layer 9 Phase 3** — Wire `MultiplayerAdapter` into app components; add `createClient`/`createRoomContext` in `packages/app/src/lib/liveblocks.ts`; install `@liveblocks/client` + `@liveblocks/react`
+4. **Layer 10 Phase 4** — Plugin sandbox runtime (iframe + postMessage bridge); SCIM webhook endpoint; SSO provider registration UI; audit log Supabase table + extension
+5. **`packages/e2e`** — Playwright E2E tests not yet created
 
 ---
 
@@ -270,62 +269,44 @@ The following is a second-pass audit of all real product gaps, independent of la
 - `WorkspaceCard.tsx` + `ProjectCard.tsx` extracted as `'use client'` components → fixed server-side exception on breadcrumb click
 
 ### ✅ Completed — Session 2 (2026-04-26)
-- **Server-side crash fixed**: `workspaces/page.tsx` and `workspace/[wid]/page.tsx` confirmed using `WorkspaceCard`/`ProjectCard` client components (no `onMouseEnter` in server components)
-- **Inspector fully rewired**: removed `useDiff`/`ARTBOARD_SNAPSHOTS` hardcoded data; now uses `useDiffs` (real DB diffs) + `useHistory` (pending local changes)
-- **Export Diff button**: Inspector Diff tab shows pending `PropChange[]` from history store with "Export diff →" button that calls `POST /api/diffs`
-- **`renderUrl` inline editor**: Inspector Props tab has inline input for `renderUrl`; saves via `PATCH /api/artboards/[id]`; `patchArtboard()` added to `useArtboards.ts`
-- **Inspector status bar**: now reads `liveArtboardIds` from canvas store — shows pulsing green dot when live render connected, grey + hint when not
-- **Empty canvas state**: removed `DEMO_ARTBOARDS` fallback from `useArtboards.ts`; Canvas shows dashed hint "Press A to create an artboard" when empty
-- **Zone tool drag preview**: Canvas draws live dashed rectangle + dimension label during zone drag; cleans up on mouse-up
-- **Workspace settings page**: `GET+PATCH /api/workspace/[id]`, `/workspace/[wid]/settings` page + `WorkspaceSettingsForm` client component (rename, IDE token issuance with full config snippets, danger zone)
-- **Settings link in workspace page**: gear icon button added next to "New project"
+- **Server-side crash fixed**: `workspaces/page.tsx` and `workspace/[wid]/page.tsx` confirmed using `WorkspaceCard`/`ProjectCard` client components
+- **Inspector fully rewired**: uses `useDiffs` (DB) + `useHistory` (pending); Export Diff button; `renderUrl` inline editor; live status bar reads `liveArtboardIds`
+- **Empty canvas state**: DEMO_ARTBOARDS removed; Canvas shows hint when empty
+- **Zone tool drag preview**: live dashed rectangle + dimension label
+- **Workspace settings page**: `GET+PATCH /api/workspace/[id]`, rename, IDE token issuance, danger zone
+- **Settings link** added to workspace page
 
-### 🔧 Remaining — In Order of Priority
+### ✅ Completed — Session 3 (2026-04-26)
+- **Canvas store `artboardFiberRoots`**: new `setFiberRoot(artboardId, root)` — Artboard calls it on every fiber update; Inspector Graph tab reads from it
+- **Inspector Graph tab**: shows real collapsible `FiberTreeView` from live artboard; shows node count + depth; placeholder when no live render
+- **Inspector Props tab — component selection**: when a component is clicked via `SelectionOverlay`, fiber props appear in a `↳ ComponentName` section above artboard metadata
+- **Artboard delete button**: ✕ icon appears in label when artboard is selected; confirm dialog → `DELETE /api/artboards/[id]` → invalidate query
+- **Artboard drag + rename**: already implemented (drag label to move, double-click to rename inline)
+- **Navigator delete/rename**: hover on artboard row reveals pencil (rename) and trash (delete) icon buttons; calls `patchArtboard` / `DELETE` API
+- **Zone prompt popup**: after zone drag ends, `ZonePromptOverlay` floats at zone position; textarea + "Generate ⌘↵" → `POST /api/ai/completion-zone`; shows result; Escape/close to dismiss
+- **Dead demo code removed**: `ArtboardContent`, `DashboardCard`, `UserProfile`, `NavSidebar`, `DataTable` all deleted from `Artboard.tsx`
 
-**CRITICAL** — all done ✅
+### ✅ Completed — Session 4 (2026-04-26)
+- **Viewport per-workspace persistence**: `viewport.ts` `restore()` action + `AppChrome.tsx` useEffect saves/restores `panX/panY/zoom` per workspace in localStorage under `originmain:viewport:{workspaceId}`
+- **Webhook `?project=` param**: `/api/webhooks/[provider]/route.ts` reads `project` query param → `project_id` on created artboard
+- **Navigator live render badge**: artboard rows show pulsing green dot when artboard ID is in `liveArtboardIds`
+- **Navigator real graph stats**: `artboardFiberRoots` traversal gives true component counts; live artboard count from `liveArtboardIds.size`
+- **Cross-Artboard Query UI**: `CrossArtboardQuery` component in Navigator, queries `POST /api/ai/query`
+- **Drift Report UI**: "↻ Generate drift report" button at bottom of Inspector Props tab; calls `POST /api/ai/drift-report`; shows scrollable pre-formatted result panel
+- **`@anthropic-ai/sdk` upgraded to v0.91.1**: adaptive thinking wired in gateway; `temperature` removed from interface + all 5 feature files
+- **Team invitation UI**: `TeamInviteForm` added to `WorkspaceSettingsForm` — Clerk userId + role picker → `POST /api/workspace/[id]/invite`; conflict/error/success feedback
+- **Project settings page**: `/workspace/[wid]/project/[pid]/settings` — rename, description, app URL, framework selector, type-to-confirm delete; gear icon in AppChrome breadcrumb
+- **Vitest: diff-engine**: stray test moved to correct location; all 49 tests pass, 88% coverage
+- **Vitest: origin-graph**: 45 new Zod schema tests in `__tests__/types.test.ts`; 100% `types.ts` coverage
 
-**HIGH**
-- [x] Replace `useDiff.ts` with real `useDiffs.ts` ✅
-- [x] `renderUrl` edit UI ✅
-- [x] Export Diff button ✅
-- [x] Zone tool canvas drag preview ✅
-- [x] Empty canvas state ✅
-- [x] Workspace settings page ✅
-- [ ] Artboard content fallback — Artboard.tsx still shows UUID as a placeholder title when no fiber tree is connected
+### 🔧 Remaining — Lower Priority
 
-**MEDIUM**
-- [ ] `handleComponentSelected` → canvas `selectComponent()` → Inspector shows selected component's fiber props
-- [ ] Graph tab wired to real fiber tree (currently shows hardcoded DashboardCard tree)
-- [ ] Navigator files tree selectable + artboard delete/rename actions
-- [ ] Artboard drag-to-move (label drag → `PATCH /api/artboards/[id]` with new x/y in metadata_jsonb)
-- [ ] Artboard delete (trash icon → confirm → `DELETE /api/artboards/[id]`)
-- [ ] Artboard rename (double-click label → inline edit → PATCH name)
-- [ ] Viewport persistence to localStorage
-- [ ] Webhook `project_id` from `?project=` query param
-- [ ] `@anthropic-ai/sdk` upgrade to ≥0.58 for `thinking: {type: 'adaptive'}`
+- [ ] **Multiplayer**: Wire `MultiplayerAdapter` into app (install `@liveblocks/client` + `@liveblocks/react`; create `packages/app/src/lib/liveblocks.ts`)
+- [ ] **Plugin system stub page**: UI route at `/workspace/[wid]/plugins` listing installed plugins
+- [ ] **`packages/e2e`**: Playwright E2E tests not yet created
+- [ ] **Redis rate limiter**: Replace in-process rate limiter in agent-bridge for multi-instance support
 
-**LOW**
-- [ ] Project settings page
-- [ ] Team invitation UI (in workspace settings — `POST /api/workspace/[id]/invite` exists)
-- [ ] Drift Report UI (in Inspector AI section)
-- [ ] Cross-Artboard Query UI (in navigator)
-- [ ] Vitest test files (diff-engine + origin-graph)
-- [ ] Multiplayer basic Liveblocks wiring
-- [ ] Plugin system stub page
-- [ ] Zone tool: after drag, show prompt input → `POST /api/ai/completion-zone` with bounds
+**Webhook project_id:**
+`/api/webhooks/[provider]/route.ts` currently sets `project_id: null`. Read the `?project=` query param from the request URL (`new URL(req.url).searchParams.get('project')`) and pass it to the ingestion result.
 
-### Key Technical Notes for Next Agent
-
-**Artboard.tsx and component selection:**
-The `handleComponentSelected` callback inside `Artboard.tsx` receives the clicked `FiberNode` (from `LiveArtboard`). It needs to call `useCanvas.getState().selectComponent(node.id, node)`. The Inspector's PropsTab should check `selectedComponentId`/`selectedComponentData` and show the fiber node's props when a component is selected (vs. showing artboard metadata when nothing is selected).
-
-**Artboard drag-to-move:**
-The `Artboard` component label area needs `onMouseDown` → tracks mouse delta → `PATCH /api/artboards/[id]` with `{ metadata_jsonb: { ...meta, x: newX, y: newY } }`. Use `patchArtboard(id, { metadata_jsonb: ... })` from `useArtboards.ts` then `queryClient.invalidateQueries`.
-
-**Zone tool completion:**
-After the zone drag ends (mouse-up), show a floating prompt input at the zone position. On submit → `POST /api/ai/completion-zone` with `{ artboard_id, bounds: {x,y,w,h}, prompt }`. Show result inline in the canvas.
-
-**`@anthropic-ai/sdk` upgrade path:**
-All 5 AI feature files in `packages/ai-layer/src/` have `// TODO: upgrade to adaptive thinking when SDK ≥0.58` comments. After `pnpm add @anthropic-ai/sdk@latest` in `packages/ai-layer`, replace the temperature-based calls with `thinking: {type: 'adaptive'}` on the `gateway.complete()` calls.
-
-*Last updated: 2026-04-26 — Session 2 complete*
+*Last updated: 2026-04-26 — Session 3 complete*

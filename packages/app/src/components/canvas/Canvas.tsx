@@ -12,7 +12,7 @@ export function Canvas() {
   const panX          = useViewport((s) => s.panX);
   const panY          = useViewport((s) => s.panY);
   const zoom          = useViewport((s) => s.zoom);
-  const { activeTool, setActiveTool, selectArtboard, workspaceId, projectId } = useCanvas();
+  const { activeTool, setActiveTool, selectArtboard, selectedArtboardId, workspaceId, projectId } = useCanvas();
   const { artboards } = useArtboards(workspaceId ?? undefined, projectId ?? undefined);
   const queryClient   = useQueryClient();
 
@@ -23,6 +23,7 @@ export function Canvas() {
   // Zone tool: drag to draw a completion zone
   const zoneStart   = useRef<{ x: number; y: number } | null>(null);
   const [zonePreview, setZonePreview] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const [zoneDone, setZoneDone] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
 
   // Wheel: pan or pinch-zoom
   useEffect(() => {
@@ -125,13 +126,15 @@ export function Canvas() {
   const onMouseUp = useCallback(() => {
     isPanning.current = false;
 
-    // Zone tool: finalise zone on mouse-up (clear preview; zone result is handled elsewhere)
-    if (activeTool === 'zone' && zoneStart.current) {
+    // Zone tool: finalise zone — keep the bounds and show prompt popup
+    if (activeTool === 'zone' && zoneStart.current && zonePreview) {
+      const bounds = { ...zonePreview };
       zoneStart.current = null;
       setZonePreview(null);
       setActiveTool('select');
+      if (bounds.w > 8 && bounds.h > 8) setZoneDone(bounds);
     }
-  }, [activeTool, setActiveTool]);
+  }, [activeTool, setActiveTool, zonePreview]);
 
   // Dot grid that shifts with pan and scales with zoom
   const gridSpacing = Math.max(6, 20 * zoom);
@@ -215,6 +218,16 @@ export function Canvas() {
         )}
       </div>
 
+      {/* Zone prompt overlay — shown after a zone drag completes */}
+      {zoneDone && (
+        <ZonePromptOverlay
+          bounds={zoneDone}
+          artboardId={selectedArtboardId}
+          panX={panX} panY={panY} zoom={zoom}
+          onClose={() => setZoneDone(null)}
+        />
+      )}
+
       {/* Empty canvas hint — shown only when workspace has no artboards yet */}
       {artboards.length === 0 && (
         <div style={{
@@ -241,6 +254,147 @@ export function Canvas() {
             </span>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Zone prompt overlay ──────────────────────────────────── */
+function ZonePromptOverlay({
+  bounds, artboardId, panX, panY, zoom, onClose,
+}: {
+  bounds: { x: number; y: number; w: number; h: number };
+  artboardId: string | null;
+  panX: number; panY: number; zoom: number;
+  onClose: () => void;
+}) {
+  const [prompt, setPrompt] = useState('');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [result, setResult] = useState('');
+
+  // Convert canvas → screen coordinates (relative to canvas container)
+  const screenX = bounds.x * zoom + panX;
+  const screenY = (bounds.y + bounds.h) * zoom + panY + 10; // 10px below zone
+
+  const submit = useCallback(async () => {
+    if (!prompt.trim() || !artboardId) return;
+    setStatus('loading');
+    try {
+      const res = await fetch('/api/ai/completion-zone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          artboard_id: artboardId,
+          bounds: { x: bounds.x, y: bounds.y, width: bounds.w, height: bounds.h },
+          prompt: prompt.trim(),
+        }),
+      });
+      if (!res.ok) throw new Error(`${res.status}`);
+      const data = await res.json() as { completion?: string; result?: string };
+      setResult(data.completion ?? data.result ?? 'Done');
+      setStatus('done');
+    } catch (e) {
+      console.error('[ZonePrompt]', e);
+      setStatus('error');
+    }
+  }, [prompt, artboardId, bounds]);
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: Math.max(8, screenX),
+        top: Math.max(8, screenY),
+        zIndex: 50,
+        width: 280,
+        background: '#1A1A20',
+        border: '1px solid rgba(51,133,255,0.35)',
+        borderRadius: 10,
+        boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+        padding: '12px 14px',
+        fontFamily: "'Inter', -apple-system, sans-serif",
+      }}
+      onMouseDown={e => e.stopPropagation()}
+    >
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'rgba(51,133,255,0.9)', letterSpacing: '-0.01em' }}>
+          ⚡ Completion zone · {bounds.w}×{bounds.h}
+        </span>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', fontSize: 13, padding: 0, lineHeight: 1 }}>✕</button>
+      </div>
+
+      {status === 'done' ? (
+        <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.75)', lineHeight: 1.6, marginBottom: 10 }}>
+          {result}
+        </div>
+      ) : (
+        <>
+          <textarea
+            autoFocus
+            value={prompt}
+            onChange={e => setPrompt(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void submit();
+              if (e.key === 'Escape') onClose();
+              e.stopPropagation();
+            }}
+            placeholder="Describe what to generate in this zone…"
+            rows={3}
+            style={{
+              width: '100%', boxSizing: 'border-box',
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: 6, padding: '8px 10px',
+              fontSize: '0.75rem', color: 'rgba(255,255,255,0.85)',
+              fontFamily: 'inherit', resize: 'none', outline: 'none',
+              marginBottom: 8,
+            }}
+          />
+          {status === 'error' && (
+            <p style={{ fontSize: '0.625rem', color: '#FF8080', margin: '0 0 6px' }}>Request failed — try again</p>
+          )}
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              onClick={() => void submit()}
+              disabled={status === 'loading' || !prompt.trim() || !artboardId}
+              style={{
+                flex: 1, padding: '7px 0', borderRadius: 6,
+                background: !prompt.trim() || !artboardId ? 'rgba(51,133,255,0.3)' : '#3385FF',
+                border: 'none', color: '#fff',
+                fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer',
+                fontFamily: 'inherit', opacity: status === 'loading' ? 0.7 : 1,
+              }}
+            >
+              {status === 'loading' ? 'Generating…' : 'Generate ⌘↵'}
+            </button>
+            <button
+              onClick={onClose}
+              style={{
+                padding: '7px 12px', borderRadius: 6,
+                background: 'transparent', border: '1px solid rgba(255,255,255,0.12)',
+                color: 'rgba(255,255,255,0.5)', fontSize: '0.75rem',
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </>
+      )}
+
+      {status === 'done' && (
+        <button
+          onClick={onClose}
+          style={{
+            width: '100%', padding: '7px 0', borderRadius: 6,
+            background: 'rgba(255,255,255,0.07)', border: 'none',
+            color: 'rgba(255,255,255,0.5)', fontSize: '0.75rem',
+            cursor: 'pointer', fontFamily: 'inherit',
+          }}
+        >
+          Close
+        </button>
       )}
     </div>
   );

@@ -27,7 +27,6 @@ export async function generateDiffSummary(
       },
     ],
     maxTokens: 128,
-    temperature: 0.3,
   });
 
   return { summary: response.text.trim() };

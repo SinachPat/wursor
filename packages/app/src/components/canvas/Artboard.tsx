@@ -19,24 +19,24 @@ interface ArtboardProps {
 }
 
 export function Artboard({ id, label, x, y, width, height, renderUrl }: ArtboardProps) {
-  const { selectedArtboardId, selectArtboard, workspaceId, projectId, setArtboardLive, selectComponent } = useCanvas();
+  const { selectedArtboardId, selectArtboard, workspaceId, projectId, setArtboardLive, setFiberRoot, selectComponent } = useCanvas();
   const selected = selectedArtboardId === id;
   const queryClient = useQueryClient();
 
   // ── Fiber tree (from LiveArtboard) ─────────────────────────────────────────
-  const [fiberRoot, setFiberRoot] = useState<FiberNode | undefined>(undefined);
+  const [localFiberRoot, setLocalFiberRoot] = useState<FiberNode | undefined>(undefined);
 
   const handleFiberUpdate = useCallback((root: FiberNode) => {
-    setFiberRoot(root);
+    setFiberRoot(id, root);
     setArtboardLive(id, true);
-  }, [id, setArtboardLive]);
+    setLocalFiberRoot(root);
+  }, [id, setFiberRoot, setArtboardLive]);
 
   const handleComponentSelected = useCallback((nodeId: string) => {
-    if (!fiberRoot) return;
-    // Walk fiber tree to find the selected node
-    const node = findFiberNode(fiberRoot, nodeId);
+    if (!localFiberRoot) return;
+    const node = findFiberNode(localFiberRoot, nodeId);
     selectComponent(nodeId, node ?? null);
-  }, [fiberRoot, selectComponent]);
+  }, [localFiberRoot, selectComponent]);
 
   // ── Drag to reposition ─────────────────────────────────────────────────────
   const isDragging = useRef(false);
@@ -121,6 +121,17 @@ export function Artboard({ id, label, x, y, width, height, renderUrl }: Artboard
     }).catch(console.error);
   }, [id, renameValue, label, workspaceId, projectId, queryClient]);
 
+  // ── Delete artboard ────────────────────────────────────────────────────────
+  const deleteArtboard = useCallback(() => {
+    if (!window.confirm(`Delete "${label}"? This cannot be undone.`)) return;
+    fetch(`/api/artboards/${id}`, { method: 'DELETE' })
+      .then(() => {
+        selectArtboard(null);
+        queryClient.invalidateQueries({ queryKey: ['artboards', workspaceId, projectId ?? undefined] });
+      })
+      .catch(console.error);
+  }, [id, label, selectArtboard, workspaceId, projectId, queryClient]);
+
   const effectiveX = x + (isDragging.current ? dragOffset.dx : 0);
   const effectiveY = y + (isDragging.current ? dragOffset.dy : 0);
 
@@ -171,19 +182,41 @@ export function Artboard({ id, label, x, y, width, height, renderUrl }: Artboard
             }}
           />
         ) : (
-          <span
-            style={{
-              fontSize: 11,
-              fontFamily: "'JetBrains Mono', 'SF Mono', ui-monospace, monospace",
-              fontWeight: selected ? 500 : 400,
-              color: selected ? '#3385FF' : 'rgba(255,255,255,0.35)',
-              whiteSpace: 'nowrap',
-              letterSpacing: '-0.01em',
-              transition: 'color 0.15s',
-            }}
-          >
-            {label}
-          </span>
+          <>
+            <span
+              style={{
+                fontSize: 11,
+                fontFamily: "'JetBrains Mono', 'SF Mono', ui-monospace, monospace",
+                fontWeight: selected ? 500 : 400,
+                color: selected ? '#3385FF' : 'rgba(255,255,255,0.35)',
+                whiteSpace: 'nowrap',
+                letterSpacing: '-0.01em',
+                transition: 'color 0.15s',
+              }}
+            >
+              {label}
+            </span>
+            {/* Delete button — only visible when selected */}
+            {selected && (
+              <button
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); deleteArtboard(); }}
+                title="Delete artboard"
+                style={{
+                  marginLeft: 6,
+                  background: 'none', border: 'none',
+                  padding: '1px 3px', borderRadius: 3,
+                  cursor: 'pointer', color: 'rgba(255,80,80,0.6)',
+                  fontSize: 11, lineHeight: 1,
+                  transition: 'color 0.12s',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#FF5050'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,80,80,0.6)'; }}
+              >
+                ✕
+              </button>
+            )}
+          </>
         )}
       </div>
 
@@ -226,7 +259,7 @@ export function Artboard({ id, label, x, y, width, height, renderUrl }: Artboard
             />
             <SelectionOverlay
               artboardId={id}
-              {...(fiberRoot !== undefined ? { fiberRoot } : {})}
+              {...(localFiberRoot !== undefined ? { fiberRoot: localFiberRoot } : {})}
               width={width}
               height={height}
             />
@@ -350,18 +383,6 @@ function EmptyArtboardContent({
   );
 }
 
-// ── Demo content (only for hardcoded demo IDs) ────────────────────────────────
-
-function ArtboardContent({ id }: { id: string }) {
-  switch (id) {
-    case 'dashboard-card': return <DashboardCard />;
-    case 'user-profile':   return <UserProfile />;
-    case 'nav-sidebar':    return <NavSidebar />;
-    case 'data-table':     return <DataTable />;
-    default:               return null; // shouldn't reach here for real artboards
-  }
-}
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function findFiberNode(root: FiberNode, nodeId: string): FiberNode | null {
@@ -384,115 +405,3 @@ function Handle({ pos }: { pos: React.CSSProperties }) {
   );
 }
 
-// ── Demo card components ──────────────────────────────────────────────────────
-
-function DashboardCard() {
-  return (
-    <div style={{ padding: 20 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <span style={{ fontSize: 11, fontWeight: 600, color: '#111', letterSpacing: '-0.01em' }}>Revenue Overview</span>
-        <span style={{ fontSize: 9, background: '#ECFDF5', color: '#059669', padding: '2px 7px', borderRadius: 99, fontWeight: 600, fontFamily: 'monospace' }}>Live</span>
-      </div>
-      <div style={{ fontSize: 24, fontWeight: 800, color: '#0A0A0A', letterSpacing: '-0.045em', lineHeight: 1, marginBottom: 4 }}>$12,450</div>
-      <div style={{ fontSize: 10, color: '#059669', fontWeight: 500, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 3 }}>
-        <span>↑</span> +2.4% vs last month
-      </div>
-      <div style={{ height: 3, background: '#F0F0F0', borderRadius: 99, overflow: 'hidden', marginBottom: 14 }}>
-        <div style={{ height: '100%', width: '68%', background: 'linear-gradient(90deg, #0066FF, #3385FF)', borderRadius: 99 }} />
-      </div>
-      <div style={{ display: 'flex', gap: 4 }}>
-        {['Q4 2024', 'MRR', 'SaaS'].map(t => (
-          <span key={t} style={{ fontSize: 9, background: '#F4F4F5', color: '#71717A', padding: '3px 8px', borderRadius: 99, fontWeight: 500 }}>{t}</span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function UserProfile() {
-  return (
-    <div style={{ padding: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%' }}>
-      <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'linear-gradient(135deg, #7C3AED, #0066FF)', marginBottom: 12 }} />
-      <div style={{ fontSize: 13, fontWeight: 700, color: '#0A0A0A', letterSpacing: '-0.025em', marginBottom: 3 }}>Sarah Chen</div>
-      <div style={{ fontSize: 10, color: '#A1A1AA', marginBottom: 16 }}>Design Engineer</div>
-      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 7 }}>
-        {[['Team', 'Acme Inc'], ['Role', 'Admin'], ['Plan', 'Team']].map(([k, v]) => (
-          <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10 }}>
-            <span style={{ color: '#A1A1AA' }}>{k}</span>
-            <span style={{ fontWeight: 500, color: '#0A0A0A' }}>{v}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function NavSidebar() {
-  const items = [
-    { icon: '⊞', label: 'Dashboard',    active: true  },
-    { icon: '◉', label: 'Origin Graph', active: false },
-    { icon: '⬜', label: 'Artboards',   active: false },
-    { icon: '△',  label: 'Diffs',       active: false },
-    { icon: '🔗', label: 'Integrations',active: false },
-  ];
-  return (
-    <div style={{ height: '100%', background: '#FAFAFA', display: 'flex', flexDirection: 'column', padding: '12px 0' }}>
-      <div style={{ padding: '0 12px 12px', fontSize: 11, fontWeight: 800, letterSpacing: '-0.04em', color: '#0A0A0A' }}>
-        Origin<span style={{ color: '#0066FF' }}>main</span>
-      </div>
-      <div style={{ height: 1, background: '#EBEBEB', margin: '0 0 8px' }} />
-      {items.map(({ icon, label, active }) => (
-        <div key={label} style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          padding: '7px 12px', margin: '1px 6px', borderRadius: 5,
-          background: active ? 'rgba(0,102,255,0.07)' : 'transparent',
-          fontSize: 10, fontWeight: active ? 600 : 400,
-          color: active ? '#0066FF' : '#52525B', cursor: 'default',
-        }}>
-          <span style={{ fontSize: 11 }}>{icon}</span>{label}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function DataTable() {
-  const rows = [
-    { name: 'DashboardCard', status: 'Live',   nodes: 12, tokens: 8  },
-    { name: 'UserProfile',   status: 'Draft',  nodes: 7,  tokens: 3  },
-    { name: 'NavSidebar',    status: 'Live',   nodes: 19, tokens: 11 },
-    { name: 'DataTable',     status: 'Review', nodes: 24, tokens: 14 },
-  ];
-  return (
-    <div style={{ padding: '16px 0', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ padding: '0 16px 12px', fontSize: 11, fontWeight: 700, color: '#0A0A0A', letterSpacing: '-0.02em' }}>
-        Component Inventory
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 60px 50px 50px', padding: '0 16px 6px', gap: 4 }}>
-        {['Name', 'Status', 'Nodes', 'Tokens'].map(h => (
-          <span key={h} style={{ fontFamily: 'monospace', fontSize: 8, color: '#A1A1AA', letterSpacing: '0.05em', textTransform: 'uppercase' }}>{h}</span>
-        ))}
-      </div>
-      {rows.map((row, i) => (
-        <div key={row.name} style={{
-          display: 'grid', gridTemplateColumns: '1fr 60px 50px 50px',
-          padding: '8px 16px', gap: 4,
-          background: i % 2 === 0 ? 'transparent' : '#FAFAFA', alignItems: 'center',
-        }}>
-          <span style={{ fontSize: 10, fontWeight: 500, color: '#0A0A0A' }}>{row.name}</span>
-          <span style={{
-            fontSize: 8, fontWeight: 600, fontFamily: 'monospace',
-            color: row.status === 'Live' ? '#059669' : row.status === 'Draft' ? '#6B7280' : '#D97706',
-            background: row.status === 'Live' ? '#ECFDF5' : row.status === 'Draft' ? '#F9FAFB' : '#FFFBEB',
-            padding: '2px 6px', borderRadius: 99, width: 'fit-content',
-          }}>{row.status}</span>
-          <span style={{ fontSize: 10, color: '#52525B', fontFamily: 'monospace' }}>{row.nodes}</span>
-          <span style={{ fontSize: 10, color: '#52525B', fontFamily: 'monospace' }}>{row.tokens}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// Suppress unused warning — kept for demo IDs in ArtboardContent
-void ArtboardContent;

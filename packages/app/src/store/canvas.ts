@@ -22,6 +22,10 @@ interface CanvasStore {
   liveArtboardIds: Set<string>;
   setArtboardLive: (id: string, live: boolean) => void;
 
+  // ── Fiber tree cache (per artboard, updated on each FIBER_TREE_UPDATE) ─────
+  artboardFiberRoots: Record<string, FiberNode>;
+  setFiberRoot: (artboardId: string, root: FiberNode) => void;
+
   // ── Component selection (from SelectionOverlay / fiber tree) ───────────────
   selectedComponentId: string | null;
   selectedComponentData: FiberNode | null;
@@ -47,6 +51,10 @@ export const useCanvas = create<CanvasStore>((set) => ({
       if (live) next.add(id); else next.delete(id);
       return { liveArtboardIds: next };
     }),
+
+  artboardFiberRoots: {},
+  setFiberRoot: (artboardId, root) =>
+    set((state) => ({ artboardFiberRoots: { ...state.artboardFiberRoots, [artboardId]: root } })),
 
   selectedComponentId: null,
   selectedComponentData: null,

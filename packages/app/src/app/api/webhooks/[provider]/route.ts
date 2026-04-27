@@ -98,6 +98,8 @@ export async function POST(
   if (!workspaceId) {
     return NextResponse.json({ error: 'workspace query param is required' }, { status: 400 });
   }
+  // Optional: ?project=<uuid> scopes the created artboard to a specific project
+  const projectId = req.nextUrl.searchParams.get('project');
 
   const rawBody = Buffer.from(await req.arrayBuffer());
 
@@ -147,7 +149,7 @@ export async function POST(
 
     const artboard = await createArtboard(db, {
       workspace_id: workspaceId,
-      project_id: null,
+      project_id: projectId,
       name: result.artboardTitle,
       origin_id: origin.id,
       parent_artboard_id: null,

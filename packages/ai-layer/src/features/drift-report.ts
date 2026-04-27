@@ -2,10 +2,12 @@ import type { AIGateway } from '../gateway.js';
 import { buildSystemPrompt } from '../prompts/system.js';
 
 export interface DriftReportInput {
-  /** Screenshot of the live app as base64 data URL */
-  screenshotBase64: string;
-  /** Active Design Language File as JSON string */
-  dlfJson: string;
+  /** Screenshot of the live app as base64 data URL (optional — text-only analysis if absent) */
+  screenshotBase64?: string;
+  /** Active Design Language File as JSON string (optional — generic advice if absent) */
+  dlfJson?: string;
+  /** Human-readable artboard metadata to give the model context (name, size, origin, etc.) */
+  artboardContext?: string;
 }
 
 export interface DriftViolation {
@@ -29,32 +31,39 @@ export async function generateDriftReport(
 ): Promise<DriftReportOutput> {
   const system = buildSystemPrompt({
     role: 'a design system compliance auditor',
-    dlfJson: input.dlfJson,
+    ...(input.dlfJson !== undefined ? { dlfJson: input.dlfJson } : {}),
+  });
+
+  type ContentBlock =
+    | { type: 'image'; source: { type: 'base64'; media_type: 'image/png'; data: string } }
+    | { type: 'text'; text: string };
+
+  const userContent: ContentBlock[] = [];
+
+  if (input.screenshotBase64) {
+    userContent.push({
+      type: 'image',
+      source: {
+        type: 'base64',
+        media_type: 'image/png',
+        data: input.screenshotBase64.replace(/^data:image\/\w+;base64,/, ''),
+      },
+    });
+  }
+
+  const analysisInstructions = input.screenshotBase64
+    ? 'Compare this screenshot against the design language file provided in your system context.'
+    : `Analyse the following artboard for design system drift:\n\n${input.artboardContext ?? '(no artboard context provided)'}`;
+
+  userContent.push({
+    type: 'text',
+    text: `${analysisInstructions} Identify all design system drift violations.\n\nReturn a JSON object:\n{\n  "violations": [{"component":"...", "property":"...", "currentValue":"...", "expectedValue":"...", "severity":"critical|warning", "description":"..."}],\n  "summary": "...",\n  "violationCount": N\n}\n\nRespond ONLY with valid JSON.`,
   });
 
   const response = await gateway.complete({
     system,
-    messages: [
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'image',
-            source: {
-              type: 'base64',
-              media_type: 'image/png',
-              data: input.screenshotBase64.replace(/^data:image\/\w+;base64,/, ''),
-            },
-          },
-          {
-            type: 'text',
-            text: 'Compare this screenshot against the design language file provided in your system context. Identify all design system drift violations.\n\nReturn a JSON object:\n{\n  "violations": [{"component":"...", "property":"...", "currentValue":"...", "expectedValue":"...", "severity":"critical|warning", "description":"..."}],\n  "summary": "...",\n  "violationCount": N\n}\n\nRespond ONLY with valid JSON.',
-          },
-        ],
-      },
-    ],
+    messages: [{ role: 'user', content: userContent }],
     maxTokens: 4096,
-    temperature: 0.3,
   });
 
   // Returning empty violations on parse failure would be a false-negative in a
