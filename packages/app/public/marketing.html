@@ -2552,8 +2552,8 @@ function toggleMenu(force) {
 
 burger.addEventListener('click', () => toggleMenu());
 
-// Close on any link click inside the drawer
-mobileMenu.querySelectorAll('a').forEach(a =>
+// Close on any link click inside the drawer — but NOT the sub-menu accordion toggle
+mobileMenu.querySelectorAll('a:not(#mob-product-toggle)').forEach(a =>
   a.addEventListener('click', () => toggleMenu(false))
 );
 
