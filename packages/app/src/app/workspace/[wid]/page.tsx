@@ -46,7 +46,7 @@ export default async function WorkspacePage({ params }: { params: Promise<{ wid:
   const projects = (projectsData ?? []) as Project[];
 
   return (
-    <div style={{ minHeight: '100vh', background: '#FAFAFA', fontFamily: "'Inter', -apple-system, sans-serif" }}>
+    <div style={{ minHeight: '100dvh', background: '#FAFAFA', fontFamily: "'Inter', -apple-system, sans-serif" }}>
       <AppHeader breadcrumbs={[
         { label: 'Workspaces', href: '/workspaces' },
         { label: workspace.name },

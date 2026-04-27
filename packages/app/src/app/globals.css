@@ -16,3 +16,24 @@ body {
   font-family: 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
   background: #f5f5f5;
 }
+
+/* ── Accessible focus indicators ────────────────────────────────────────────
+   Inline styles set outline:none to suppress browser defaults, but without a
+   replacement this breaks keyboard navigation. :focus-visible adds a visible
+   ring only for keyboard focus (not mouse clicks) across the entire app.
+   The ring colour adapts to context: blue for light-bg pages (#0066FF),
+   and a lighter blue for dark-bg panels (#3385FF / canvas inspector etc.).
+   We use !important to override inline outline:none intentionally.          */
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid #0066FF !important;
+  outline-offset: 2px !important;
+}
+
+/* Canvas panels sit on a dark background — the ring matches the panel accent */
+.dark-panel input:focus-visible,
+.dark-panel textarea:focus-visible {
+  outline-color: #3385FF !important;
+}

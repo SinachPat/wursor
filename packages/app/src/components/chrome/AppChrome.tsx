@@ -110,6 +110,8 @@ export function AppChrome({ workspaceId, projectId, workspaceName, projectName }
           borderBottom: '1px solid rgba(255,255,255,0.06)',
           display: 'flex', alignItems: 'center',
           padding: '0 14px', gap: 0,
+          zIndex: 10,
+          position: 'relative',
         }}>
           {/* Logo */}
           <Link href="/workspaces" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', marginRight: 4 }}>

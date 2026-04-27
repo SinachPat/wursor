@@ -350,6 +350,8 @@ function ZonePromptOverlay({
               fontFamily: 'inherit', resize: 'none', outline: 'none',
               marginBottom: 8,
             }}
+            onFocus={e => (e.currentTarget.style.borderColor = '#3385FF')}
+            onBlur={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')}
           />
           {status === 'error' && (
             <p style={{ fontSize: '0.625rem', color: '#FF8080', margin: '0 0 6px' }}>Request failed — try again</p>

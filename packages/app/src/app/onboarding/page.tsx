@@ -47,7 +47,7 @@ export default function OnboardingPage() {
 
   return (
     <main style={{
-      minHeight: '100vh',
+      minHeight: '100dvh',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       background: '#FAFAFA',
       fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
@@ -98,7 +98,7 @@ export default function OnboardingPage() {
               width: '100%', boxSizing: 'border-box',
               padding: '11px 13px', fontSize: '0.9375rem',
               border: '1px solid rgba(0,0,0,0.12)', borderRadius: 9,
-              outline: 'none', color: '#0A0A0A', background: '#FFFFFF',
+              color: '#0A0A0A', background: '#FFFFFF',
               fontFamily: 'inherit',
             }}
             onFocus={e => (e.currentTarget.style.borderColor = '#0066FF')}

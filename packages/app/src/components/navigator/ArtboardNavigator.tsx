@@ -81,6 +81,7 @@ export function ArtboardNavigator() {
 
   return (
     <div
+      className="dark-panel"
       style={{
         gridColumn: 1,
         gridRow: 2,

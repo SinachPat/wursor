@@ -40,6 +40,7 @@ export function Inspector() {
 
   return (
     <div
+      className="dark-panel"
       style={{
         gridColumn: 3,
         gridRow: 2,
@@ -79,8 +80,8 @@ export function Inspector() {
         ))}
       </div>
 
-      {/* Content */}
-      <div style={{ flex: 1, overflow: 'auto' }}>
+      {/* Content — minHeight:0 is required so this flex child can actually shrink and scroll */}
+      <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
         {!selectedArtboardId ? (
           <div
             style={{
@@ -373,17 +374,19 @@ function PropsTab({
             marginTop: 8,
             padding: '8px 10px',
             background: 'rgba(0,0,0,0.35)',
-            border: '1px solid rgba(255,255,255,0.06)',
+            border: '1px solid rgba(255,255,255,0.08)',
             borderRadius: 6,
             maxHeight: 220,
-            overflow: 'auto',
+            overflowY: 'auto',
             fontSize: '0.5875rem',
             fontFamily: "'Inter', sans-serif",
             color: 'rgba(255,255,255,0.62)',
             lineHeight: 1.65,
             whiteSpace: 'pre-wrap',
             wordBreak: 'break-word',
-          }}>
+            scrollbarWidth: 'thin',
+            scrollbarColor: 'rgba(255,255,255,0.18) transparent',
+          } as React.CSSProperties}>
             {driftReport}
           </div>
         )}

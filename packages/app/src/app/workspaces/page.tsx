@@ -37,7 +37,7 @@ export default async function WorkspacesPage() {
   if (workspaces.length === 0) redirect('/onboarding');
 
   return (
-    <div style={{ minHeight: '100vh', background: '#FAFAFA', fontFamily: "'Inter', -apple-system, sans-serif" }}>
+    <div style={{ minHeight: '100dvh', background: '#FAFAFA', fontFamily: "'Inter', -apple-system, sans-serif" }}>
       <AppHeader />
 
       <main style={{ maxWidth: 960, margin: '0 auto', padding: '48px 24px' }}>

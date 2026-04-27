@@ -50,7 +50,7 @@ export default function NewProjectPage({ params }: { params: Promise<{ wid: stri
     width: '100%', boxSizing: 'border-box' as const,
     padding: '10px 12px', fontSize: '0.9375rem',
     border: '1px solid rgba(0,0,0,0.12)', borderRadius: 8,
-    outline: 'none', color: '#0A0A0A', background: '#FFFFFF',
+    color: '#0A0A0A', background: '#FFFFFF',
     fontFamily: 'inherit',
   };
 
@@ -61,7 +61,7 @@ export default function NewProjectPage({ params }: { params: Promise<{ wid: stri
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#FAFAFA', fontFamily: "'Inter', -apple-system, sans-serif" }}>
+    <div style={{ minHeight: '100dvh', background: '#FAFAFA', fontFamily: "'Inter', -apple-system, sans-serif" }}>
       <AppHeader breadcrumbs={[
         { label: 'Workspaces', href: '/workspaces' },
         { label: 'Workspace', href: `/workspace/${wid}` },
