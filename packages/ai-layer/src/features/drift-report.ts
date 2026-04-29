@@ -70,7 +70,7 @@ export async function generateDriftReport(
   // compliance feature. Throw so the caller can surface the error clearly.
   let parsed: unknown;
   try {
-    parsed = JSON.parse(response.text);
+    parsed = JSON.parse(response.text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim());
   } catch (err) {
     throw new Error(
       `Drift report returned unparseable JSON: ${String(err)}. ` +

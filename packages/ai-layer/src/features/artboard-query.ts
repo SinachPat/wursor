@@ -38,9 +38,11 @@ export async function queryCrossArtboard(
 
   // Returning empty results on parse failure is indistinguishable from "no match".
   // Throw so the UI can show an error rather than a misleading empty state.
+  // Strip markdown code fences that the model occasionally adds despite instructions.
+  const rawText = response.text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
   let parsed: unknown;
   try {
-    parsed = JSON.parse(response.text);
+    parsed = JSON.parse(rawText);
   } catch (err) {
     throw new Error(
       `Artboard query returned unparseable JSON: ${String(err)}. ` +

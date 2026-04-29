@@ -40,7 +40,7 @@ export async function answerAgentQuestion(
 
   let parsed: unknown;
   try {
-    parsed = JSON.parse(response.text);
+    parsed = JSON.parse(response.text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim());
   } catch (err) {
     throw new Error(
       `Design agent returned unparseable JSON: ${String(err)}. ` +

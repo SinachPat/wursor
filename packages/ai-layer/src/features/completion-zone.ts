@@ -60,7 +60,7 @@ export async function fillCompletionZone(
     });
 
     try {
-      const parsed = JSON.parse(response.text);
+      const parsed = JSON.parse(response.text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim());
       return { proposedTree: parsed.proposedTree as unknown, description: String(parsed.description ?? ''), raw: response };
     } catch (parseErr) {
       lastError = new Error(

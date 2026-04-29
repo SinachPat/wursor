@@ -2,9 +2,9 @@ import Anthropic from '@anthropic-ai/sdk';
 
 // ── Model constants ───────────────────────────────────────────────────────────
 
-// claude-opus-4-5 is the current stable Opus 4 release.
-// Extended thinking is enabled in gateway.ts with budget_tokens.
-export const MODEL = 'claude-opus-4-5' as const;
+// claude-opus-4-7 uses adaptive thinking (thinking.type = 'adaptive').
+// It does NOT accept temperature, top_p, or top_k — those are omitted in gateway.ts.
+export const MODEL = 'claude-opus-4-7' as const;
 
 // ── Singleton client ──────────────────────────────────────────────────────────
 // The client is created once and shared. API key is injected from the server

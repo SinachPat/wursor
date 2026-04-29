@@ -138,7 +138,19 @@
       "Bash(grep -E \"\\\\.d\\\\.ts$\")",
       "Bash(pnpm -w ls @anthropic-ai/sdk)",
       "Bash(grep -v \"\\\\.map$\")",
-      "Bash(perl -pi -e 's/background: '\\\\''#FAFAFA'\\\\''/background: '\\\\''var\\(--page-bg\\)'\\\\''/g' /Users/USER/Desktop/originmain/packages/app/src/app/onboarding/page.tsx /Users/USER/Desktop/originmain/packages/app/src/app/error.tsx)"
+      "Bash(perl -pi -e 's/background: '\\\\''#FAFAFA'\\\\''/background: '\\\\''var\\(--page-bg\\)'\\\\''/g' /Users/USER/Desktop/originmain/packages/app/src/app/onboarding/page.tsx /Users/USER/Desktop/originmain/packages/app/src/app/error.tsx)",
+      "Bash(node -e ' *)",
+      "Bash(python3 -c \"import sys,json; [print\\(m['id']\\) for m in json.load\\(sys.stdin\\).get\\('data',[]\\)]\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\({k:d[k] for k in d if k!='content'}, indent=2\\)\\); print\\('TEXT:', next\\(\\(b['text'] for b in d.get\\('content',[]\\) if b['type']=='text'\\),''\\)[:200]\\)\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); text=next\\(\\(b['text'] for b in d.get\\('content',[]\\) if b['type']=='text'\\),''\\); print\\('STATUS:', d.get\\('type','ok'\\)\\); print\\('TEXT:', text[:300]\\)\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('main:', d.get\\('main'\\)\\); print\\('exports:', json.dumps\\(d.get\\('exports',{}\\), indent=2\\)\\); print\\('scripts:', json.dumps\\(d.get\\('scripts',{}\\), indent=2\\)\\)\")",
+      "Bash(curl -s http://localhost:3000/api/ai/query -X POST -H 'Content-Type: application/json' -d '{\"workspace_id\":\"test\",\"question\":\"test\"}')",
+      "Bash(curl -sv http://localhost:3000/api/ai/query -X POST -H 'Content-Type: application/json' -d '{\"workspace_id\":\"test\",\"question\":\"test\"}')",
+      "Bash(curl -s -w '\\\\nHTTP_STATUS:%{http_code}' http://localhost:3000/api/ai/query -X POST -H 'Content-Type: application/json' -d '{\"workspace_id\":\"test\",\"question\":\"test\"}')",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('dependencies',{}\\), indent=2\\)\\)\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('version:', d.get\\('version'\\)\\)\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('type:', d.get\\('type'\\)\\); print\\('error:', d.get\\('error',{}\\).get\\('message','none'\\)[:200]\\)\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); text=next\\(\\(b['text'] for b in d.get\\('content',[]\\) if b['type']=='text'\\),''\\); print\\('STATUS:', d.get\\('type','?'\\)\\); print\\('ERROR:', d.get\\('error',{}\\).get\\('message','none'\\)[:300]\\); print\\('TEXT:', text[:300]\\)\")"
     ]
   }
 }
