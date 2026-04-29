@@ -3,10 +3,12 @@
 import { useState } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
+import { useTheme } from '@/store/theme';
 
 export default function OnboardingPage() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
+  const { mode, toggle } = useTheme();
 
   const defaultName = isLoaded
     ? `${user?.firstName ?? user?.emailAddresses[0]?.emailAddress?.split('@')[0] ?? 'My'}'s Workspace`
@@ -52,7 +54,39 @@ export default function OnboardingPage() {
       background: 'var(--page-bg)',
       fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
       padding: '24px',
+      position: 'relative',
     }}>
+      {/* Theme toggle */}
+      <button
+        onClick={toggle}
+        title={`Switch to ${mode === 'dark' ? 'light' : 'dark'} mode`}
+        style={{
+          position: 'absolute', top: 16, right: 16,
+          background: 'none', border: 'none', cursor: 'pointer',
+          color: mode === 'dark' ? 'rgba(255,255,255,0.4)' : '#A1A1AA',
+          padding: '7px', display: 'flex', alignItems: 'center', borderRadius: 8,
+          transition: 'color 0.12s, background 0.12s',
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.color = mode === 'dark' ? 'rgba(255,255,255,0.85)' : '#0A0A0A';
+          e.currentTarget.style.background = mode === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.color = mode === 'dark' ? 'rgba(255,255,255,0.4)' : '#A1A1AA';
+          e.currentTarget.style.background = 'none';
+        }}
+      >
+        {mode === 'dark' ? (
+          <svg width="16" height="16" viewBox="0 0 14 14" fill="none">
+            <circle cx="7" cy="7" r="2.5" stroke="currentColor" strokeWidth="1.2"/>
+            <path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.93 2.93l1.06 1.06M10.01 10.01l1.06 1.06M2.93 11.07l1.06-1.06M10.01 3.99l1.06-1.06" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+          </svg>
+        ) : (
+          <svg width="16" height="16" viewBox="0 0 14 14" fill="none">
+            <path d="M12 8.5A5.5 5.5 0 0 1 5.5 2a5.5 5.5 0 1 0 6.5 6.5z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        )}
+      </button>
       {/* Logo */}
       <div style={{ marginBottom: 40, fontSize: '1.125rem', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--page-text)' }}>
         Origin<span style={{ color: '#0066FF' }}>main</span>

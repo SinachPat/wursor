@@ -1,7 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
 import { serverClient } from '@/lib/supabase';
+import { AppHeader } from '@/components/shell/AppHeader';
 import { ProjectSettingsForm } from '@/components/shell/ProjectSettingsForm';
 
 export async function generateMetadata({ params }: { params: Promise<{ wid: string; pid: string }> }) {
@@ -55,31 +55,12 @@ export default async function ProjectSettingsPage({
       fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
       transition: 'background 0.2s',
     }}>
-      {/* Header */}
-      <div style={{
-        background: 'var(--card-bg)',
-        borderBottom: '1px solid var(--card-border)',
-        padding: '0 32px',
-        display: 'flex',
-        alignItems: 'center',
-        height: 56,
-        gap: 0,
-        transition: 'background 0.2s',
-      }}>
-        <Link href="/workspaces" style={{ textDecoration: 'none', fontSize: '0.875rem', fontWeight: 700, color: 'var(--card-text)', letterSpacing: '-0.01em' }}>
-          Origin<span style={{ color: '#3385FF' }}>main</span>
-        </Link>
-        <span style={{ color: 'var(--card-border)', margin: '0 8px', fontSize: '0.875rem' }}>/</span>
-        <Link href={`/workspace/${wid}`} style={{ textDecoration: 'none', fontSize: '0.875rem', color: 'var(--card-muted)', fontWeight: 500 }}>
-          {wsResult.data?.name ?? 'Workspace'}
-        </Link>
-        <span style={{ color: 'var(--card-border)', margin: '0 8px', fontSize: '0.875rem' }}>/</span>
-        <Link href={`/workspace/${wid}/project/${pid}`} style={{ textDecoration: 'none', fontSize: '0.875rem', color: 'var(--card-muted)', fontWeight: 500 }}>
-          {project.name}
-        </Link>
-        <span style={{ color: 'var(--card-border)', margin: '0 8px', fontSize: '0.875rem' }}>/</span>
-        <span style={{ fontSize: '0.875rem', color: 'var(--card-text)', fontWeight: 600 }}>Settings</span>
-      </div>
+      <AppHeader breadcrumbs={[
+        { label: 'Workspaces', href: '/workspaces' },
+        { label: wsResult.data?.name ?? 'Workspace', href: `/workspace/${wid}` },
+        { label: project.name, href: `/workspace/${wid}/project/${pid}` },
+        { label: 'Settings' },
+      ]} />
 
       {/* Content */}
       <div style={{ maxWidth: 640, margin: '0 auto', padding: '40px 24px' }}>
