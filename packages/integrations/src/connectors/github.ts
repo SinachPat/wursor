@@ -52,12 +52,17 @@ export const githubIngester: OriginIngester<GitHubPullRequestPayload> = {
     return GitHubPullRequestPayloadSchema.parse(raw);
   },
 
-  ingest(payload): IngestionResult {
+  ingest(payload, opts?: { deploymentUrl?: string }): IngestionResult {
     const { pull_request: pr, repository } = payload;
 
-    // The render URL points to the head commit's deployed preview if available.
-    // Conventionally: https://<pr-number>.<preview-domain> — caller overrides as needed.
-    const renderUrl = pr.html_url;
+    // The render URL should point to a preview deployment (e.g., Vercel or
+    // Netlify auto-deploy), NOT to the GitHub PR page. GitHub.com sets
+    // X-Frame-Options: deny, so pr.html_url cannot be iframed.
+    //
+    // The caller supplies deploymentUrl from a deployment_status webhook or
+    // from the GitHub Deployments API. If unavailable, renderUrl is omitted
+    // and the user can enter a URL manually in the artboard.
+    const renderUrl = opts?.deploymentUrl;
 
     return {
       origin: {
@@ -78,7 +83,7 @@ export const githubIngester: OriginIngester<GitHubPullRequestPayload> = {
         },
       },
       artboardTitle: `PR #${pr.number}: ${pr.title}`,
-      renderUrl,
+      ...(renderUrl !== undefined ? { renderUrl } : {}),
     };
   },
 };

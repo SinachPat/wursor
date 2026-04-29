@@ -16,7 +16,7 @@ export type {
   RendererEnvelope,
 } from './protocol.js';
 
-export { buildFiberHookScript } from './fiber-hook.js';
+export { buildFiberHookScript, buildProxyFiberHookScript } from './fiber-hook.js';
 
 export {
   createRendererHostConfig,

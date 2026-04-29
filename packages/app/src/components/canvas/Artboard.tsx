@@ -352,12 +352,18 @@ function EmptyArtboardContent({
     setEditing(false);
   };
 
+  const hintStyle: React.CSSProperties = {
+    margin: 0, fontSize: 10, color: '#A1A1AA', textAlign: 'center',
+    lineHeight: 1.55, fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+    letterSpacing: '-0.01em',
+  };
+
   return (
     <div
       style={{
         width, height, display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
-        background: '#F8F8FA', gap: 12, padding: 20,
+        background: '#F8F8FA', gap: 10, padding: 20,
       }}
     >
       {/* Artboard name */}
@@ -366,20 +372,23 @@ function EmptyArtboardContent({
       </div>
 
       {editing ? (
-        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ width: '100%', maxWidth: 280, display: 'flex', flexDirection: 'column', gap: 8 }}>
           <input
             autoFocus
             type="url"
             value={urlValue}
             onChange={(e) => setUrlValue(e.target.value)}
-            placeholder="http://localhost:3000"
+            placeholder="http://localhost:4170"
             onKeyDown={(e) => { if (e.key === 'Enter') void save(); if (e.key === 'Escape') setEditing(false); e.stopPropagation(); }}
             style={{
               padding: '7px 10px', borderRadius: 6, border: '1.5px solid #0066FF',
-              fontSize: 11, fontFamily: 'inherit', outline: 'none', width: '100%',
-              boxSizing: 'border-box' as const,
+              fontSize: 11, fontFamily: 'inherit', width: '100%',
+              boxSizing: 'border-box' as const, color: '#0A0A0A', background: '#fff',
             }}
           />
+          <p style={hintStyle}>
+            Use the CLI proxy URL or a preview deployment URL with @originmain/live installed
+          </p>
           <div style={{ display: 'flex', gap: 6 }}>
             <button
               onClick={() => void save()} disabled={saving}
@@ -396,6 +405,7 @@ function EmptyArtboardContent({
               style={{
                 padding: '6px 10px', borderRadius: 5, border: '1px solid #E4E4E7',
                 background: '#fff', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit',
+                color: '#3F3F46',
               }}
             >
               Cancel
@@ -415,8 +425,11 @@ function EmptyArtboardContent({
               <path d="M6 8l2.5 2.5L12 6" stroke="#0066FF" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
-          <p style={{ margin: 0, fontSize: 11, color: '#71717A', textAlign: 'center', lineHeight: 1.5, maxWidth: 180 }}>
-            Connect a running app URL to enable live rendering
+          <p style={{ margin: 0, fontSize: 11, color: '#52525B', textAlign: 'center', lineHeight: 1.5, maxWidth: 220 }}>
+            Connect your running app to enable live component inspection
+          </p>
+          <p style={hintStyle}>
+            npx @originmain/cli dev --target :3000
           </p>
           <button
             onClick={() => setEditing(true)}
@@ -426,7 +439,7 @@ function EmptyArtboardContent({
               cursor: 'pointer', fontFamily: 'inherit',
             }}
           >
-            Connect app →
+            Enter proxy URL
           </button>
         </>
       )}

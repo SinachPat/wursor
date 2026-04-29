@@ -14,8 +14,9 @@ export interface IngestionResult {
 export interface OriginIngester<TPayload> {
   /** Validates and parses the raw webhook payload. Throws ZodError on invalid input. */
   parsePayload(raw: unknown): TPayload;
-  /** Converts a validated payload into an IngestionResult. */
-  ingest(payload: TPayload): IngestionResult;
+  /** Converts a validated payload into an IngestionResult.
+   *  @param opts — Connector-specific options (e.g., deploymentUrl for GitHub). */
+  ingest(payload: TPayload, opts?: Record<string, unknown>): IngestionResult;
 }
 
 // ── Shared helpers ────────────────────────────────────────────────────────────

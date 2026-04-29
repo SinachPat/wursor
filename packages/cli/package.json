@@ -1,0 +1,28 @@
+{
+  "name": "@originmain/cli",
+  "version": "0.0.1",
+  "private": false,
+  "description": "Originmain CLI — reverse proxy for live React component inspection.",
+  "type": "module",
+  "bin": {
+    "originmain": "./dist/cli.js"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@originmain/renderer": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT"
+}

@@ -11,7 +11,7 @@
 |-------|-----------------------------|--------------|------------------------------------------------------------------|
 | 0     | Infrastructure & DevOps     | ⏳ Deferred  | Skipped for now per plan                                         |
 | 1     | Canvas UI Shell             | ✅ Complete  | ArtboardTree, CodebaseFileTree, CodeDiffPanel                    |
-| 2     | Live Rendering Engine       | ✅ Complete  | postMessage protocol, fiber hook, MF config, LiveArtboard iframe |
+| 2     | Live Rendering Engine       | ✅ Revised   | CLI proxy + Live SDK; see RENDERING-ARCHITECTURE.md              |
 | 3     | Visual Editing & Diff Engine| ✅ Complete  | Diff engine (49 tests), SelectionOverlay, history store          |
 | 4     | Origin Graph & Data Store   | ✅ Complete  | 3 migrations, RLS, Zod types, query helpers                      |
 | 5     | Design Language Runtime     | ✅ Complete  | New package, JSON Schema, Zod validator, token pipeline          |
@@ -49,16 +49,52 @@
 
 ---
 
-## Layer 2 — Live Rendering Engine ✅
+## Layer 2 — Live Rendering Engine ✅ (Revised 2026-04-29)
 
-**Completed:** 2026-04-25
+**Original:** 2026-04-25 — postMessage protocol, fiber hook, MF config, LiveArtboard iframe
+**Revised:** 2026-04-29 — Replaced non-functional cross-origin injection with two working modes
 
-### Files created
-- **`packages/renderer/src/protocol.ts`** — `HostMessage`/`RendererMessage` unions, `isHostEnvelope()`, `isRendererEnvelope()`, `createHostEnvelope()`, `createRendererEnvelope()`; source discriminants `'originmain-host'` / `'originmain-renderer'`
-- **`packages/renderer/src/fiber-hook.ts`** — `buildFiberHookScript(artboardId)` generates injectable script that patches `__REACT_DEVTOOLS_GLOBAL_HOOK__.onCommitFiberRoot`, walks Fiber tree, posts `FIBER_TREE_UPDATE` envelopes to `window.parent`
-- **`packages/renderer/src/module-federation.ts`** — `createRendererHostConfig()` and `createRemoteConfig()` MF host config helpers with shared React singleton
-- **`packages/renderer/src/index.ts`** — exports all of the above
-- **`packages/app/src/components/canvas/LiveArtboard.tsx`** — React iframe component; `sandbox="allow-scripts allow-same-origin allow-forms"`; injects fiber hook on `READY`; sends `SET_DESIGN_TOKENS` on token change
+> See **`RENDERING-ARCHITECTURE.md`** for the full design document.
+
+### Why the original approach was non-functional
+The original `LiveArtboard.tsx` tried `iframe.contentDocument.createElement('script')` to inject the fiber hook. This fails for cross-origin iframes (the browser blocks DOM access), and the READY handshake had a circular dependency. See `RENDERING-ARCHITECTURE.md` §2 for details.
+
+### Two rendering modes (both use the same postMessage protocol)
+
+#### Mode A — CLI Proxy (`@originmain/cli`)
+For active local development. User runs `npx @originmain/cli dev --target http://localhost:3000` and enters the proxy URL (`http://localhost:4170`) into the artboard.
+
+The proxy:
+1. Strips `X-Frame-Options` / CSP headers from responses
+2. Injects the fiber hook `<script>` into HTML responses (before React loads)
+3. Passes WebSocket upgrades through for HMR
+
+#### Mode B — Live SDK (`@originmain/live`)
+For preview deployments / GitHub integration. User installs `@originmain/live` in their app and imports it before React:
+```ts
+import '@originmain/live'; // must be first import
+import React from 'react';
+```
+
+The SDK installs `__REACT_DEVTOOLS_GLOBAL_HOOK__` at module evaluation time and only activates inside an Originmain iframe (detected by `window.name` prefix `om:`).
+
+### Files created / modified
+- **`packages/renderer/src/fiber-hook.ts`** — Added `buildProxyFiberHookScript()`: generic fiber hook that reads `window.name` for artboard ID (used by both CLI proxy and SDK). Original `buildFiberHookScript(id)` preserved but deprecated.
+- **`packages/cli/`** (NEW) — CLI package:
+  - `src/cli.ts` — CLI entry: `originmain dev --target <url> [--port <n>]`
+  - `src/proxy.ts` — HTTP reverse proxy: header stripping, HTML injection, WebSocket passthrough
+  - `src/inject.ts` — HTML injection logic: inserts `<script>` after `<head>`
+- **`packages/live-sdk/`** (NEW) — SDK package:
+  - `src/hook.ts` — Self-contained fiber hook: installs `__REACT_DEVTOOLS_GLOBAL_HOOK__`, serializes fiber tree, sends postMessage to parent
+  - `src/index.ts` — Side-effect re-export
+- **`packages/app/src/components/canvas/LiveArtboard.tsx`** — Removed broken `injectFiberHook()`. Added `name={`om:${id}`}` to iframe. READY handler no longer attempts injection.
+- **`packages/app/src/components/canvas/Artboard.tsx`** — Updated `EmptyArtboardContent` to show proxy URL instructions and correct placeholder.
+- **`packages/integrations/src/connectors/github.ts`** — Fixed `renderUrl`: now accepts `deploymentUrl` option (from deployment_status webhook) instead of using `pr.html_url` (which is un-iframeable).
+
+### Key design decisions
+- **Artboard ID via `window.name`**: `LiveArtboard` sets `name="om:{id}"` on the iframe. The fiber hook reads `window.name` to tag postMessage envelopes. Persists across SPA navigation, supports multiple artboards on one proxy.
+- **No WebSocket relay needed**: postMessage works cross-origin; the CLI proxy makes the iframe renderable by stripping blocking headers. No additional relay infrastructure required.
+- **Zero-dep SDK**: `@originmain/live` has no dependencies; it's a ~2 KB side-effect import that's a no-op outside Originmain iframes.
 
 ---
 
@@ -161,7 +197,9 @@ Each connector validates untrusted webhook JSON at the boundary with Zod (`parse
 | `packages/app`             | Active      | Next.js 15 app; Layers 1–3 complete                         |
 | `packages/diff-engine`     | Complete    | 49 tests, ~88% coverage                                     |
 | `packages/ui`              | Active      | Theme + FluentProvider                                      |
-| `packages/renderer`        | Complete    | Layer 2: postMessage protocol, fiber hook, MF config        |
+| `packages/renderer`        | Complete    | Layer 2: postMessage protocol, fiber hook (proxy-compatible), MF config |
+| `packages/cli`             | Complete    | Layer 2: CLI proxy for live rendering (`originmain dev`)    |
+| `packages/live-sdk`        | Complete    | Layer 2: `@originmain/live` SDK for preview deployments     |
 | `packages/origin-graph`    | Complete    | Layer 4: migrations, RLS, Zod types, query helpers; 45 tests, 100% types.ts coverage |
 | `packages/design-language` | Complete    | Layer 5: DLF schema, validator, token pipeline              |
 | `packages/ai-layer`        | Complete    | Layer 6: gateway, 5 features, prompt library; SDK v0.91.1, adaptive thinking |
@@ -347,6 +385,38 @@ The following is a second-pass audit of all real product gaps, independent of la
 - **`cmp-card.hero-card` bug fixed** — was `background: var(--fg)` which = near-white in dark mode (white text on white card). Fixed to always-dark `#06060E` with blue `rgba(51,133,255,0.4)` glow border; eyebrow/tags get blue tint; body contrast improved.
 - **Bottom CTA (`#cta-bottom`) bug fixed** — was `background: var(--bg-inv)` which = light gray in dark mode, making `btn-outline-white` invisible. Fixed to always-dark `#06060E`; headline/subtext use fixed white alphas; gradient intensity slightly increased.
 
+### ✅ Completed — Session 7 (2026-04-29)
+
+#### Rendering Architecture Overhaul
+
+The original Layer 2 rendering system used direct cross-origin iframe script injection, which was non-functional (see RENDERING-ARCHITECTURE.md §2). Replaced with two working modes:
+
+- **`RENDERING-ARCHITECTURE.md`** (NEW) — Full design document: problem statement, two rendering modes, postMessage protocol, sequence diagrams, edge cases, package reference, migration notes.
+
+- **`packages/renderer/src/fiber-hook.ts`** — Added `buildProxyFiberHookScript()`: generates a generic fiber hook script that reads `window.name` for artboard ID routing. Exported from package index. Original `buildFiberHookScript(id)` preserved as deprecated.
+
+- **`packages/cli/`** (NEW) — `@originmain/cli` CLI package:
+  - `src/cli.ts` — Entry: `originmain dev --target <url> [--port <n>]` with argument validation
+  - `src/proxy.ts` — Reverse HTTP proxy: strips X-Frame-Options/CSP, injects fiber hook into HTML, passes WebSocket upgrades for HMR, adds CORS headers
+  - `src/inject.ts` — HTML injection: inserts `<script>` after `<head>` (with `<html>` and prepend fallbacks)
+  - `src/index.ts` — Programmatic API export
+
+- **`packages/live-sdk/`** (NEW) — `@originmain/live` SDK package:
+  - `src/hook.ts` — Self-contained fiber hook: installs `__REACT_DEVTOOLS_GLOBAL_HOOK__`, wraps existing DevTools handler, serializes fiber tree, sends postMessage with artboard ID from `window.name`. No-op when not in an Originmain iframe.
+  - `src/index.ts` — Side-effect re-export
+
+- **`packages/app/src/components/canvas/LiveArtboard.tsx`** — Removed broken `injectFiberHook()` helper. Added `name={`om:${id}`}` to iframe for artboard ID routing. READY handler no longer attempts script injection.
+
+- **`packages/app/src/components/canvas/Artboard.tsx`** — `EmptyArtboardContent` updated: shows CLI proxy command hint, placeholder changed to `:4170`, URL input hint explains both connection modes.
+
+- **`packages/integrations/src/connectors/github.ts`** — Fixed `renderUrl`: accepts `deploymentUrl` option from caller instead of using `pr.html_url` (which is un-iframeable). Uses `exactOptionalPropertyTypes`-safe conditional spread.
+
+- **`packages/integrations/src/types.ts`** — `OriginIngester.ingest()` now accepts optional `opts` parameter for connector-specific configuration.
+
+- **`tsconfig.base.json`** — Added path aliases for `@originmain/cli` and `@originmain/live`.
+
+- **TypeScript**: Full monorepo `pnpm -r run typecheck` passes — all 12 packages, zero errors.
+
 ### 🔧 Remaining — Lower Priority
 
 - [ ] **Multiplayer**: Wire `MultiplayerAdapter` into app (install `@liveblocks/client` + `@liveblocks/react`; create `packages/app/src/lib/liveblocks.ts`)
@@ -354,6 +424,7 @@ The following is a second-pass audit of all real product gaps, independent of la
 - [ ] **Redis rate limiter**: Replace in-process rate limiter in `agent-bridge/src/rate-limiter.ts` for multi-instance MCP support
 - [ ] **Product analytics**: Instrument PostHog for activation/engagement metrics (GTM requirement)
 - [ ] **Onboarding wizard**: Step-by-step "connect your app" flow from signup to first live artboard
+- [ ] **GitHub App + deployment_status webhook**: Full OAuth flow to connect GitHub repos + auto-populate `deploymentUrl` from Vercel/Netlify deployment webhooks
 - [ ] **Marketing page — remaining `section-dark` / `--bg-inv` surfaces**: other sections using `background: var(--bg-inv)` (e.g. `#features-alt`, footer) should be audited for the same light-mode-in-dark-mode inversion issue if the marketing page is expected to fully support theme toggling
 
-*Last updated: 2026-04-29 — Session 6 complete*
+*Last updated: 2026-04-29 — Session 7 complete*

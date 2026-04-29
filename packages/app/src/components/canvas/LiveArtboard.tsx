@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import {
-  buildFiberHookScript,
   createHostEnvelope,
   isRendererEnvelope,
 } from '@originmain/renderer';
@@ -12,7 +11,9 @@ import type { FiberNode, RendererMessage } from '@originmain/renderer';
 
 export interface LiveArtboardProps {
   id: string;
-  /** URL of the connected application route to render */
+  /** URL of the connected application route to render.
+   *  For live dev: the CLI proxy URL (e.g., http://localhost:4170)
+   *  For previews: the Vercel/Netlify preview URL (with @originmain/live SDK) */
   src: string;
   width?: number;
   height?: number;
@@ -58,8 +59,9 @@ export function LiveArtboard({
       const msg: RendererMessage = event.data.message;
       switch (msg.type) {
         case 'READY':
-          // Inject fiber hook after the renderer signals it's ready
-          injectFiberHook(iframeRef.current, id);
+          // The fiber hook is already installed — either by the CLI proxy
+          // (injected into the HTML response) or by @originmain/live SDK
+          // (imported before React in the user's app). No injection needed.
           if (designTokens) sendMessage('SET_DESIGN_TOKENS', { tokens: designTokens });
           onReady?.();
           break;
@@ -85,6 +87,10 @@ export function LiveArtboard({
   return (
     <iframe
       ref={iframeRef}
+      // The name attribute carries the artboard ID to the fiber hook.
+      // The hook reads window.name to tag postMessage envelopes.
+      // Format: "om:<artboardId>"
+      name={`om:${id}`}
       src={src}
       title={`artboard-${id}`}
       // Security: allow-scripts required to run React; allow-same-origin required
@@ -100,18 +106,4 @@ export function LiveArtboard({
       }}
     />
   );
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function injectFiberHook(iframe: HTMLIFrameElement | null, artboardId: string) {
-  if (!iframe?.contentDocument) return;
-  try {
-    const script = iframe.contentDocument.createElement('script');
-    script.textContent = buildFiberHookScript(artboardId);
-    iframe.contentDocument.head.appendChild(script);
-  } catch {
-    // Cross-origin or sandboxing prevents injection — renderer must include the
-    // hook script itself in that case.
-  }
 }

@@ -1,0 +1,19 @@
+{
+  "name": "@originmain/live",
+  "version": "0.0.1",
+  "private": false,
+  "description": "Originmain live rendering SDK — installs fiber hook for component inspection. Import before React.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src", "README.md"],
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  },
+  "keywords": ["originmain", "react", "devtools", "fiber", "design-engineering"],
+  "license": "MIT"
+}

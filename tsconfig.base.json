@@ -20,7 +20,9 @@
       "@originmain/integrations": ["./packages/integrations/src/index.ts"],
       "@originmain/design-language": ["./packages/design-language/src/index.ts"],
       "@originmain/multiplayer": ["./packages/multiplayer/src/index.ts"],
-      "@originmain/platform": ["./packages/platform/src/index.ts"]
+      "@originmain/platform": ["./packages/platform/src/index.ts"],
+      "@originmain/cli": ["./packages/cli/src/index.ts"],
+      "@originmain/live": ["./packages/live-sdk/src/index.ts"]
     }
   }
 }
