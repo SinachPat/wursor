@@ -299,14 +299,26 @@ The following is a second-pass audit of all real product gaps, independent of la
 - **Vitest: diff-engine**: stray test moved to correct location; all 49 tests pass, 88% coverage
 - **Vitest: origin-graph**: 45 new Zod schema tests in `__tests__/types.test.ts`; 100% `types.ts` coverage
 
+### ✅ Completed — Session 5 (2026-04-28)
+
+- **Completion zone payload fixed**: `POST /api/ai/completion-zone` now adapts canvas UI shape `{artboard_id, bounds, prompt}` → `CompletionZoneInput {componentTreeJson, intent}`. Auto-loads active DLF from workspace. Returns `description` + backwards-compat `result`/`completion` keys.
+- **Cross-artboard query fixed**: `POST /api/ai/query` now adapts navigator UI shape `{workspace_id, question}` → `ArtboardQueryInput {query, artboardsJson}`. Fetches live artboard list from DB. Returns `{results, reasoning, answer}`.
+- **DELETE /api/workspace/:id**: Owner-only workspace deletion. `deleteWorkspace()` added to `origin-graph/queries.ts`. WorkspaceSettingsForm danger zone now calls the endpoint and redirects to `/workspaces` on success.
+- **Diff summary wired**: `POST /api/ai/diff-summary` route created. DiffTab export now calls it before `POST /api/diffs` — summary included in the diff payload. Export button shows "Summarising…" → "Exporting…" states.
+- **Artboard fork**: Fork button (branch icon) added to navigator artboard rows. Creates child artboard with `parent_artboard_id` set, offset 40px right of source, same `renderUrl` + `origin_id` inherited.
+- **Migration split fixed**: Migrations 002–005 copied to `supabase/migrations/`. `get_diffs_by_status` RPC appended to `origin-graph/migrations/001_initial_schema.sql`.
+- **Dead code removed**: `packages/app/src/hooks/useDiff.ts` and `packages/app/src/data/artboard-snapshots.ts` deleted (no imports, confirmed safe).
+- **Dark mode**: `packages/app/src/store/theme.ts` (Zustand persist, key `originmain:theme`). `providers.tsx` reads `useTheme` to pick `originmainLightTheme`/`originmainDarkTheme`. Sun/moon toggle button in AppChrome breadcrumb bar.
+- **Plugin stub page**: `/workspace/[wid]/plugins` — full page with permissions preview, Phase 4 roadmap note. Linked from workspace page header alongside Settings.
+- **Agent status badges**: `Artboard.tsx` calls `useDiffs(id)` and renders compact colored chips (draft/reviewed/applied/blocked) bottom-right of each artboard frame when diffs exist.
+- **TypeScript**: `tsc --noEmit` exits 0 on both `packages/app` and `packages/origin-graph`.
+
 ### 🔧 Remaining — Lower Priority
 
 - [ ] **Multiplayer**: Wire `MultiplayerAdapter` into app (install `@liveblocks/client` + `@liveblocks/react`; create `packages/app/src/lib/liveblocks.ts`)
-- [ ] **Plugin system stub page**: UI route at `/workspace/[wid]/plugins` listing installed plugins
 - [ ] **`packages/e2e`**: Playwright E2E tests not yet created
-- [ ] **Redis rate limiter**: Replace in-process rate limiter in agent-bridge for multi-instance support
+- [ ] **Redis rate limiter**: Replace in-process rate limiter in `agent-bridge/src/rate-limiter.ts` for multi-instance MCP support
+- [ ] **Product analytics**: Instrument PostHog for activation/engagement metrics (GTM requirement)
+- [ ] **Onboarding wizard**: Step-by-step "connect your app" flow from signup to first live artboard
 
-**Webhook project_id:**
-`/api/webhooks/[provider]/route.ts` currently sets `project_id: null`. Read the `?project=` query param from the request URL (`new URL(req.url).searchParams.get('project')`) and pass it to the ingestion result.
-
-*Last updated: 2026-04-26 — Session 3 complete*
+*Last updated: 2026-04-28 — Session 5 complete*

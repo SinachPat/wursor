@@ -267,6 +267,14 @@ export async function removeTeamMember(
   if (error) throw new Error(error.message);
 }
 
+export async function deleteWorkspace(db: DbClient, id: string): Promise<void> {
+  const { error } = await (db
+    .from('workspaces')
+    .delete()
+    .eq('id', id) as unknown as Promise<{ data: unknown; error: DbError | null }>);
+  if (error) throw new Error(error.message);
+}
+
 export async function updateWorkspace(
   db: DbClient,
   id: string,

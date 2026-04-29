@@ -35,7 +35,7 @@ export default function NewWorkspacePage() {
   }
 
   return (
-    <div style={{ minHeight: '100dvh', background: '#FAFAFA', fontFamily: "'Inter', -apple-system, sans-serif" }}>
+    <div style={{ minHeight: '100dvh', background: 'var(--page-bg)', fontFamily: "'Inter', -apple-system, sans-serif" }}>
       <AppHeader breadcrumbs={[{ label: 'Workspaces', href: '/workspaces' }, { label: 'New workspace' }]} />
 
       <main style={{ maxWidth: 480, margin: '64px auto', padding: '0 24px' }}>

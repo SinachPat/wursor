@@ -377,10 +377,18 @@ export function WorkspaceSettingsForm({ workspaceId, workspaceName, memberRole }
               border: '1px solid rgba(239,68,68,0.35)', background: 'transparent',
               color: '#EF4444', cursor: 'pointer',
             }}
-            onClick={() => {
-              if (window.confirm(`Delete workspace "${workspaceName}"? This cannot be undone.`)) {
-                // TODO: call DELETE /api/workspace/:id when implemented
-                window.alert('Delete endpoint not yet implemented — coming soon.');
+            onClick={async () => {
+              if (!window.confirm(`Delete workspace "${workspaceName}"? This cannot be undone. All projects and artboards will be permanently lost.`)) return;
+              try {
+                const res = await fetch(`/api/workspace/${workspaceId}`, { method: 'DELETE' });
+                if (!res.ok) {
+                  const body = await res.json().catch(() => ({})) as { error?: string };
+                  throw new Error(body.error ?? `Server error ${res.status}`);
+                }
+                router.push('/workspaces');
+              } catch (err) {
+                const msg = err instanceof Error ? err.message : 'Unknown error';
+                window.alert(`Could not delete workspace: ${msg}`);
               }
             }}
           >

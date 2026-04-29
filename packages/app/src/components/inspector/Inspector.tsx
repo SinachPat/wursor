@@ -542,19 +542,47 @@ function HSep() {
 function DiffTab({ artboardId }: { artboardId: string | null }) {
   const { stacks } = useHistory();
   const { diffs, createDiff, isLoading } = useDiffs(artboardId);
+  const [summaryStatus, setSummaryStatus] = useState<'idle' | 'summarising' | 'exporting'>('idle');
 
   const artboardHistory = artboardId ? (stacks[artboardId] ?? { past: [], future: [] }) : { past: [], future: [] };
   const pendingChanges: PropChange[] = artboardHistory.past.flatMap(e => e.changes);
   const hasChanges = pendingChanges.length > 0;
 
-  const exportDiff = useCallback(() => {
+  const exportDiff = useCallback(async () => {
     if (!artboardId || !hasChanges) return;
-    createDiff.mutate({
-      artboard_id: artboardId,
-      changes_jsonb: { propChanges: pendingChanges, styleChanges: [] },
-      summary: '',
-      status: 'DRAFT',
-    });
+
+    // 1. Generate AI summary (best-effort — fall back to empty string on failure)
+    let summary = '';
+    const meaningfulChanges = pendingChanges.filter(c => c.changeType !== 'unchanged');
+    if (meaningfulChanges.length > 0) {
+      setSummaryStatus('summarising');
+      try {
+        const res = await fetch('/api/ai/diff-summary', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            changesJson: JSON.stringify(meaningfulChanges),
+            componentName: meaningfulChanges[0]?.key ?? 'Component',
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json() as { summary?: string };
+          summary = data.summary ?? '';
+        }
+      } catch { /* non-fatal — proceed without summary */ }
+    }
+
+    // 2. Export diff with AI-generated summary included
+    setSummaryStatus('exporting');
+    createDiff.mutate(
+      {
+        artboard_id: artboardId,
+        changes_jsonb: { propChanges: pendingChanges, styleChanges: [] },
+        summary,
+        status: 'DRAFT',
+      },
+      { onSettled: () => setSummaryStatus('idle') },
+    );
   }, [artboardId, pendingChanges, hasChanges, createDiff]);
 
   if (!artboardId) {
@@ -579,18 +607,22 @@ function DiffTab({ artboardId }: { artboardId: string | null }) {
                 <DiffChangeRow key={i} change={change} />
               ))}
             <button
-              onClick={exportDiff}
-              disabled={createDiff.isPending}
+              onClick={() => void exportDiff()}
+              disabled={summaryStatus !== 'idle' || createDiff.isPending}
               style={{
                 marginTop: 10, width: '100%',
                 fontFamily: "'JetBrains Mono', monospace", fontSize: '0.5875rem',
                 background: T.accent, border: 'none', borderRadius: 6,
-                color: '#fff', padding: '7px 0', cursor: createDiff.isPending ? 'wait' : 'pointer',
-                letterSpacing: '0.04em', opacity: createDiff.isPending ? 0.6 : 1,
+                color: '#fff', padding: '7px 0',
+                cursor: (summaryStatus !== 'idle' || createDiff.isPending) ? 'wait' : 'pointer',
+                letterSpacing: '0.04em',
+                opacity: (summaryStatus !== 'idle' || createDiff.isPending) ? 0.6 : 1,
                 transition: 'opacity 0.15s',
               }}
             >
-              {createDiff.isPending ? 'Exporting…' : 'Export diff →'}
+              {summaryStatus === 'summarising' ? 'Summarising…' :
+               summaryStatus === 'exporting' || createDiff.isPending ? 'Exporting…' :
+               'Export diff →'}
             </button>
             {createDiff.isError && (
               <span style={{ fontSize: '0.5rem', color: '#FF8080', fontFamily: 'monospace', display: 'block', marginTop: 4 }}>

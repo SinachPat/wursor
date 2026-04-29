@@ -19,7 +19,7 @@ export default function GlobalError({
         margin: 0, minHeight: '100vh',
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
-        background: '#FAFAFA',
+        background: 'var(--page-bg)',
         fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
         padding: 24,
       }}>

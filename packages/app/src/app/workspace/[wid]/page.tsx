@@ -46,7 +46,7 @@ export default async function WorkspacePage({ params }: { params: Promise<{ wid:
   const projects = (projectsData ?? []) as Project[];
 
   return (
-    <div style={{ minHeight: '100dvh', background: '#FAFAFA', fontFamily: "'Inter', -apple-system, sans-serif" }}>
+    <div style={{ minHeight: '100dvh', background: 'var(--page-bg)', fontFamily: "'Inter', -apple-system, sans-serif" }}>
       <AppHeader breadcrumbs={[
         { label: 'Workspaces', href: '/workspaces' },
         { label: workspace.name },
@@ -67,6 +67,18 @@ export default async function WorkspacePage({ params }: { params: Promise<{ wid:
             </p>
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
+            <Link href={`/workspace/${wid}/plugins`} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              background: 'transparent', color: '#71717A',
+              fontSize: '0.875rem', fontWeight: 500,
+              padding: '9px 16px', borderRadius: 9,
+              textDecoration: 'none', border: '1px solid rgba(0,0,0,0.1)',
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2a2 2 0 0 1 2 2v1h3a1 1 0 0 1 1 1v3h1a2 2 0 0 1 0 4h-1v3a1 1 0 0 1-1 1h-3v1a2 2 0 0 1-4 0v-1H7a1 1 0 0 1-1-1v-3H5a2 2 0 0 1 0-4h1V6a1 1 0 0 1 1-1h3V4a2 2 0 0 1 2-2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Plugins
+            </Link>
             <Link href={`/workspace/${wid}/settings`} style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
               background: 'transparent', color: '#71717A',

@@ -4,6 +4,7 @@ import { useState, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCanvas } from '@/store/canvas';
 import { useViewport } from '@/store/viewport';
+import { useDiffs } from '@/hooks/useDiffs';
 import { LiveArtboard } from './LiveArtboard';
 import { SelectionOverlay } from './SelectionOverlay';
 import type { FiberNode } from '@originmain/renderer';
@@ -18,10 +19,21 @@ interface ArtboardProps {
   renderUrl?: string;
 }
 
+// Status color map matching the inspector
+const DIFF_STATUS_BADGE: Record<string, { color: string; bg: string; label: string }> = {
+  DRAFT:    { color: '#FFBA7B', bg: 'rgba(255,186,123,0.15)', label: 'draft' },
+  REVIEWED: { color: '#7EB8FF', bg: 'rgba(126,184,255,0.15)', label: 'reviewed' },
+  APPLIED:  { color: '#10B981', bg: 'rgba(16,185,129,0.15)',  label: 'applied' },
+  REJECTED: { color: '#FF8080', bg: 'rgba(255,128,128,0.15)', label: 'blocked' },
+};
+
 export function Artboard({ id, label, x, y, width, height, renderUrl }: ArtboardProps) {
   const { selectedArtboardId, selectArtboard, workspaceId, projectId, setArtboardLive, setFiberRoot, selectComponent } = useCanvas();
   const selected = selectedArtboardId === id;
   const queryClient = useQueryClient();
+
+  // Diff status badges — fetch is cached by TanStack Query across all artboards
+  const { diffs } = useDiffs(id);
 
   // ── Fiber tree (from LiveArtboard) ─────────────────────────────────────────
   const [localFiberRoot, setLocalFiberRoot] = useState<FiberNode | undefined>(undefined);
@@ -245,6 +257,45 @@ export function Artboard({ id, label, x, y, width, height, renderUrl }: Artboard
             <Handle pos={{ bottom: -4, right: -4 }} />
           </>
         )}
+
+        {/* Diff status badge strip — bottom-right overlay, only visible when diffs exist */}
+        {diffs.length > 0 && (() => {
+          // Group by status and show compact chips
+          const counts: Record<string, number> = {};
+          for (const d of diffs) counts[d.status] = (counts[d.status] ?? 0) + 1;
+          const entries = Object.entries(counts).filter(([s]) => s in DIFF_STATUS_BADGE);
+          if (entries.length === 0) return null;
+          return (
+            <div
+              style={{
+                position: 'absolute', bottom: 6, right: 6, zIndex: 10,
+                display: 'flex', gap: 4, pointerEvents: 'none',
+              }}
+            >
+              {entries.map(([status, count]) => {
+                const b = DIFF_STATUS_BADGE[status]!;
+                return (
+                  <span
+                    key={status}
+                    title={`${count} ${b.label} diff${count !== 1 ? 's' : ''}`}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 3,
+                      padding: '2px 5px', borderRadius: 4,
+                      background: b.bg, border: `1px solid ${b.color}33`,
+                      fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+                      fontSize: '0.5rem', fontWeight: 600,
+                      color: b.color, letterSpacing: '0.03em',
+                      backdropFilter: 'blur(4px)',
+                    }}
+                  >
+                    <span style={{ width: 4, height: 4, borderRadius: '50%', background: b.color, display: 'inline-block' }} />
+                    {count}
+                  </span>
+                );
+              })}
+            </div>
+          );
+        })()}
 
         {/* Content */}
         {renderUrl ? (

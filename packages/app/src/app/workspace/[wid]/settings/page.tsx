@@ -37,7 +37,7 @@ export default async function WorkspaceSettingsPage({ params }: { params: Promis
   const memberRole = (member as { role: string }).role;
 
   return (
-    <div style={{ minHeight: '100dvh', background: '#FAFAFA', fontFamily: "'Inter', -apple-system, sans-serif" }}>
+    <div style={{ minHeight: '100dvh', background: 'var(--page-bg)', fontFamily: "'Inter', -apple-system, sans-serif" }}>
       <AppHeader breadcrumbs={[
         { label: 'Workspaces', href: '/workspaces' },
         { label: workspace.name, href: `/workspace/${wid}` },

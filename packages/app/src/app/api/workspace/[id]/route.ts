@@ -1,9 +1,11 @@
-// PATCH /api/workspace/:id  → rename workspace (owner only)
-// GET   /api/workspace/:id  → fetch workspace (any member)
+// GET    /api/workspace/:id  → fetch workspace (any member)
+// PATCH  /api/workspace/:id  → rename workspace (owner only)
+// DELETE /api/workspace/:id  → delete workspace and all its data (owner only)
 
 import { auth } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { serverClient } from '@/lib/supabase';
+import { deleteWorkspace } from '@originmain/origin-graph';
 import type { Workspace } from '@originmain/origin-graph';
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -68,4 +70,23 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
   if (error || !data) return NextResponse.json({ error: error?.message ?? 'Update failed' }, { status: 500 });
 
   return NextResponse.json(data as Workspace);
+}
+
+export async function DELETE(_req: NextRequest, { params }: RouteContext) {
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { id } = await params;
+  const db = serverClient();
+
+  const isOwner = await assertOwner(db, id, userId);
+  if (!isOwner) return NextResponse.json({ error: 'Only workspace owners can delete' }, { status: 403 });
+
+  try {
+    await deleteWorkspace(db, id);
+    return new NextResponse(null, { status: 204 });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Delete failed';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

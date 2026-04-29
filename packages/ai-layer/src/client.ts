@@ -2,7 +2,9 @@ import Anthropic from '@anthropic-ai/sdk';
 
 // ── Model constants ───────────────────────────────────────────────────────────
 
-export const MODEL = 'claude-opus-4-7' as const;
+// claude-opus-4-5 is the current stable Opus 4 release.
+// Extended thinking is enabled in gateway.ts with budget_tokens.
+export const MODEL = 'claude-opus-4-5' as const;
 
 // ── Singleton client ──────────────────────────────────────────────────────────
 // The client is created once and shared. API key is injected from the server

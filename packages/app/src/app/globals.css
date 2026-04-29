@@ -12,9 +12,28 @@ html, body {
    for the canvas route only. Setting it globally here would break
    scrolling on settings, workspace, and other non-canvas pages. */
 
+/* ── Theme CSS variables ─────────────────────────────────────────────────────
+   --page-bg  : background of workspace / settings / plugin shell pages
+   --page-text: primary text colour on those pages
+   The canvas editor (AppChrome) uses its own inline dark styles and does not
+   consume these variables. Toggling data-theme on <html> via Providers is
+   enough for all shell pages to respond.                                      */
+
+:root {
+  --page-bg: #FAFAFA;
+  --page-text: #0A0A0A;
+}
+
+[data-theme="dark"] {
+  --page-bg: #0C0C10;
+  --page-text: #FAFAFA;
+}
+
 body {
   font-family: 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
-  background: #f5f5f5;
+  background: var(--page-bg);
+  color: var(--page-text);
+  transition: background 0.2s, color 0.2s;
 }
 
 /* ── Accessible focus indicators ────────────────────────────────────────────

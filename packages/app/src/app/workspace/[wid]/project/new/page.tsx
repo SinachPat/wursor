@@ -61,7 +61,7 @@ export default function NewProjectPage({ params }: { params: Promise<{ wid: stri
   };
 
   return (
-    <div style={{ minHeight: '100dvh', background: '#FAFAFA', fontFamily: "'Inter', -apple-system, sans-serif" }}>
+    <div style={{ minHeight: '100dvh', background: 'var(--page-bg)', fontFamily: "'Inter', -apple-system, sans-serif" }}>
       <AppHeader breadcrumbs={[
         { label: 'Workspaces', href: '/workspaces' },
         { label: 'Workspace', href: `/workspace/${wid}` },

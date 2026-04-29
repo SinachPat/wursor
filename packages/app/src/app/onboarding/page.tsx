@@ -49,7 +49,7 @@ export default function OnboardingPage() {
     <main style={{
       minHeight: '100dvh',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      background: '#FAFAFA',
+      background: 'var(--page-bg)',
       fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
       padding: '24px',
     }}>

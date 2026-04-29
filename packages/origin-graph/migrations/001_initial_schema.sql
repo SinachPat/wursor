@@ -172,3 +172,18 @@ BEGIN
   END LOOP;
 END;
 $$;
+
+-- ── RPC: get_diffs_by_status ──────────────────────────────────────────────────
+-- Used by getDiffsByStatus() in queries.ts.
+-- Joins intent_diffs → artboards to scope results by workspace_id.
+
+create or replace function get_diffs_by_status(p_workspace_id uuid, p_status text)
+returns setof intent_diffs
+language sql stable as $$
+  select d.*
+  from   intent_diffs d
+  join   artboards a on a.id = d.artboard_id
+  where  a.workspace_id = p_workspace_id
+    and  d.status = p_status
+  order  by d.created_at desc;
+$$;

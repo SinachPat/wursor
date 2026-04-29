@@ -137,7 +137,8 @@
       "Bash(pnpm --filter @originmain/origin-graph test)",
       "Bash(grep -E \"\\\\.d\\\\.ts$\")",
       "Bash(pnpm -w ls @anthropic-ai/sdk)",
-      "Bash(grep -v \"\\\\.map$\")"
+      "Bash(grep -v \"\\\\.map$\")",
+      "Bash(perl -pi -e 's/background: '\\\\''#FAFAFA'\\\\''/background: '\\\\''var\\(--page-bg\\)'\\\\''/g' /Users/USER/Desktop/originmain/packages/app/src/app/onboarding/page.tsx /Users/USER/Desktop/originmain/packages/app/src/app/error.tsx)"
     ]
   }
 }

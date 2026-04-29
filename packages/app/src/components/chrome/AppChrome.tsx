@@ -10,6 +10,7 @@ import { Inspector } from '../inspector/Inspector';
 import { useHistory } from '@/store/history';
 import { useCanvas, type Tool } from '@/store/canvas';
 import { useViewport } from '@/store/viewport';
+import { useTheme } from '@/store/theme';
 
 interface AppChromeProps {
   workspaceId?: string;
@@ -22,6 +23,7 @@ export function AppChrome({ workspaceId, projectId, workspaceName, projectName }
   const selectedArtboardId = useCanvas((s) => s.selectedArtboardId);
   const setContext         = useCanvas((s) => s.setContext);
   const setActiveTool      = useCanvas((s) => s.setActiveTool);
+  const { mode: themeMode, toggle: toggleTheme } = useTheme();
 
   // Push workspace/project IDs into the store so Canvas and Navigator can read them.
   useEffect(() => {
@@ -161,6 +163,34 @@ export function AppChrome({ workspaceId, projectId, workspaceName, projectName }
           )}
 
           <div style={{ flex: 1 }} />
+
+          {/* Theme toggle */}
+          <button
+            onClick={toggleTheme}
+            title={`Switch to ${themeMode === 'dark' ? 'light' : 'dark'} mode`}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'rgba(255,255,255,0.35)', padding: '4px 6px',
+              display: 'flex', alignItems: 'center',
+              transition: 'color 0.12s',
+              fontSize: 13,
+            }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.75)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.35)')}
+          >
+            {themeMode === 'dark' ? (
+              /* Sun icon */
+              <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                <circle cx="7" cy="7" r="2.5" stroke="currentColor" strokeWidth="1.2"/>
+                <path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.93 2.93l1.06 1.06M10.01 10.01l1.06 1.06M2.93 11.07l1.06-1.06M10.01 3.99l1.06-1.06" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+              </svg>
+            ) : (
+              /* Moon icon */
+              <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                <path d="M12 8.5A5.5 5.5 0 0 1 5.5 2a5.5 5.5 0 1 0 6.5 6.5z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            )}
+          </button>
 
           <div style={{ transform: 'scale(0.8)', transformOrigin: 'right center' }}>
             <UserButton />

@@ -16,7 +16,7 @@ export default function WorkspaceError({
   }, [error]);
 
   return (
-    <div style={{ minHeight: '100vh', background: '#FAFAFA', fontFamily: "'Inter', -apple-system, sans-serif" }}>
+    <div style={{ minHeight: '100vh', background: 'var(--page-bg)', fontFamily: "'Inter', -apple-system, sans-serif" }}>
       <AppHeader breadcrumbs={[{ label: 'Workspaces', href: '/workspaces' }]} />
       <main style={{ maxWidth: 480, margin: '80px auto', padding: '0 24px', textAlign: 'center' }}>
         <div style={{ fontSize: '2rem', marginBottom: 16 }}>⚠️</div>

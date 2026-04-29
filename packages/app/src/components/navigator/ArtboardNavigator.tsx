@@ -5,7 +5,7 @@ import { useFileTree, FileTree } from '@pierre/trees/react';
 import { themeToTreeStyles } from '@pierre/trees';
 import { SquareRegular } from '@fluentui/react-icons';
 import { useCanvas } from '@/store/canvas';
-import { useArtboards, patchArtboard } from '@/hooks/useArtboards';
+import { useArtboards, patchArtboard, createArtboardMutation } from '@/hooks/useArtboards';
 import { useQueryClient } from '@tanstack/react-query';
 
 const T = {
@@ -61,6 +61,30 @@ export function ArtboardNavigator() {
     queryClient.invalidateQueries({ queryKey: ['artboards', workspaceId, projectId ?? undefined] });
   }, [workspaceId, projectId, queryClient]);
 
+  const forkArtboard = useCallback(async (id: string, label: string) => {
+    if (!workspaceId) return;
+    const source = rawArtboards.find(ab => ab.id === id);
+    if (!source) return;
+    const meta = { ...(source.metadata_jsonb as Record<string, unknown>) };
+    // Offset fork to the right of the original so it doesn't overlap
+    const srcWidth = typeof meta['width'] === 'number' ? (meta['width'] as number) : 360;
+    meta['x'] = typeof meta['x'] === 'number' ? (meta['x'] as number) + srcWidth + 40 : 40;
+    try {
+      await createArtboardMutation({
+        workspace_id: workspaceId,
+        project_id: projectId ?? null,
+        name: `Fork of ${label}`,
+        origin_id: source.origin_id,
+        parent_artboard_id: id,
+        metadata_jsonb: meta,
+      });
+      queryClient.invalidateQueries({ queryKey: ['artboards', workspaceId, projectId ?? undefined] });
+    } catch (err) {
+      console.error('[Navigator] forkArtboard failed:', err);
+      window.alert('Could not fork artboard — please try again.');
+    }
+  }, [workspaceId, projectId, rawArtboards, queryClient]);
+
   // Real graph stats derived from live fiber trees
   const totalComponents = Object.values(artboardFiberRoots).reduce(
     (acc, root) => acc + countFiberNodes(root), 0,
@@ -112,6 +136,7 @@ export function ArtboardNavigator() {
               }
               label={ab.label}
               onRename={() => void renameArtboard(ab.id, ab.label)}
+              onFork={() => void forkArtboard(ab.id, ab.label)}
               onDelete={() => void deleteArtboard(ab.id, ab.label)}
             />
           );
@@ -160,6 +185,7 @@ function NavRow({
   icon,
   label,
   onRename,
+  onFork,
   onDelete,
 }: {
   selected?: boolean;
@@ -168,6 +194,7 @@ function NavRow({
   icon: React.ReactNode;
   label: string;
   onRename?: () => void;
+  onFork?: () => void;
   onDelete?: () => void;
 }) {
   const [hov, setHov] = useState(false);
@@ -206,18 +233,31 @@ function NavRow({
         }} />
       )}
 
-      {/* Action buttons: rename + delete — shown on hover */}
+      {/* Action buttons: rename + fork + delete — shown on hover */}
       {(hov || selected) && (
         <div style={{ display: 'flex', gap: 2, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
           {onRename && (
             <IconBtn title="Rename" onClick={onRename}>
+              {/* Pencil */}
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
                 <path d="M1 7.5L7 1.5l1.5 1.5-6 6H1V7.5z" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </IconBtn>
           )}
+          {onFork && (
+            <IconBtn title="Fork" onClick={onFork}>
+              {/* Branch / fork icon */}
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                <circle cx="2" cy="2" r="1.2" stroke="currentColor" strokeWidth="1"/>
+                <circle cx="8" cy="2" r="1.2" stroke="currentColor" strokeWidth="1"/>
+                <circle cx="2" cy="8" r="1.2" stroke="currentColor" strokeWidth="1"/>
+                <path d="M2 3.2v1.3C2 5.4 2.6 6 3.5 6H5M8 3.2V5a1 1 0 0 1-1 1H5m0 0v2" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </IconBtn>
+          )}
           {onDelete && (
             <IconBtn title="Delete" onClick={onDelete} danger>
+              {/* Trash */}
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
                 <path d="M2 2.5h6M4 2.5V1.5h2V2.5M3 2.5v6h4v-6" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>

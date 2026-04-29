@@ -73,8 +73,10 @@ export interface GatewayRequest {
   messages: Anthropic.Messages.MessageParam[];
   system?: Anthropic.Messages.TextBlockParam[];
   maxTokens?: number;
-  // NOTE: temperature is intentionally omitted — Opus 4.7 with adaptive thinking
-  // rejects temperature, top_p, and top_k with a 400 error.
+  // NOTE: temperature is intentionally omitted — extended thinking rejects
+  // temperature, top_p, and top_k with a 400 error.
+  // NOTE: when thinking is enabled, max_tokens must be >= 16_000 and
+  // budget_tokens must be < max_tokens. We enforce this in complete().
 }
 
 export interface GatewayResponse {
@@ -101,10 +103,15 @@ export class AIGateway {
     let lastError: Error | null = null;
     for (let attempt = 0; attempt < this.maxRetries; attempt++) {
       try {
+        // Extended thinking requires max_tokens >= 16_000.
+        // budget_tokens must be strictly less than max_tokens.
+        const maxTokens = Math.max(req.maxTokens ?? 4096, 16_000);
+        const budgetTokens = Math.floor(maxTokens * 0.8);
+
         const response = await this.client.messages.create({
           model: MODEL,
-          max_tokens: req.maxTokens ?? 4096,
-          thinking: { type: 'adaptive' },
+          max_tokens: maxTokens,
+          thinking: { type: 'enabled', budget_tokens: budgetTokens },
           ...(req.system !== undefined ? { system: req.system } : {}),
           messages: req.messages,
         });
