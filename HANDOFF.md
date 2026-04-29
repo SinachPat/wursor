@@ -313,6 +313,40 @@ The following is a second-pass audit of all real product gaps, independent of la
 - **Agent status badges**: `Artboard.tsx` calls `useDiffs(id)` and renders compact colored chips (draft/reviewed/applied/blocked) bottom-right of each artboard frame when diffs exist.
 - **TypeScript**: `tsc --noEmit` exits 0 on both `packages/app` and `packages/origin-graph`.
 
+### ✅ Completed — Session 6 (2026-04-29)
+
+#### Full-app dark/light theme system
+
+- **`packages/app/src/store/canvasTheme.ts`** (NEW) — `CanvasTokens` interface (24 typed tokens); `DARK_TOKENS` + `LIGHT_TOKENS` constant sets; `useCanvasTheme()` hook reads `useTheme` store and returns the active token set.
+- **`packages/app/src/app/globals.css`** — Added 17 CSS variables in `:root` + `[data-theme="dark"]` overrides: `--page-bg/text`, `--card-bg/border/text/muted/subtle/icon-bg/icon-fg`, `--input-bg/border/text`, `--btn-bg/fg`, `--btn-idle-bg/fg/border`.
+- **`packages/app/src/app/providers.tsx`** — `useEffect` syncs Zustand `mode` → `document.documentElement.setAttribute('data-theme', mode)` so CSS variables cascade to server-rendered pages.
+- **Canvas editor — all panels now theme-aware** via `useCanvasTheme()`:
+  - `Toolbar.tsx` — all tokens replaced; `Sep`/`TBtn` sub-components accept `T: CanvasTokens` prop
+  - `Canvas.tsx` — `canvasBg`, `dotColor` tokens
+  - `ArtboardNavigator.tsx` — full token conversion; `NavRow`/`IconBtn` accept `T` prop; `treeThemeStyles` reactive; all micro-components (`SectionLabel`, `HSep`, `GraphStat`, `CrossArtboardQuery`) call `useCanvasTheme()` directly
+  - `Inspector.tsx` — all sub-components (`PropsTab`, `Section`, `PropRow`, `GraphTab`, `FiberTreeView`, `GraphNode`, `DiffTab`, `SavedDiffRow`) call `useCanvasTheme()` directly
+  - `AppChrome.tsx` breadcrumb bar — logo, separators, links, settings gear, theme toggle icon all use `CT.*` tokens (no more hardcoded `rgba(255,255,255,*)`)
+- **Shell pages — CSS variable adoption** (`var(--card-bg)`, `var(--card-text)`, `var(--input-bg)`, `var(--btn-bg)`, etc.):
+  - `ProjectCard.tsx`, `WorkspaceCard.tsx`, `DesignLanguageUpload.tsx`
+  - `ProjectSettingsForm.tsx`, `WorkspaceSettingsForm.tsx` — static `SECTION`/`LABEL`/`INPUT`/`BTN_PRIMARY` const objects updated to use CSS vars
+  - `workspace/[wid]/page.tsx`, `workspace/[wid]/plugins/page.tsx`
+  - `workspace/[wid]/project/new/page.tsx`, `workspaces/new/page.tsx`
+  - `workspace/[wid]/project/[pid]/settings/page.tsx`
+  - `onboarding/page.tsx`, `error.tsx`
+- **`AppHeader.tsx`** (shell) — converted to `'use client'`; `useTheme` hook; sun/moon toggle button before `UserButton`; breadcrumb colors theme-aware.
+
+#### AI layer fixes
+
+- **`claude-opus-4-7` + `thinking: {type: 'adaptive'}`** confirmed correct and restored (earlier session accidentally introduced invalid model name and deprecated `{type:'enabled', budget_tokens:N}` format).
+- **Defensive JSON stripping** in `artboard-query.ts`, `agent-qa.ts`, `completion-zone.ts`, `drift-report.ts` — strips ` ```json ``` ` code fences before `JSON.parse` to handle model responses that wrap JSON in markdown blocks.
+- **Stale webpack cache cleared** — `packages/app/.next/cache/webpack/server-development` removed to force recompile of changed `ai-layer` source.
+
+#### Marketing page (`public/marketing.html`)
+
+- **Dark mode CSS block** — `[data-theme="dark"]` overrides all CSS variables; sun/moon toggle in desktop nav and mobile drawer; syncs to both `om-theme` (marketing) and `originmain:theme` (Zustand/app) localStorage keys.
+- **`cmp-card.hero-card` bug fixed** — was `background: var(--fg)` which = near-white in dark mode (white text on white card). Fixed to always-dark `#06060E` with blue `rgba(51,133,255,0.4)` glow border; eyebrow/tags get blue tint; body contrast improved.
+- **Bottom CTA (`#cta-bottom`) bug fixed** — was `background: var(--bg-inv)` which = light gray in dark mode, making `btn-outline-white` invisible. Fixed to always-dark `#06060E`; headline/subtext use fixed white alphas; gradient intensity slightly increased.
+
 ### 🔧 Remaining — Lower Priority
 
 - [ ] **Multiplayer**: Wire `MultiplayerAdapter` into app (install `@liveblocks/client` + `@liveblocks/react`; create `packages/app/src/lib/liveblocks.ts`)
@@ -320,5 +354,6 @@ The following is a second-pass audit of all real product gaps, independent of la
 - [ ] **Redis rate limiter**: Replace in-process rate limiter in `agent-bridge/src/rate-limiter.ts` for multi-instance MCP support
 - [ ] **Product analytics**: Instrument PostHog for activation/engagement metrics (GTM requirement)
 - [ ] **Onboarding wizard**: Step-by-step "connect your app" flow from signup to first live artboard
+- [ ] **Marketing page — remaining `section-dark` / `--bg-inv` surfaces**: other sections using `background: var(--bg-inv)` (e.g. `#features-alt`, footer) should be audited for the same light-mode-in-dark-mode inversion issue if the marketing page is expected to fully support theme toggling
 
-*Last updated: 2026-04-28 — Session 5 complete*
+*Last updated: 2026-04-29 — Session 6 complete*

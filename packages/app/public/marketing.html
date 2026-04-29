@@ -1463,7 +1463,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
    BOTTOM CTA — dark, gradient, commanding
    ════════════════════════════════════════════════════════════ */
 #cta-bottom {
-  background: var(--bg-inv);
+  background: #06060E;
   padding: 140px 40px;
   position: relative;
   overflow: hidden;
@@ -1474,8 +1474,8 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse 60% 80% at 30% 50%, rgba(124,58,237,0.12) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 80% at 70% 50%, rgba(0,102,255,0.1) 0%, transparent 60%);
+    radial-gradient(ellipse 60% 80% at 30% 50%, rgba(124,58,237,0.18) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 80% at 70% 50%, rgba(0,102,255,0.15) 0%, transparent 60%);
   pointer-events: none;
 }
 .cta-inner { position: relative; max-width: 720px; margin: 0 auto; }
@@ -1483,11 +1483,11 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   font-size: clamp(2.5rem, 5vw, 4rem);
   font-weight: 900;
   letter-spacing: -0.045em;
-  color: var(--fg-inv);
+  color: rgba(255,255,255,0.94);
   line-height: 1.05;
   margin-bottom: 20px;
 }
-.cta-sub { font-size: 1.125rem; color: var(--fg-inv-2); margin-bottom: 48px; line-height: 1.65; }
+.cta-sub { font-size: 1.125rem; color: rgba(255,255,255,0.52); margin-bottom: 48px; line-height: 1.65; }
 .cta-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 .btn-white {
   background: #fff;
