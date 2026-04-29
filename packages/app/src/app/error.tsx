@@ -24,9 +24,10 @@ export default function GlobalError({
         padding: 24,
       }}>
         <div style={{
-          background: '#FFFFFF', border: '1px solid rgba(220,38,38,0.15)',
+          background: 'var(--card-bg)', border: '1px solid rgba(220,38,38,0.15)',
           borderRadius: 16, padding: '44px 48px', maxWidth: 480, width: '100%',
           boxShadow: '0 4px 24px rgba(0,0,0,0.06)', textAlign: 'center',
+          transition: 'background 0.2s',
         }}>
           <div style={{
             width: 48, height: 48, borderRadius: 12,
@@ -39,10 +40,10 @@ export default function GlobalError({
               <circle cx="10" cy="10" r="8.5" stroke="#DC2626" strokeWidth="1.5"/>
             </svg>
           </div>
-          <h1 style={{ fontSize: '1.125rem', fontWeight: 700, color: '#0A0A0A', margin: '0 0 8px', letterSpacing: '-0.02em' }}>
+          <h1 style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--card-text)', margin: '0 0 8px', letterSpacing: '-0.02em' }}>
             Something went wrong
           </h1>
-          <p style={{ fontSize: '0.875rem', color: '#71717A', margin: '0 0 28px', lineHeight: 1.6 }}>
+          <p style={{ fontSize: '0.875rem', color: 'var(--card-muted)', margin: '0 0 28px', lineHeight: 1.6 }}>
             {error.message || 'An unexpected error occurred.'}
           </p>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
@@ -51,7 +52,7 @@ export default function GlobalError({
               style={{
                 padding: '9px 20px', borderRadius: 8,
                 fontSize: '0.875rem', fontWeight: 600,
-                background: '#0A0A0A', color: '#FFFFFF', border: 'none',
+                background: 'var(--btn-bg)', color: 'var(--btn-fg)', border: 'none',
                 cursor: 'pointer', fontFamily: 'inherit',
               }}
             >
@@ -62,7 +63,7 @@ export default function GlobalError({
               style={{
                 padding: '9px 20px', borderRadius: 8,
                 fontSize: '0.875rem', fontWeight: 600,
-                background: '#F4F4F5', color: '#3F3F46',
+                background: 'var(--card-subtle)', color: 'var(--btn-idle-fg)',
                 border: 'none', textDecoration: 'none',
                 display: 'inline-flex', alignItems: 'center',
               }}

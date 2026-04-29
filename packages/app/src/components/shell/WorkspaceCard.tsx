@@ -22,20 +22,20 @@ export function WorkspaceCard({ id, name, plan, createdAt }: WorkspaceCardProps)
     <Link href={`/workspace/${id}`} style={{ textDecoration: 'none' }}>
       <div
         style={{
-          background: '#FFFFFF',
-          border: '1px solid rgba(0,0,0,0.07)',
+          background: 'var(--card-bg)',
+          border: '1px solid var(--card-border)',
           borderRadius: 14,
           padding: '20px 22px',
           cursor: 'pointer',
           transition: 'box-shadow 0.15s, border-color 0.15s',
         }}
         onMouseEnter={e => {
-          (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 16px rgba(0,0,0,0.08)';
-          (e.currentTarget as HTMLElement).style.borderColor = 'rgba(0,0,0,0.12)';
+          (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 16px rgba(0,0,0,0.12)';
+          (e.currentTarget as HTMLElement).style.borderColor = 'rgba(51,133,255,0.35)';
         }}
         onMouseLeave={e => {
           (e.currentTarget as HTMLElement).style.boxShadow = 'none';
-          (e.currentTarget as HTMLElement).style.borderColor = 'rgba(0,0,0,0.07)';
+          (e.currentTarget as HTMLElement).style.borderColor = 'var(--card-border)';
         }}
       >
         {/* Workspace icon */}
@@ -54,7 +54,7 @@ export function WorkspaceCard({ id, name, plan, createdAt }: WorkspaceCardProps)
         </div>
 
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-          <span style={{ fontSize: '0.9375rem', fontWeight: 600, color: '#0A0A0A', letterSpacing: '-0.01em', lineHeight: 1.3 }}>
+          <span style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--card-text)', letterSpacing: '-0.01em', lineHeight: 1.3 }}>
             {name}
           </span>
           <span style={{
@@ -66,7 +66,7 @@ export function WorkspaceCard({ id, name, plan, createdAt }: WorkspaceCardProps)
           </span>
         </div>
 
-        <p style={{ margin: '6px 0 0', fontSize: '0.8125rem', color: '#A1A1AA' }}>
+        <p style={{ margin: '6px 0 0', fontSize: '0.8125rem', color: 'var(--card-muted)' }}>
           Created {new Date(createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
         </p>
 

@@ -57,10 +57,10 @@ export default async function WorkspacePage({ params }: { params: Promise<{ wid:
         {/* Title row */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 32 }}>
           <div>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, letterSpacing: '-0.03em', color: '#0A0A0A', margin: 0 }}>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, letterSpacing: '-0.03em', color: 'var(--page-text)', margin: 0 }}>
               Projects
             </h1>
-            <p style={{ margin: '4px 0 0', fontSize: '0.875rem', color: '#71717A' }}>
+            <p style={{ margin: '4px 0 0', fontSize: '0.875rem', color: 'var(--card-muted)' }}>
               {projects.length === 0
                 ? 'No projects yet — connect your first app to get started'
                 : `${projects.length} project${projects.length !== 1 ? 's' : ''}`}
@@ -69,10 +69,10 @@ export default async function WorkspacePage({ params }: { params: Promise<{ wid:
           <div style={{ display: 'flex', gap: 10 }}>
             <Link href={`/workspace/${wid}/plugins`} style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
-              background: 'transparent', color: '#71717A',
+              background: 'transparent', color: 'var(--card-muted)',
               fontSize: '0.875rem', fontWeight: 500,
               padding: '9px 16px', borderRadius: 9,
-              textDecoration: 'none', border: '1px solid rgba(0,0,0,0.1)',
+              textDecoration: 'none', border: '1px solid var(--card-border)',
             }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                 <path d="M12 2a2 2 0 0 1 2 2v1h3a1 1 0 0 1 1 1v3h1a2 2 0 0 1 0 4h-1v3a1 1 0 0 1-1 1h-3v1a2 2 0 0 1-4 0v-1H7a1 1 0 0 1-1-1v-3H5a2 2 0 0 1 0-4h1V6a1 1 0 0 1 1-1h3V4a2 2 0 0 1 2-2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -81,10 +81,10 @@ export default async function WorkspacePage({ params }: { params: Promise<{ wid:
             </Link>
             <Link href={`/workspace/${wid}/settings`} style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
-              background: 'transparent', color: '#71717A',
+              background: 'transparent', color: 'var(--card-muted)',
               fontSize: '0.875rem', fontWeight: 500,
               padding: '9px 16px', borderRadius: 9,
-              textDecoration: 'none', border: '1px solid rgba(0,0,0,0.1)',
+              textDecoration: 'none', border: '1px solid var(--card-border)',
             }}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <circle cx="7" cy="7" r="2" stroke="currentColor" strokeWidth="1.4"/>
@@ -94,7 +94,7 @@ export default async function WorkspacePage({ params }: { params: Promise<{ wid:
             </Link>
             <Link href={`/workspace/${wid}/project/new`} style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
-              background: '#0A0A0A', color: '#FFFFFF',
+              background: 'var(--btn-bg)', color: 'var(--btn-fg)',
               fontSize: '0.875rem', fontWeight: 600,
               padding: '9px 18px', borderRadius: 9,
               textDecoration: 'none', letterSpacing: '-0.01em',
@@ -110,8 +110,9 @@ export default async function WorkspacePage({ params }: { params: Promise<{ wid:
         {/* Empty state */}
         {projects.length === 0 && (
           <div style={{
-            background: '#FFFFFF', border: '1px dashed rgba(0,0,0,0.12)',
+            background: 'var(--card-bg)', border: '1px dashed var(--card-border)',
             borderRadius: 16, padding: '56px 40px', textAlign: 'center',
+            transition: 'background 0.2s',
           }}>
             <div style={{
               width: 52, height: 52, borderRadius: 14,
@@ -123,10 +124,10 @@ export default async function WorkspacePage({ params }: { params: Promise<{ wid:
                 <path d="M7 9.5l2.5 2.5L15 7" stroke="#0066FF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
-            <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#0A0A0A', margin: '0 0 8px' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--card-text)', margin: '0 0 8px' }}>
               Connect your first app
             </h3>
-            <p style={{ fontSize: '0.875rem', color: '#71717A', margin: '0 0 24px', maxWidth: 360, marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.6 }}>
+            <p style={{ fontSize: '0.875rem', color: 'var(--card-muted)', margin: '0 0 24px', maxWidth: 360, marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.6 }}>
               A project connects to your running application — local or staging — so you can inspect components and ship intent-level diffs.
             </p>
             <Link href={`/workspace/${wid}/project/new`} style={{

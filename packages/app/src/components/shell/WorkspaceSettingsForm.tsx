@@ -10,18 +10,19 @@ interface WorkspaceSettingsFormProps {
 }
 
 const SECTION: React.CSSProperties = {
-  background: '#FFFFFF',
-  border: '1px solid rgba(0,0,0,0.07)',
+  background: 'var(--card-bg)',
+  border: '1px solid var(--card-border)',
   borderRadius: 14,
   padding: '24px 28px',
   marginBottom: 20,
+  transition: 'background 0.2s, border-color 0.2s',
 };
 
 const LABEL: React.CSSProperties = {
   display: 'block',
   fontSize: '0.8125rem',
   fontWeight: 600,
-  color: '#0A0A0A',
+  color: 'var(--card-text)',
   marginBottom: 6,
 };
 
@@ -29,17 +30,17 @@ const INPUT: React.CSSProperties = {
   width: '100%',
   fontSize: '0.875rem',
   padding: '9px 12px',
-  border: '1px solid rgba(0,0,0,0.12)',
+  border: '1px solid var(--input-border)',
   borderRadius: 9,
   fontFamily: "'Inter', -apple-system, sans-serif",
-  color: '#0A0A0A',
-  background: '#FAFAFA',
+  color: 'var(--input-text)',
+  background: 'var(--input-bg)',
   boxSizing: 'border-box',
 };
 
 const BTN_PRIMARY: React.CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 6,
-  background: '#0A0A0A', color: '#FFFFFF',
+  background: 'var(--btn-bg)', color: 'var(--btn-fg)',
   fontSize: '0.875rem', fontWeight: 600,
   padding: '9px 20px', borderRadius: 9,
   border: 'none', cursor: 'pointer', letterSpacing: '-0.01em',
@@ -99,8 +100,8 @@ function TeamInviteForm({ workspaceId }: { workspaceId: string }) {
             style={{
               fontSize: '0.75rem', fontWeight: 600, padding: '5px 13px', borderRadius: 8,
               border: `1px solid ${role === r ? '#0066FF' : 'rgba(0,0,0,0.12)'}`,
-              background: role === r ? 'rgba(0,102,255,0.08)' : '#FFFFFF',
-              color: role === r ? '#0066FF' : '#52525B',
+              background: role === r ? 'rgba(0,102,255,0.08)' : 'var(--btn-idle-bg)',
+              color: role === r ? '#0066FF' : 'var(--btn-idle-fg)',
               cursor: 'pointer',
             }}
           >
@@ -228,7 +229,7 @@ export function WorkspaceSettingsForm({ workspaceId, workspaceName, memberRole }
     <>
       {/* General */}
       <div style={SECTION}>
-        <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#0A0A0A', margin: '0 0 20px' }}>
+        <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--card-text)', margin: '0 0 20px' }}>
           General
         </h2>
         <label style={LABEL} htmlFor="ws-name">Workspace name</label>
@@ -257,16 +258,16 @@ export function WorkspaceSettingsForm({ workspaceId, workspaceName, memberRole }
           <span style={{ fontSize: '0.75rem', color: '#EF4444' }}>Rename failed — try again</span>
         )}
         {!isOwner && (
-          <span style={{ fontSize: '0.75rem', color: '#71717A' }}>Only workspace owners can rename.</span>
+          <span style={{ fontSize: '0.75rem', color: 'var(--card-muted)' }}>Only workspace owners can rename.</span>
         )}
       </div>
 
       {/* IDE Integration */}
       <div style={SECTION}>
-        <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#0A0A0A', margin: '0 0 6px' }}>
+        <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--card-text)', margin: '0 0 6px' }}>
           IDE Integration
         </h2>
-        <p style={{ fontSize: '0.8125rem', color: '#71717A', margin: '0 0 20px', lineHeight: 1.6 }}>
+        <p style={{ fontSize: '0.8125rem', color: 'var(--card-muted)', margin: '0 0 20px', lineHeight: 1.6 }}>
           Issue a signed workspace token and copy the config snippet into your editor. Tokens expire after 30 days.
         </p>
 
@@ -278,9 +279,9 @@ export function WorkspaceSettingsForm({ workspaceId, workspaceName, memberRole }
               onClick={() => setAgentType(t)}
               style={{
                 fontSize: '0.75rem', fontWeight: 600, padding: '6px 14px', borderRadius: 8,
-                border: `1px solid ${agentType === t ? '#0066FF' : 'rgba(0,0,0,0.12)'}`,
-                background: agentType === t ? 'rgba(0,102,255,0.08)' : '#FFFFFF',
-                color: agentType === t ? '#0066FF' : '#52525B',
+                border: `1px solid ${agentType === t ? '#0066FF' : 'var(--btn-idle-border)'}`,
+                background: agentType === t ? 'rgba(0,102,255,0.08)' : 'var(--btn-idle-bg)',
+                color: agentType === t ? '#0066FF' : 'var(--btn-idle-fg)',
                 cursor: 'pointer',
               }}
             >
@@ -335,7 +336,7 @@ export function WorkspaceSettingsForm({ workspaceId, workspaceName, memberRole }
             }}>
               {configText}
             </pre>
-            <p style={{ fontSize: '0.75rem', color: '#71717A', marginTop: 8, lineHeight: 1.5 }}>
+            <p style={{ fontSize: '0.75rem', color: 'var(--card-muted)', marginTop: 8, lineHeight: 1.5 }}>
               Paste this into your{' '}
               {agentType === 'CURSOR' ? (
                 <code style={{ fontFamily: 'monospace', background: 'rgba(0,0,0,0.06)', padding: '1px 5px', borderRadius: 4 }}>.cursorrules</code>
@@ -351,10 +352,10 @@ export function WorkspaceSettingsForm({ workspaceId, workspaceName, memberRole }
       {/* Team */}
       {isOwner && (
         <div style={SECTION}>
-          <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#0A0A0A', margin: '0 0 6px' }}>
+          <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--card-text)', margin: '0 0 6px' }}>
             Team
           </h2>
-          <p style={{ fontSize: '0.8125rem', color: '#71717A', margin: '0 0 20px', lineHeight: 1.6 }}>
+          <p style={{ fontSize: '0.8125rem', color: 'var(--card-muted)', margin: '0 0 20px', lineHeight: 1.6 }}>
             Add a team member using their Clerk user ID. You can find this in the Clerk dashboard under Users.
           </p>
 
@@ -368,7 +369,7 @@ export function WorkspaceSettingsForm({ workspaceId, workspaceName, memberRole }
           <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#EF4444', margin: '0 0 8px' }}>
             Danger zone
           </h2>
-          <p style={{ fontSize: '0.8125rem', color: '#71717A', margin: '0 0 16px', lineHeight: 1.6 }}>
+          <p style={{ fontSize: '0.8125rem', color: 'var(--card-muted)', margin: '0 0 16px', lineHeight: 1.6 }}>
             Deleting this workspace is permanent and cannot be undone. All projects and artboards will be lost.
           </p>
           <button

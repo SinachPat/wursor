@@ -51,40 +51,42 @@ export default async function ProjectSettingsPage({
   return (
     <div style={{
       minHeight: '100dvh',
-      background: '#F5F5F7',
+      background: 'var(--page-bg)',
       fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
+      transition: 'background 0.2s',
     }}>
       {/* Header */}
       <div style={{
-        background: '#FFFFFF',
-        borderBottom: '1px solid rgba(0,0,0,0.07)',
+        background: 'var(--card-bg)',
+        borderBottom: '1px solid var(--card-border)',
         padding: '0 32px',
         display: 'flex',
         alignItems: 'center',
         height: 56,
         gap: 0,
+        transition: 'background 0.2s',
       }}>
-        <Link href="/workspaces" style={{ textDecoration: 'none', fontSize: '0.875rem', fontWeight: 700, color: '#0A0A0A', letterSpacing: '-0.01em' }}>
+        <Link href="/workspaces" style={{ textDecoration: 'none', fontSize: '0.875rem', fontWeight: 700, color: 'var(--card-text)', letterSpacing: '-0.01em' }}>
           Origin<span style={{ color: '#3385FF' }}>main</span>
         </Link>
-        <span style={{ color: 'rgba(0,0,0,0.2)', margin: '0 8px', fontSize: '0.875rem' }}>/</span>
-        <Link href={`/workspace/${wid}`} style={{ textDecoration: 'none', fontSize: '0.875rem', color: '#52525B', fontWeight: 500 }}>
+        <span style={{ color: 'var(--card-border)', margin: '0 8px', fontSize: '0.875rem' }}>/</span>
+        <Link href={`/workspace/${wid}`} style={{ textDecoration: 'none', fontSize: '0.875rem', color: 'var(--card-muted)', fontWeight: 500 }}>
           {wsResult.data?.name ?? 'Workspace'}
         </Link>
-        <span style={{ color: 'rgba(0,0,0,0.2)', margin: '0 8px', fontSize: '0.875rem' }}>/</span>
-        <Link href={`/workspace/${wid}/project/${pid}`} style={{ textDecoration: 'none', fontSize: '0.875rem', color: '#52525B', fontWeight: 500 }}>
+        <span style={{ color: 'var(--card-border)', margin: '0 8px', fontSize: '0.875rem' }}>/</span>
+        <Link href={`/workspace/${wid}/project/${pid}`} style={{ textDecoration: 'none', fontSize: '0.875rem', color: 'var(--card-muted)', fontWeight: 500 }}>
           {project.name}
         </Link>
-        <span style={{ color: 'rgba(0,0,0,0.2)', margin: '0 8px', fontSize: '0.875rem' }}>/</span>
-        <span style={{ fontSize: '0.875rem', color: '#0A0A0A', fontWeight: 600 }}>Settings</span>
+        <span style={{ color: 'var(--card-border)', margin: '0 8px', fontSize: '0.875rem' }}>/</span>
+        <span style={{ fontSize: '0.875rem', color: 'var(--card-text)', fontWeight: 600 }}>Settings</span>
       </div>
 
       {/* Content */}
       <div style={{ maxWidth: 640, margin: '0 auto', padding: '40px 24px' }}>
-        <h1 style={{ fontSize: '1.375rem', fontWeight: 700, color: '#0A0A0A', margin: '0 0 6px', letterSpacing: '-0.02em' }}>
+        <h1 style={{ fontSize: '1.375rem', fontWeight: 700, color: 'var(--page-text)', margin: '0 0 6px', letterSpacing: '-0.02em' }}>
           Project settings
         </h1>
-        <p style={{ fontSize: '0.875rem', color: '#71717A', margin: '0 0 32px', lineHeight: 1.6 }}>
+        <p style={{ fontSize: '0.875rem', color: 'var(--card-muted)', margin: '0 0 32px', lineHeight: 1.6 }}>
           Configure your project name, URL, and framework.
         </p>
 

@@ -27,30 +27,30 @@ export function ProjectCard({ workspaceId, projectId, name, framework, appUrl, d
     <Link href={`/workspace/${workspaceId}/project/${projectId}`} style={{ textDecoration: 'none' }}>
       <div
         style={{
-          background: '#FFFFFF',
-          border: '1px solid rgba(0,0,0,0.07)',
+          background: 'var(--card-bg)',
+          border: '1px solid var(--card-border)',
           borderRadius: 14, padding: '20px 22px', cursor: 'pointer',
           transition: 'box-shadow 0.15s, border-color 0.15s',
         }}
         onMouseEnter={e => {
-          (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 16px rgba(0,0,0,0.08)';
-          (e.currentTarget as HTMLElement).style.borderColor = 'rgba(0,0,0,0.12)';
+          (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 16px rgba(0,0,0,0.12)';
+          (e.currentTarget as HTMLElement).style.borderColor = 'rgba(51,133,255,0.35)';
         }}
         onMouseLeave={e => {
           (e.currentTarget as HTMLElement).style.boxShadow = 'none';
-          (e.currentTarget as HTMLElement).style.borderColor = 'rgba(0,0,0,0.07)';
+          (e.currentTarget as HTMLElement).style.borderColor = 'var(--card-border)';
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
           <div style={{
             width: 38, height: 38, borderRadius: 9,
-            background: '#0A0A0A',
+            background: 'var(--card-icon-bg)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '0.875rem', color: '#FFFFFF', fontWeight: 700, flexShrink: 0,
+            fontSize: '0.875rem', color: 'var(--card-icon-fg)', fontWeight: 700, flexShrink: 0,
           }}>
             {icon}
           </div>
-          <span style={{ fontSize: '0.9375rem', fontWeight: 600, color: '#0A0A0A', letterSpacing: '-0.01em' }}>
+          <span style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--card-text)', letterSpacing: '-0.01em' }}>
             {name}
           </span>
         </div>
@@ -59,14 +59,14 @@ export function ProjectCard({ workspaceId, projectId, name, framework, appUrl, d
           <p style={{
             margin: '0 0 6px',
             fontSize: '0.75rem', fontFamily: 'monospace',
-            color: '#71717A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            color: 'var(--card-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>
             {appUrl}
           </p>
         )}
 
         {description && (
-          <p style={{ margin: '0 0 12px', fontSize: '0.8125rem', color: '#71717A', lineHeight: 1.5 }}>
+          <p style={{ margin: '0 0 12px', fontSize: '0.8125rem', color: 'var(--card-muted)', lineHeight: 1.5 }}>
             {description}
           </p>
         )}

@@ -54,15 +54,15 @@ export default function OnboardingPage() {
       padding: '24px',
     }}>
       {/* Logo */}
-      <div style={{ marginBottom: 40, fontSize: '1.125rem', fontWeight: 700, letterSpacing: '-0.02em', color: '#0A0A0A' }}>
+      <div style={{ marginBottom: 40, fontSize: '1.125rem', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--page-text)' }}>
         Origin<span style={{ color: '#0066FF' }}>main</span>
       </div>
 
       {/* Card */}
       <div style={{
-        background: '#FFFFFF', border: '1px solid rgba(0,0,0,0.07)',
+        background: 'var(--card-bg)', border: '1px solid var(--card-border)',
         borderRadius: 20, padding: '44px 48px', maxWidth: 460, width: '100%',
-        boxShadow: '0 4px 24px rgba(0,0,0,0.06)',
+        boxShadow: '0 4px 24px rgba(0,0,0,0.06)', transition: 'background 0.2s',
       }}>
         <div style={{
           width: 52, height: 52, borderRadius: 13,
@@ -77,15 +77,15 @@ export default function OnboardingPage() {
           </svg>
         </div>
 
-        <h1 style={{ fontSize: '1.375rem', fontWeight: 700, letterSpacing: '-0.03em', color: '#0A0A0A', margin: '0 0 8px' }}>
+        <h1 style={{ fontSize: '1.375rem', fontWeight: 700, letterSpacing: '-0.03em', color: 'var(--card-text)', margin: '0 0 8px' }}>
           Welcome, {firstName}!
         </h1>
-        <p style={{ fontSize: '0.9rem', color: '#71717A', lineHeight: 1.6, margin: '0 0 28px' }}>
+        <p style={{ fontSize: '0.9rem', color: 'var(--card-muted)', lineHeight: 1.6, margin: '0 0 28px' }}>
           Let's create your workspace. A workspace holds your projects and team — usually named after your company or product.
         </p>
 
         <form onSubmit={handleCreate}>
-          <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#3F3F46', marginBottom: 6 }}>
+          <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--card-text)', marginBottom: 6 }}>
             Workspace name
           </label>
           <input
@@ -97,14 +97,14 @@ export default function OnboardingPage() {
             style={{
               width: '100%', boxSizing: 'border-box',
               padding: '11px 13px', fontSize: '0.9375rem',
-              border: '1px solid rgba(0,0,0,0.12)', borderRadius: 9,
-              color: '#0A0A0A', background: '#FFFFFF',
+              border: '1px solid var(--input-border)', borderRadius: 9,
+              color: 'var(--input-text)', background: 'var(--input-bg)',
               fontFamily: 'inherit',
             }}
             onFocus={e => (e.currentTarget.style.borderColor = '#0066FF')}
-            onBlur={e => (e.currentTarget.style.borderColor = 'rgba(0,0,0,0.12)')}
+            onBlur={e => (e.currentTarget.style.borderColor = 'var(--input-border)')}
           />
-          <p style={{ margin: '6px 0 0', fontSize: '0.75rem', color: '#A1A1AA' }}>
+          <p style={{ margin: '6px 0 0', fontSize: '0.75rem', color: 'var(--card-muted)' }}>
             Leave blank to use "{defaultName}"
           </p>
 
@@ -117,8 +117,8 @@ export default function OnboardingPage() {
               marginTop: 24, width: '100%',
               padding: '12px', borderRadius: 9,
               fontSize: '0.9375rem', fontWeight: 600,
-              background: loading ? '#D4D4D8' : '#0A0A0A',
-              color: '#FFFFFF', border: 'none',
+              background: loading ? 'var(--card-subtle)' : 'var(--btn-bg)',
+              color: loading ? 'var(--card-muted)' : 'var(--btn-fg)', border: 'none',
               cursor: loading ? 'default' : 'pointer',
               fontFamily: 'inherit', letterSpacing: '-0.01em',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,

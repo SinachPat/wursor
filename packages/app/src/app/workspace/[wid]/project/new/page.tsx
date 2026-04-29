@@ -49,15 +49,15 @@ export default function NewProjectPage({ params }: { params: Promise<{ wid: stri
   const inputStyle = {
     width: '100%', boxSizing: 'border-box' as const,
     padding: '10px 12px', fontSize: '0.9375rem',
-    border: '1px solid rgba(0,0,0,0.12)', borderRadius: 8,
-    color: '#0A0A0A', background: '#FFFFFF',
+    border: '1px solid var(--input-border)', borderRadius: 8,
+    color: 'var(--input-text)', background: 'var(--input-bg)',
     fontFamily: 'inherit',
   };
 
   const labelStyle = {
     display: 'block' as const,
     fontSize: '0.8125rem', fontWeight: 600 as const,
-    color: '#3F3F46', marginBottom: 6,
+    color: 'var(--card-text)', marginBottom: 6,
   };
 
   return (
@@ -69,11 +69,11 @@ export default function NewProjectPage({ params }: { params: Promise<{ wid: stri
       ]} />
 
       <main style={{ maxWidth: 540, margin: '64px auto', padding: '0 24px' }}>
-        <div style={{ background: '#FFFFFF', border: '1px solid rgba(0,0,0,0.07)', borderRadius: 16, padding: '36px 40px', boxShadow: '0 4px 24px rgba(0,0,0,0.05)' }}>
-          <h1 style={{ fontSize: '1.25rem', fontWeight: 700, letterSpacing: '-0.02em', color: '#0A0A0A', margin: '0 0 6px' }}>
+        <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 16, padding: '36px 40px', boxShadow: '0 4px 24px rgba(0,0,0,0.05)', transition: 'background 0.2s' }}>
+          <h1 style={{ fontSize: '1.25rem', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--card-text)', margin: '0 0 6px' }}>
             New project
           </h1>
-          <p style={{ fontSize: '0.875rem', color: '#71717A', margin: '0 0 28px', lineHeight: 1.5 }}>
+          <p style={{ fontSize: '0.875rem', color: 'var(--card-muted)', margin: '0 0 28px', lineHeight: 1.5 }}>
             A project connects to your running app so you can inspect components live, create artboards, and ship intent diffs.
           </p>
 
@@ -87,7 +87,7 @@ export default function NewProjectPage({ params }: { params: Promise<{ wid: stri
                 placeholder="Dashboard App"
                 autoFocus style={inputStyle}
                 onFocus={e => (e.currentTarget.style.borderColor = '#0066FF')}
-                onBlur={e => (e.currentTarget.style.borderColor = 'rgba(0,0,0,0.12)')}
+                onBlur={e => (e.currentTarget.style.borderColor = 'var(--input-border)')}
               />
             </div>
 
@@ -99,9 +99,9 @@ export default function NewProjectPage({ params }: { params: Promise<{ wid: stri
                 placeholder="http://localhost:3000 or https://staging.myapp.com"
                 style={inputStyle}
                 onFocus={e => (e.currentTarget.style.borderColor = '#0066FF')}
-                onBlur={e => (e.currentTarget.style.borderColor = 'rgba(0,0,0,0.12)')}
+                onBlur={e => (e.currentTarget.style.borderColor = 'var(--input-border)')}
               />
-              <p style={{ margin: '5px 0 0', fontSize: '0.75rem', color: '#A1A1AA' }}>
+              <p style={{ margin: '5px 0 0', fontSize: '0.75rem', color: 'var(--card-muted)' }}>
                 The address where your app is running — local or remote.
               </p>
             </div>
@@ -113,7 +113,7 @@ export default function NewProjectPage({ params }: { params: Promise<{ wid: stri
                 value={framework} onChange={e => setFramework(e.target.value)}
                 style={{ ...inputStyle, color: framework ? '#0A0A0A' : '#A1A1AA', cursor: 'pointer' }}
                 onFocus={e => (e.currentTarget.style.borderColor = '#0066FF')}
-                onBlur={e => (e.currentTarget.style.borderColor = 'rgba(0,0,0,0.12)')}
+                onBlur={e => (e.currentTarget.style.borderColor = 'var(--input-border)')}
               >
                 <option value="">Select framework (optional)</option>
                 {FRAMEWORKS.map(f => <option key={f} value={f.toLowerCase().replace('.', '')}>{f}</option>)}
@@ -129,7 +129,7 @@ export default function NewProjectPage({ params }: { params: Promise<{ wid: stri
                 rows={3}
                 style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }}
                 onFocus={e => (e.currentTarget.style.borderColor = '#0066FF')}
-                onBlur={e => (e.currentTarget.style.borderColor = 'rgba(0,0,0,0.12)')}
+                onBlur={e => (e.currentTarget.style.borderColor = 'var(--input-border)')}
               />
             </div>
 
@@ -140,8 +140,8 @@ export default function NewProjectPage({ params }: { params: Promise<{ wid: stri
             <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
               <Link href={`/workspace/${wid}`} style={{
                 flex: 1, textAlign: 'center', padding: '10px', borderRadius: 8,
-                fontSize: '0.875rem', fontWeight: 600, color: '#3F3F46',
-                background: '#F4F4F5', textDecoration: 'none',
+                fontSize: '0.875rem', fontWeight: 600, color: 'var(--btn-idle-fg)',
+                background: 'var(--card-subtle)', textDecoration: 'none',
               }}>
                 Cancel
               </Link>
@@ -151,8 +151,9 @@ export default function NewProjectPage({ params }: { params: Promise<{ wid: stri
                 style={{
                   flex: 2, padding: '10px', borderRadius: 8,
                   fontSize: '0.875rem', fontWeight: 600,
-                  background: name.trim() && !loading ? '#0A0A0A' : '#D4D4D8',
-                  color: '#FFFFFF', border: 'none',
+                  background: name.trim() && !loading ? 'var(--btn-bg)' : 'var(--card-subtle)',
+                  color: name.trim() && !loading ? 'var(--btn-fg)' : 'var(--card-muted)',
+                  border: 'none',
                   cursor: name.trim() && !loading ? 'pointer' : 'default',
                   fontFamily: 'inherit', transition: 'background 0.15s',
                 }}

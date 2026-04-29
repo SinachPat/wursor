@@ -39,25 +39,25 @@ export default async function WorkspacePluginsPage({ params }: { params: Promise
 
       <div style={{ maxWidth: 760, margin: '0 auto', padding: '48px 24px' }}>
         {/* Breadcrumb */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 32, fontSize: '0.8125rem', color: '#71717A' }}>
-          <Link href="/workspaces" style={{ color: '#71717A', textDecoration: 'none' }}>Workspaces</Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 32, fontSize: '0.8125rem', color: 'var(--card-muted)' }}>
+          <Link href="/workspaces" style={{ color: 'var(--card-muted)', textDecoration: 'none' }}>Workspaces</Link>
           <span>/</span>
-          <Link href={`/workspace/${wid}`} style={{ color: '#71717A', textDecoration: 'none' }}>{workspace?.name ?? 'Workspace'}</Link>
+          <Link href={`/workspace/${wid}`} style={{ color: 'var(--card-muted)', textDecoration: 'none' }}>{workspace?.name ?? 'Workspace'}</Link>
           <span>/</span>
-          <span style={{ color: '#09090B' }}>Plugins</span>
+          <span style={{ color: 'var(--page-text)' }}>Plugins</span>
         </div>
 
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, letterSpacing: '-0.025em', color: '#09090B', margin: '0 0 8px' }}>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, letterSpacing: '-0.025em', color: 'var(--page-text)', margin: '0 0 8px' }}>
           Plugins
         </h1>
-        <p style={{ fontSize: '0.9375rem', color: '#52525B', margin: '0 0 40px', lineHeight: 1.6 }}>
+        <p style={{ fontSize: '0.9375rem', color: 'var(--card-muted)', margin: '0 0 40px', lineHeight: 1.6 }}>
           Extend Originmain with custom completion zones, ingestion connectors, and design tools.
         </p>
 
         {/* Coming soon card */}
         <div style={{
-          background: '#FFFFFF', border: '1px solid rgba(0,0,0,0.07)', borderRadius: 14,
-          padding: '40px 36px', textAlign: 'center',
+          background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 14,
+          padding: '40px 36px', textAlign: 'center', transition: 'background 0.2s',
         }}>
           <div style={{
             width: 52, height: 52, borderRadius: 14,
@@ -71,10 +71,10 @@ export default async function WorkspacePluginsPage({ params }: { params: Promise
             </svg>
           </div>
 
-          <h2 style={{ fontSize: '1.125rem', fontWeight: 600, color: '#09090B', margin: '0 0 10px', letterSpacing: '-0.015em' }}>
+          <h2 style={{ fontSize: '1.125rem', fontWeight: 600, color: 'var(--card-text)', margin: '0 0 10px', letterSpacing: '-0.015em' }}>
             Plugin marketplace — coming in Phase 4
           </h2>
-          <p style={{ fontSize: '0.875rem', color: '#71717A', maxWidth: 480, margin: '0 auto 28px', lineHeight: 1.65 }}>
+          <p style={{ fontSize: '0.875rem', color: 'var(--card-muted)', maxWidth: 480, margin: '0 auto 28px', lineHeight: 1.65 }}>
             The plugin API lets teams register custom AI completion zones, custom webhook ingesters, and design-language extensions — all sandboxed and permission-scoped.
           </p>
 

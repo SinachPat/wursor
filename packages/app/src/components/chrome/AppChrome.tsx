@@ -117,29 +117,30 @@ export function AppChrome({ workspaceId, projectId, workspaceName, projectName }
           padding: '0 14px', gap: 0,
           zIndex: 10,
           position: 'relative',
+          transition: 'background 0.2s, border-color 0.2s',
         }}>
           {/* Logo */}
           <Link href="/workspaces" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', marginRight: 4 }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '-0.01em', color: 'rgba(255,255,255,0.6)' }}>
-              Origin<span style={{ color: '#3385FF' }}>main</span>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '-0.01em', color: CT.itemHov }}>
+              Origin<span style={{ color: CT.accent }}>main</span>
             </span>
           </Link>
 
-          <span style={{ color: 'rgba(255,255,255,0.2)', margin: '0 6px', fontSize: '0.75rem' }}>/</span>
+          <span style={{ color: CT.fgDim, margin: '0 6px', fontSize: '0.75rem' }}>/</span>
 
-          <Link href="/workspaces" style={{ textDecoration: 'none', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', fontWeight: 500 }}>
+          <Link href="/workspaces" style={{ textDecoration: 'none', fontSize: '0.75rem', color: CT.item, fontWeight: 500 }}>
             Workspaces
           </Link>
 
-          <span style={{ color: 'rgba(255,255,255,0.2)', margin: '0 6px', fontSize: '0.75rem' }}>/</span>
+          <span style={{ color: CT.fgDim, margin: '0 6px', fontSize: '0.75rem' }}>/</span>
 
-          <Link href={`/workspace/${workspaceId}`} style={{ textDecoration: 'none', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', fontWeight: 500 }}>
+          <Link href={`/workspace/${workspaceId}`} style={{ textDecoration: 'none', fontSize: '0.75rem', color: CT.item, fontWeight: 500 }}>
             {workspaceName ?? 'Workspace'}
           </Link>
 
-          <span style={{ color: 'rgba(255,255,255,0.2)', margin: '0 6px', fontSize: '0.75rem' }}>/</span>
+          <span style={{ color: CT.fgDim, margin: '0 6px', fontSize: '0.75rem' }}>/</span>
 
-          <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
+          <span style={{ fontSize: '0.75rem', color: CT.fg, fontWeight: 600 }}>
             {projectName ?? 'Canvas'}
           </span>
 
@@ -152,11 +153,11 @@ export function AppChrome({ workspaceId, projectId, workspaceName, projectName }
                 marginLeft: 8,
                 display: 'flex', alignItems: 'center',
                 textDecoration: 'none',
-                color: 'rgba(255,255,255,0.25)',
+                color: CT.dim,
                 transition: 'color 0.12s',
               }}
-              onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.65)')}
-              onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.25)')}
+              onMouseEnter={e => (e.currentTarget.style.color = CT.itemHov)}
+              onMouseLeave={e => (e.currentTarget.style.color = CT.dim)}
             >
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                 <path d="M6 7.5A1.5 1.5 0 1 0 6 4.5 1.5 1.5 0 0 0 6 7.5Z" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
@@ -173,13 +174,13 @@ export function AppChrome({ workspaceId, projectId, workspaceName, projectName }
             title={`Switch to ${themeMode === 'dark' ? 'light' : 'dark'} mode`}
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
-              color: 'rgba(255,255,255,0.35)', padding: '4px 6px',
+              color: CT.fgMuted, padding: '4px 6px',
               display: 'flex', alignItems: 'center',
               transition: 'color 0.12s',
               fontSize: 13,
             }}
-            onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.75)')}
-            onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.35)')}
+            onMouseEnter={e => (e.currentTarget.style.color = CT.itemHov)}
+            onMouseLeave={e => (e.currentTarget.style.color = CT.fgMuted)}
           >
             {themeMode === 'dark' ? (
               /* Sun icon */

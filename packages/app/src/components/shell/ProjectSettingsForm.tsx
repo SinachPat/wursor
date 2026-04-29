@@ -14,18 +14,19 @@ interface ProjectSettingsFormProps {
 }
 
 const SECTION: React.CSSProperties = {
-  background: '#FFFFFF',
-  border: '1px solid rgba(0,0,0,0.07)',
+  background: 'var(--card-bg)',
+  border: '1px solid var(--card-border)',
   borderRadius: 14,
   padding: '24px 28px',
   marginBottom: 20,
+  transition: 'background 0.2s, border-color 0.2s',
 };
 
 const LABEL: React.CSSProperties = {
   display: 'block',
   fontSize: '0.8125rem',
   fontWeight: 600,
-  color: '#0A0A0A',
+  color: 'var(--card-text)',
   marginBottom: 6,
 };
 
@@ -33,17 +34,17 @@ const INPUT: React.CSSProperties = {
   width: '100%',
   fontSize: '0.875rem',
   padding: '9px 12px',
-  border: '1px solid rgba(0,0,0,0.12)',
+  border: '1px solid var(--input-border)',
   borderRadius: 9,
   fontFamily: "'Inter', -apple-system, sans-serif",
-  color: '#0A0A0A',
-  background: '#FAFAFA',
+  color: 'var(--input-text)',
+  background: 'var(--input-bg)',
   boxSizing: 'border-box',
 };
 
 const BTN_PRIMARY: React.CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 6,
-  background: '#0A0A0A', color: '#FFFFFF',
+  background: 'var(--btn-bg)', color: 'var(--btn-fg)',
   fontSize: '0.875rem', fontWeight: 600,
   padding: '9px 20px', borderRadius: 9,
   border: 'none', cursor: 'pointer', letterSpacing: '-0.01em',
@@ -126,7 +127,7 @@ export function ProjectSettingsForm({
     <>
       {/* General */}
       <div style={SECTION}>
-        <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#0A0A0A', margin: '0 0 20px' }}>General</h2>
+        <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--card-text)', margin: '0 0 20px' }}>General</h2>
 
         <label style={LABEL} htmlFor="proj-name">Project name</label>
         <input
@@ -195,7 +196,7 @@ export function ProjectSettingsForm({
         )}
 
         {!isOwnerOrDev && (
-          <span style={{ fontSize: '0.75rem', color: '#71717A' }}>Only Designers, Developers, and Owners can edit project settings.</span>
+          <span style={{ fontSize: '0.75rem', color: 'var(--card-muted)' }}>Only Designers, Developers, and Owners can edit project settings.</span>
         )}
       </div>
 
@@ -205,7 +206,7 @@ export function ProjectSettingsForm({
           <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#EF4444', margin: '0 0 8px' }}>
             Danger zone
           </h2>
-          <p style={{ fontSize: '0.8125rem', color: '#71717A', margin: '0 0 16px', lineHeight: 1.6 }}>
+          <p style={{ fontSize: '0.8125rem', color: 'var(--card-muted)', margin: '0 0 16px', lineHeight: 1.6 }}>
             Deleting this project is permanent. All artboards, diffs, and origins will be removed. To confirm,
             type the project name below.
           </p>

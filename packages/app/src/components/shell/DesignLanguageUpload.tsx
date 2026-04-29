@@ -53,19 +53,20 @@ export function DesignLanguageUpload({ workspaceId, current }: Props) {
   return (
     <div
       style={{
-        background: '#FFFFFF',
-        border: '1px solid #E4E4E7',
+        background: 'var(--card-bg)',
+        border: '1px solid var(--card-border)',
         borderRadius: 12,
         padding: '24px 28px',
         marginTop: 32,
+        transition: 'background 0.2s, border-color 0.2s',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
         <div>
-          <h2 style={{ fontSize: '0.9375rem', fontWeight: 700, color: '#0A0A0A', margin: '0 0 4px', letterSpacing: '-0.02em' }}>
+          <h2 style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--card-text)', margin: '0 0 4px', letterSpacing: '-0.02em' }}>
             Design Language
           </h2>
-          <p style={{ fontSize: '0.8125rem', color: '#71717A', margin: 0, lineHeight: 1.6 }}>
+          <p style={{ fontSize: '0.8125rem', color: 'var(--card-muted)', margin: 0, lineHeight: 1.6 }}>
             Upload a JSON schema describing your workspace&rsquo;s design tokens and component rules.
           </p>
         </div>
@@ -87,8 +88,8 @@ export function DesignLanguageUpload({ workspaceId, current }: Props) {
             borderRadius: 8,
             fontSize: '0.8125rem',
             fontWeight: 600,
-            background: status === 'uploading' ? '#E4E4E7' : '#0A0A0A',
-            color: status === 'uploading' ? '#71717A' : '#FFFFFF',
+            background: status === 'uploading' ? 'var(--card-subtle)' : 'var(--card-icon-bg)',
+            color: status === 'uploading' ? 'var(--card-muted)' : 'var(--card-icon-fg)',
             border: 'none',
             cursor: status === 'uploading' ? 'default' : 'pointer',
             fontFamily: 'inherit',
@@ -106,29 +107,29 @@ export function DesignLanguageUpload({ workspaceId, current }: Props) {
           style={{
             marginTop: 16,
             padding: '10px 14px',
-            background: '#F4F4F5',
+            background: 'var(--card-subtle)',
             borderRadius: 8,
             display: 'flex',
             alignItems: 'center',
             gap: 10,
           }}
         >
-          <span style={{ fontSize: '0.8125rem', color: '#3F3F46', fontWeight: 500 }}>
+          <span style={{ fontSize: '0.8125rem', color: 'var(--card-text)', fontWeight: 500 }}>
             {current.name}
           </span>
           <span
             style={{
               fontSize: '0.6875rem',
               padding: '2px 7px',
-              background: '#E4E4E7',
+              background: 'var(--card-border)',
               borderRadius: 4,
-              color: '#71717A',
+              color: 'var(--card-muted)',
               fontFamily: "'JetBrains Mono', ui-monospace, monospace",
             }}
           >
             v{current.version}
           </span>
-          <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: '#A1A1AA' }}>
+          <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: 'var(--card-muted)' }}>
             Active
           </span>
         </div>
