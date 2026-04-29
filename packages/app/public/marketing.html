@@ -70,6 +70,45 @@
 }
 
 /* ════════════════════════════════════════════════════════════
+   DARK MODE — flip every semantic token
+   ════════════════════════════════════════════════════════════ */
+[data-theme="dark"] {
+  --bg:          #0A0A0A;
+  --bg-subtle:   #0F0F11;
+  --bg-muted:    #161618;
+  --bg-strong:   #1C1C1E;
+  --bg-inv:      #F4F4F5;
+  --bg-inv-2:    #E4E4E7;
+  --bg-inv-3:    #D4D4D8;
+
+  --fg:          rgba(255,255,255,0.92);
+  --fg-2:        rgba(255,255,255,0.58);
+  --fg-3:        rgba(255,255,255,0.34);
+  --fg-4:        rgba(255,255,255,0.16);
+  --fg-inv:      #09090B;
+  --fg-inv-2:    rgba(0,0,0,0.62);
+  --fg-inv-3:    rgba(0,0,0,0.35);
+
+  --border:      rgba(255,255,255,0.07);
+  --border-2:    rgba(255,255,255,0.12);
+  --border-inv:  rgba(0,0,0,0.08);
+  --border-inv-2:rgba(0,0,0,0.14);
+
+  --sh-xs: 0 1px 2px rgba(0,0,0,0.3);
+  --sh-sm: 0 1px 3px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.25);
+  --sh-md: 0 4px 8px rgba(0,0,0,0.32), 0 2px 4px rgba(0,0,0,0.22);
+  --sh-lg: 0 10px 24px rgba(0,0,0,0.38), 0 4px 8px rgba(0,0,0,0.26);
+  --sh-xl: 0 20px 40px rgba(0,0,0,0.42), 0 8px 16px rgba(0,0,0,0.28);
+  --sh-2xl:0 32px 64px rgba(0,0,0,0.48), 0 16px 32px rgba(0,0,0,0.32);
+  --sh-product: 0 48px 96px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.05);
+}
+
+/* Nav glass adapts in dark mode */
+[data-theme="dark"] #nav.scrolled {
+  background: rgba(10,10,10,0.88);
+}
+
+/* ════════════════════════════════════════════════════════════
    RESET
    ════════════════════════════════════════════════════════════ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -276,6 +315,22 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 }
 .nav-links a:hover { color: var(--fg); }
 .nav-actions { display: flex; align-items: center; gap: 8px; }
+.nav-theme-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-2);
+  background: none;
+  border: 1px solid var(--border-2);
+  color: var(--fg-3);
+  font-size: 0.9rem;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.nav-theme-btn:hover { background: var(--bg-muted); color: var(--fg); border-color: var(--border-2); }
 
 /* ── Hamburger ── */
 .nav-burger {
@@ -1555,6 +1610,7 @@ footer {
   }
   .nav-links { display: none; }
   .nav-actions .btn { display: none; }
+  .nav-actions .nav-theme-btn { display: none; }
   .nav-burger { display: flex; }
   .section { padding: 80px 0; }
   .feat-block { padding: 80px 24px; }
@@ -1625,6 +1681,9 @@ footer {
       <li><a href="#">Docs</a></li>
     </ul>
     <div class="nav-actions">
+      <button class="nav-theme-btn" id="navThemeBtn" aria-label="Toggle theme" title="Toggle dark mode">
+        <span id="navThemeIcon">☾</span>
+      </button>
       <a href="/sign-in" class="btn btn-secondary" style="padding:7px 16px;font-size:.875rem">Log in</a>
       <a href="/sign-up" class="btn btn-primary" style="padding:8px 18px;font-size:.875rem">Get Started</a>
       <button class="nav-burger" id="nav-burger" aria-label="Toggle navigation" aria-expanded="false">
@@ -1657,6 +1716,9 @@ footer {
     <div class="nav-mobile-ctas">
       <a href="/sign-in" class="btn btn-secondary">Log in</a>
       <a href="/sign-up" class="btn btn-primary">Get Started</a>
+      <button class="nav-theme-btn" id="mobThemeBtn" aria-label="Toggle theme" style="margin-left:auto;">
+        <span id="mobThemeIcon">☾</span>
+      </button>
     </div>
   </div>
 </nav>
@@ -2609,21 +2671,58 @@ annualBtn.addEventListener('click', () => {
 function safeLS(op, key, val) {
   try { return op === 'get' ? localStorage.getItem(key) : localStorage.setItem(key, val); } catch(e) {}
 }
+
+// Read from either the app Zustand key (set by the React app) or the landing-page key.
+// Zustand stores { state: { mode: "dark" } } under 'originmain:theme'.
+function readStoredTheme() {
+  try {
+    const zustand = localStorage.getItem('originmain:theme');
+    if (zustand) {
+      const parsed = JSON.parse(zustand);
+      if (parsed?.state?.mode) return parsed.state.mode;
+    }
+  } catch(e) {}
+  return safeLS('get', 'om-theme') || 'light';
+}
+
+// Write to both keys so switching on the landing page carries through to the app.
+function writeTheme(t) {
+  safeLS('set', 'om-theme', t);
+  try {
+    localStorage.setItem('originmain:theme', JSON.stringify({ state: { mode: t }, version: 0 }));
+  } catch(e) {}
+}
+
 const root = document.documentElement;
-let theme = safeLS('get', 'om-theme') || 'light';
+let theme = readStoredTheme();
+
 const themeBtn   = document.getElementById('themeToggle');
 const themeIcon  = document.getElementById('themeIcon');
 const themeLabel = document.getElementById('themeLabel');
+const navThemeBtn  = document.getElementById('navThemeBtn');
+const navThemeIcon = document.getElementById('navThemeIcon');
+const mobThemeBtn  = document.getElementById('mobThemeBtn');
+const mobThemeIcon = document.getElementById('mobThemeIcon');
 
 function applyTheme(t) {
   theme = t;
   root.setAttribute('data-theme', t);
-  safeLS('set', 'om-theme', t);
-  themeIcon.textContent  = t === 'dark' ? '☀' : '☾';
-  themeLabel.textContent = t === 'dark' ? 'Light mode' : 'Dark mode';
+  writeTheme(t);
+  const isDark = t === 'dark';
+  // Footer toggle
+  if (themeIcon)  themeIcon.textContent  = isDark ? '☀' : '☾';
+  if (themeLabel) themeLabel.textContent = isDark ? 'Light mode' : 'Dark mode';
+  // Nav toggle (desktop)
+  if (navThemeIcon) navThemeIcon.textContent = isDark ? '☀' : '☾';
+  // Nav toggle (mobile drawer)
+  if (mobThemeIcon) mobThemeIcon.textContent = isDark ? '☀' : '☾';
 }
+
 applyTheme(theme);
-themeBtn.addEventListener('click', () => applyTheme(theme === 'light' ? 'dark' : 'light'));
+
+if (themeBtn)    themeBtn.addEventListener('click',   () => applyTheme(theme === 'light' ? 'dark' : 'light'));
+if (navThemeBtn) navThemeBtn.addEventListener('click', () => applyTheme(theme === 'light' ? 'dark' : 'light'));
+if (mobThemeBtn) mobThemeBtn.addEventListener('click', () => applyTheme(theme === 'light' ? 'dark' : 'light'));
 
 // ── Feat cell reveal highlight (Fluent reveal effect) ─────
 document.querySelectorAll('.feat-cell').forEach(cell => {

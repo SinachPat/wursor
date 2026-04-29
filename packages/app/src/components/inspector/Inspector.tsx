@@ -6,6 +6,7 @@ import { useHistory } from '@/store/history';
 import { useArtboards, patchArtboard } from '@/hooks/useArtboards';
 import { useDiffs } from '@/hooks/useDiffs';
 import { useQueryClient } from '@tanstack/react-query';
+import { useCanvasTheme } from '@/store/canvasTheme';
 import type { PropChange } from '@originmain/diff-engine';
 import type { FiberNode } from '@originmain/renderer';
 import type { Artboard, IntentDiff } from '@originmain/origin-graph';
@@ -18,20 +19,8 @@ const TYPE_COLORS: Record<string, string> = {
 
 type TabId = 'props' | 'diff' | 'graph';
 
-// Dark panel tokens
-const T = {
-  bg:      '#111115',
-  border:  'rgba(255,255,255,0.055)',
-  sep:     'rgba(255,255,255,0.04)',
-  label:   'rgba(255,255,255,0.22)',
-  key:     'rgba(255,255,255,0.32)',
-  dim:     'rgba(255,255,255,0.18)',
-  accent:  '#3385FF',
-  tabFg:   'rgba(255,255,255,0.28)',
-  tabOn:   'rgba(255,255,255,0.88)',
-};
-
 export function Inspector() {
+  const T = useCanvasTheme();
   const { selectedArtboardId, liveArtboardIds, artboardFiberRoots, selectedComponentId, selectedComponentData, workspaceId, projectId } = useCanvas();
   const [tab, setTab] = useState<TabId>('props');
   const { rawArtboards } = useArtboards(workspaceId ?? undefined, projectId ?? undefined);
@@ -98,7 +87,7 @@ export function Inspector() {
               style={{
                 fontFamily: "'JetBrains Mono', ui-monospace, monospace",
                 fontSize: '0.625rem',
-                color: 'rgba(255,255,255,0.22)',
+                color: T.dim,
                 letterSpacing: '0.06em',
               }}
             >
@@ -123,7 +112,7 @@ export function Inspector() {
       <div
         style={{
           height: 27,
-          background: '#0D0D11',
+          background: T.bgDeep,
           borderTop: `1px solid ${T.sep}`,
           display: 'flex',
           alignItems: 'center',
@@ -134,14 +123,14 @@ export function Inspector() {
       >
         <div style={{
           width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-          background: isLive ? '#10B981' : 'rgba(255,255,255,0.15)',
-          boxShadow: isLive ? '0 0 6px rgba(16,185,129,0.6)' : 'none',
+          background: isLive ? T.live : T.activeBg,
+          boxShadow: isLive ? `0 0 6px ${T.liveBorder}` : 'none',
           transition: 'background 0.3s, box-shadow 0.3s',
         }} />
-        <span style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: '0.5625rem', color: 'rgba(255,255,255,0.45)' }}>
+        <span style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: '0.5625rem', color: T.fgMuted }}>
           {isLive ? 'Live render connected' : selectedArtboardId ? 'No render — set URL in Props' : 'No artboard selected'}
         </span>
-        <span style={{ marginLeft: 'auto', fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: '0.5625rem', color: 'rgba(255,255,255,0.22)' }}>
+        <span style={{ marginLeft: 'auto', fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: '0.5625rem', color: T.dim }}>
           {selectedArtboard
             ? `${selectedArtboard.metadata_jsonb['width'] ?? '?'} × ${selectedArtboard.metadata_jsonb['height'] ?? '?'}`
             : '—'}
@@ -163,6 +152,7 @@ function PropsTab({
   workspaceId: string | null;
   projectId: string | null;
 }) {
+  const T = useCanvasTheme();
   const queryClient = useQueryClient();
   const [editingUrl, setEditingUrl] = useState(false);
   const [urlDraft, setUrlDraft] = useState('');
@@ -244,7 +234,7 @@ function PropsTab({
               return <PropRow key={k} label={k} value={display} color={color} />;
             })}
             {Object.keys(selectedComponentData.props ?? {}).length === 0 && (
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.625rem', color: 'rgba(255,255,255,0.22)' }}>
+              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.625rem', color: T.dim }}>
                 No props
               </span>
             )}
@@ -273,7 +263,7 @@ function PropsTab({
 
       <Section label="Render Target">
         <PropRow label="name" value={artboard.name} color="#7EB8FF" />
-        <PropRow label="id"   value={artboard.id.slice(0, 8) + '…'} color="rgba(255,255,255,0.28)" />
+        <PropRow label="id"   value={artboard.id.slice(0, 8) + '…'} color={T.key} />
 
         {/* renderUrl — inline editable */}
 
@@ -308,8 +298,8 @@ function PropsTab({
                 placeholder="http://localhost:3000"
                 style={{
                   flex: 1, fontSize: '0.5875rem', fontFamily: "'JetBrains Mono', monospace",
-                  background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)',
-                  borderRadius: 5, padding: '4px 8px', color: 'rgba(255,255,255,0.85)',
+                  background: T.bgDeep, border: `1px solid ${T.border}`,
+                  borderRadius: 5, padding: '4px 8px', color: T.fg,
                   outline: 'none',
                 }}
               />
@@ -333,7 +323,7 @@ function PropsTab({
               {renderUrl}
             </span>
           ) : (
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.625rem', color: 'rgba(255,255,255,0.18)' }}>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.625rem', color: T.dim }}>
               not connected
             </span>
           )}
@@ -351,10 +341,10 @@ function PropsTab({
             width: '100%',
             fontFamily: "'JetBrains Mono', monospace",
             fontSize: '0.5875rem',
-            background: driftStatus === 'loading' ? 'rgba(255,255,255,0.06)' : 'rgba(51,133,255,0.12)',
-            border: `1px solid ${driftStatus === 'loading' ? 'rgba(255,255,255,0.08)' : 'rgba(51,133,255,0.25)'}`,
+            background: driftStatus === 'loading' ? T.activeBg : T.accentBg,
+            border: `1px solid ${driftStatus === 'loading' ? T.border : T.accent}`,
             borderRadius: 6, padding: '6px 0',
-            color: driftStatus === 'loading' ? 'rgba(255,255,255,0.35)' : T.accent,
+            color: driftStatus === 'loading' ? T.fgDim : T.accent,
             cursor: driftStatus === 'loading' ? 'wait' : 'pointer',
             letterSpacing: '0.04em',
             transition: 'background 0.15s, border-color 0.15s, color 0.15s',
@@ -373,19 +363,19 @@ function PropsTab({
           <div style={{
             marginTop: 8,
             padding: '8px 10px',
-            background: 'rgba(0,0,0,0.35)',
-            border: '1px solid rgba(255,255,255,0.08)',
+            background: T.bgDeep,
+            border: `1px solid ${T.border}`,
             borderRadius: 6,
             maxHeight: 220,
             overflowY: 'auto',
             fontSize: '0.5875rem',
             fontFamily: "'Inter', sans-serif",
-            color: 'rgba(255,255,255,0.62)',
+            color: T.fgMuted,
             lineHeight: 1.65,
             whiteSpace: 'pre-wrap',
             wordBreak: 'break-word',
             scrollbarWidth: 'thin',
-            scrollbarColor: 'rgba(255,255,255,0.18) transparent',
+            scrollbarColor: `${T.dim} transparent`,
           } as React.CSSProperties}>
             {driftReport}
           </div>
@@ -396,6 +386,7 @@ function PropsTab({
 }
 
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
+  const T = useCanvasTheme();
   return (
     <div style={{ padding: '12px 14px' }}>
       <div
@@ -417,6 +408,7 @@ function Section({ label, children }: { label: string; children: React.ReactNode
 }
 
 function PropRow({ label, value, color }: { label: string; value: string; color: string }) {
+  const T = useCanvasTheme();
   return (
     <div
       style={{
@@ -449,10 +441,11 @@ function PropRow({ label, value, color }: { label: string; value: string; color:
 }
 
 function GraphNode({ label, depth, isRoot }: { label: string; depth: number; isRoot?: boolean }) {
+  const T = useCanvasTheme();
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingLeft: depth * 14, marginBottom: 6 }}>
-      <div style={{ width: 6, height: 6, borderRadius: '50%', background: isRoot ? T.accent : 'rgba(255,255,255,0.18)', flexShrink: 0 }} />
-      <span style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: '0.625rem', color: isRoot ? T.accent : 'rgba(255,255,255,0.5)', letterSpacing: '-0.01em' }}>
+      <div style={{ width: 6, height: 6, borderRadius: '50%', background: isRoot ? T.accent : T.dim, flexShrink: 0 }} />
+      <span style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: '0.625rem', color: isRoot ? T.accent : T.fgMuted, letterSpacing: '-0.01em' }}>
         {label}
       </span>
     </div>
@@ -461,10 +454,11 @@ function GraphNode({ label, depth, isRoot }: { label: string; depth: number; isR
 
 /* ── Graph tab ────────────────────────────────────────────── */
 function GraphTab({ fiberRoot }: { fiberRoot: FiberNode | undefined }) {
+  const T = useCanvasTheme();
   if (!fiberRoot) {
     return (
       <Section label="Origin Graph">
-        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.625rem', color: 'rgba(255,255,255,0.22)' }}>
+        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.625rem', color: T.dim }}>
           No live render — connect a URL in Props to see the fiber tree
         </span>
       </Section>
@@ -487,6 +481,7 @@ function GraphTab({ fiberRoot }: { fiberRoot: FiberNode | undefined }) {
 }
 
 function FiberTreeView({ node, depth }: { node: FiberNode; depth: number }) {
+  const T = useCanvasTheme();
   const [collapsed, setCollapsed] = useState(depth > 2);
   const hasChildren = node.children && node.children.length > 0;
 
@@ -502,17 +497,17 @@ function FiberTreeView({ node, depth }: { node: FiberNode; depth: number }) {
       >
         <div style={{
           width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
-          background: depth === 0 ? T.accent : 'rgba(255,255,255,0.2)',
+          background: depth === 0 ? T.accent : T.dim,
         }} />
         {hasChildren && (
-          <span style={{ fontSize: '0.5rem', color: 'rgba(255,255,255,0.3)', marginRight: -2 }}>
+          <span style={{ fontSize: '0.5rem', color: T.fgDim, marginRight: -2 }}>
             {collapsed ? '▶' : '▼'}
           </span>
         )}
         <span style={{
           fontFamily: "'JetBrains Mono', monospace",
           fontSize: '0.625rem',
-          color: depth === 0 ? T.accent : 'rgba(255,255,255,0.55)',
+          color: depth === 0 ? T.accent : T.fgMuted,
           letterSpacing: '-0.01em',
         }}>
           {node.name}
@@ -535,11 +530,13 @@ function measureFiberDepth(node: FiberNode, d = 0): number {
 }
 
 function HSep() {
-  return <div style={{ height: 1, background: 'rgba(255,255,255,0.04)', margin: '2px 0' }} />;
+  const T = useCanvasTheme();
+  return <div style={{ height: 1, background: T.sep, margin: '2px 0' }} />;
 }
 
 /* ── Diff tab ─────────────────────────────────────────────── */
 function DiffTab({ artboardId }: { artboardId: string | null }) {
+  const T = useCanvasTheme();
   const { stacks } = useHistory();
   const { diffs, createDiff, isLoading } = useDiffs(artboardId);
   const [summaryStatus, setSummaryStatus] = useState<'idle' | 'summarising' | 'exporting'>('idle');
@@ -588,7 +585,7 @@ function DiffTab({ artboardId }: { artboardId: string | null }) {
   if (!artboardId) {
     return (
       <Section label="Intent Diff">
-        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.625rem', color: 'rgba(255,255,255,0.22)' }}>
+        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.625rem', color: T.dim }}>
           No artboard selected
         </span>
       </Section>
@@ -631,7 +628,7 @@ function DiffTab({ artboardId }: { artboardId: string | null }) {
             )}
           </>
         ) : (
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.625rem', color: 'rgba(255,255,255,0.22)' }}>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.625rem', color: T.dim }}>
             No pending changes
           </span>
         )}
@@ -642,11 +639,11 @@ function DiffTab({ artboardId }: { artboardId: string | null }) {
       {/* Saved diffs from DB */}
       <Section label="Exported">
         {isLoading ? (
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.625rem', color: 'rgba(255,255,255,0.22)' }}>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.625rem', color: T.dim }}>
             Loading…
           </span>
         ) : diffs.length === 0 ? (
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.625rem', color: 'rgba(255,255,255,0.22)' }}>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.625rem', color: T.dim }}>
             No exported diffs yet
           </span>
         ) : (
@@ -665,21 +662,22 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 function SavedDiffRow({ diff }: { diff: IntentDiff }) {
+  const T = useCanvasTheme();
   const changes = diff.changes_jsonb as { propChanges?: PropChange[]; styleChanges?: PropChange[] } | null;
   const count = (changes?.propChanges?.length ?? 0) + (changes?.styleChanges?.length ?? 0);
   const color = STATUS_COLOR[diff.status] ?? T.dim;
   return (
-    <div style={{ marginBottom: 8, padding: '6px 8px', background: 'rgba(255,255,255,0.025)', borderRadius: 6 }}>
+    <div style={{ marginBottom: 8, padding: '6px 8px', background: T.bgDeep, borderRadius: 6 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
         <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.5625rem', color }}>
           {diff.status}
         </span>
-        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.5rem', color: 'rgba(255,255,255,0.22)' }}>
+        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.5rem', color: T.dim }}>
           {count} change{count !== 1 ? 's' : ''}
         </span>
       </div>
       {diff.summary && (
-        <span style={{ fontFamily: 'sans-serif', fontSize: '0.625rem', color: 'rgba(255,255,255,0.45)', lineHeight: 1.4, display: 'block' }}>
+        <span style={{ fontFamily: 'sans-serif', fontSize: '0.625rem', color: T.fgMuted, lineHeight: 1.4, display: 'block' }}>
           {diff.summary}
         </span>
       )}

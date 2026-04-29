@@ -11,6 +11,7 @@ import { useHistory } from '@/store/history';
 import { useCanvas, type Tool } from '@/store/canvas';
 import { useViewport } from '@/store/viewport';
 import { useTheme } from '@/store/theme';
+import { useCanvasTheme } from '@/store/canvasTheme';
 
 interface AppChromeProps {
   workspaceId?: string;
@@ -24,6 +25,7 @@ export function AppChrome({ workspaceId, projectId, workspaceName, projectName }
   const setContext         = useCanvas((s) => s.setContext);
   const setActiveTool      = useCanvas((s) => s.setActiveTool);
   const { mode: themeMode, toggle: toggleTheme } = useTheme();
+  const CT = useCanvasTheme();
 
   // Push workspace/project IDs into the store so Canvas and Navigator can read them.
   useEffect(() => {
@@ -99,7 +101,8 @@ export function AppChrome({ workspaceId, projectId, workspaceName, projectName }
         flexDirection: 'column',
         height: '100dvh',
         overflow: 'hidden',
-        background: '#0C0C10',
+        background: CT.canvasBg,
+        transition: 'background 0.2s',
         fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
       }}
     >
@@ -108,8 +111,8 @@ export function AppChrome({ workspaceId, projectId, workspaceName, projectName }
         <div style={{
           height: 36,
           flexShrink: 0,
-          background: '#0A0A0E',
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          background: CT.bgDeep,
+          borderBottom: `1px solid ${CT.border}`,
           display: 'flex', alignItems: 'center',
           padding: '0 14px', gap: 0,
           zIndex: 10,

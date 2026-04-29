@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  ToolbarButton,
   ToolbarDivider,
   Tooltip,
 } from '@fluentui/react-components';
@@ -17,24 +16,10 @@ import {
 } from '@fluentui/react-icons';
 import { useCanvas, type Tool } from '@/store/canvas';
 import { useViewport } from '@/store/viewport';
-
-// Design tokens — Fluent dark surface
-const T = {
-  bg:        '#141418',
-  border:    'rgba(255,255,255,0.06)',
-  sep:       'rgba(255,255,255,0.07)',
-  fg:        'rgba(255,255,255,0.88)',
-  fgMuted:   'rgba(255,255,255,0.38)',
-  fgDim:     'rgba(255,255,255,0.22)',
-  accent:    '#3385FF',
-  accentBg:  'rgba(51,133,255,0.14)',
-  activeBg:  'rgba(255,255,255,0.07)',
-  live:      '#10B981',
-  liveBg:    'rgba(16,185,129,0.1)',
-  liveBorder:'rgba(16,185,129,0.2)',
-};
+import { useCanvasTheme } from '@/store/canvasTheme';
 
 export function Toolbar() {
+  const T = useCanvasTheme();
   const { activeTool, setActiveTool } = useCanvas();
   const zoom    = useViewport((s) => s.zoom);
   const setZoom = useViewport((s) => s.setZoom);
@@ -53,6 +38,7 @@ export function Toolbar() {
         gap: 2,
         height: 44,
         userSelect: 'none',
+        transition: 'background 0.2s, border-color 0.2s',
       }}
     >
       {/* Wordmark */}
@@ -66,54 +52,55 @@ export function Toolbar() {
           padding: '0 10px 0 4px',
           marginRight: 2,
           flexShrink: 0,
+          transition: 'color 0.2s',
         }}
       >
         Om<span style={{ color: T.accent }}>•</span>
       </span>
 
-      <Sep />
+      <Sep T={T} />
 
       {/* Selection tools */}
       <ToolGroup>
         <Tooltip content="Select  V" relationship="label">
-          <TBtn active={activeTool === 'select'} onClick={() => setActiveTool('select')}>
+          <TBtn T={T} active={activeTool === 'select'} onClick={() => setActiveTool('select')}>
             <CursorClickRegular />
           </TBtn>
         </Tooltip>
         <Tooltip content="Pan  H" relationship="label">
-          <TBtn active={activeTool === 'pan'} onClick={() => setActiveTool('pan')}>
+          <TBtn T={T} active={activeTool === 'pan'} onClick={() => setActiveTool('pan')}>
             <HandLeftRegular />
           </TBtn>
         </Tooltip>
       </ToolGroup>
 
-      <Sep />
+      <Sep T={T} />
 
       {/* Create tools */}
       <ToolGroup>
         <Tooltip content="New Artboard  A" relationship="label">
-          <TBtn active={activeTool === 'artboard'} onClick={() => setActiveTool('artboard')}>
+          <TBtn T={T} active={activeTool === 'artboard'} onClick={() => setActiveTool('artboard')}>
             <SquareRegular />
           </TBtn>
         </Tooltip>
         <Tooltip content="Completion Zone  Z" relationship="label">
-          <TBtn active={activeTool === 'zone'} onClick={() => setActiveTool('zone')}>
+          <TBtn T={T} active={activeTool === 'zone'} onClick={() => setActiveTool('zone')}>
             <SelectObjectRegular />
           </TBtn>
         </Tooltip>
       </ToolGroup>
 
-      <Sep />
+      <Sep T={T} />
 
       {/* View tools */}
       <ToolGroup>
         <Tooltip content="Intent Diff" relationship="label">
-          <TBtn active={false} onClick={() => {}}>
+          <TBtn T={T} active={false} onClick={() => {}}>
             <DataTrendingRegular />
           </TBtn>
         </Tooltip>
         <Tooltip content="Origin Graph" relationship="label">
-          <TBtn active={false} onClick={() => {}}>
+          <TBtn T={T} active={false} onClick={() => {}}>
             <CircleHintHalfVerticalRegular />
           </TBtn>
         </Tooltip>
@@ -122,7 +109,7 @@ export function Toolbar() {
       {/* Right side */}
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
         <Tooltip content="Zoom out" relationship="label">
-          <TBtn active={false} onClick={() => setZoom(zoom * 0.8)}>
+          <TBtn T={T} active={false} onClick={() => setZoom(zoom * 0.8)}>
             <ZoomOutRegular />
           </TBtn>
         </Tooltip>
@@ -130,7 +117,7 @@ export function Toolbar() {
         <button
           onClick={reset}
           style={{
-            background: 'rgba(255,255,255,0.05)',
+            background: T.activeBg,
             border: `1px solid ${T.sep}`,
             borderRadius: 5,
             padding: '3px 9px',
@@ -144,11 +131,11 @@ export function Toolbar() {
             letterSpacing: '-0.01em',
           }}
           onMouseEnter={e => {
-            (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.09)';
+            (e.currentTarget as HTMLButtonElement).style.background = T.hoverBg;
             (e.currentTarget as HTMLButtonElement).style.color = T.fg;
           }}
           onMouseLeave={e => {
-            (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.05)';
+            (e.currentTarget as HTMLButtonElement).style.background = T.activeBg;
             (e.currentTarget as HTMLButtonElement).style.color = T.fgMuted;
           }}
         >
@@ -156,12 +143,12 @@ export function Toolbar() {
         </button>
 
         <Tooltip content="Zoom in" relationship="label">
-          <TBtn active={false} onClick={() => setZoom(zoom * 1.25)}>
+          <TBtn T={T} active={false} onClick={() => setZoom(zoom * 1.25)}>
             <ZoomInRegular />
           </TBtn>
         </Tooltip>
 
-        <Sep />
+        <Sep T={T} />
 
         {/* Live status pill */}
         <div
@@ -175,17 +162,10 @@ export function Toolbar() {
             border: `1px solid ${T.liveBorder}`,
             marginLeft: 2,
             marginRight: 4,
+            transition: 'background 0.2s, border-color 0.2s',
           }}
         >
-          <div
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: '50%',
-              background: T.live,
-              flexShrink: 0,
-            }}
-          />
+          <div style={{ width: 6, height: 6, borderRadius: '50%', background: T.live, flexShrink: 0 }} />
           <span
             style={{
               fontFamily: "'JetBrains Mono', ui-monospace, monospace",
@@ -202,33 +182,33 @@ export function Toolbar() {
   );
 }
 
-function Sep() {
+import type { CanvasTokens } from '@/store/canvasTheme';
+
+function Sep({ T }: { T: CanvasTokens }) {
   return (
     <div
       style={{
-        width: 1,
-        height: 20,
-        background: 'rgba(255,255,255,0.07)',
+        width: 1, height: 20,
+        background: T.sep,
         margin: '0 5px',
         flexShrink: 0,
+        transition: 'background 0.2s',
       }}
     />
   );
 }
 
 function ToolGroup({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      {children}
-    </div>
-  );
+  return <div style={{ display: 'flex', alignItems: 'center', gap: 1 }}>{children}</div>;
 }
 
 function TBtn({
+  T,
   active,
   onClick,
   children,
 }: {
+  T: CanvasTokens;
   active: boolean;
   onClick: () => void;
   children: React.ReactNode;
@@ -237,12 +217,11 @@ function TBtn({
     <button
       onClick={onClick}
       style={{
-        width: 32,
-        height: 32,
+        width: 32, height: 32,
         borderRadius: 6,
         border: 'none',
-        background: active ? 'rgba(51,133,255,0.15)' : 'transparent',
-        color: active ? '#3385FF' : 'rgba(255,255,255,0.42)',
+        background: active ? T.accentBg : 'transparent',
+        color: active ? T.accent : T.item,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -253,14 +232,14 @@ function TBtn({
       }}
       onMouseEnter={e => {
         if (!active) {
-          (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.07)';
-          (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.75)';
+          (e.currentTarget as HTMLButtonElement).style.background = T.activeBg;
+          (e.currentTarget as HTMLButtonElement).style.color = T.itemHov;
         }
       }}
       onMouseLeave={e => {
         if (!active) {
           (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-          (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.42)';
+          (e.currentTarget as HTMLButtonElement).style.color = T.item;
         }
       }}
     >

@@ -7,38 +7,42 @@ import { SquareRegular } from '@fluentui/react-icons';
 import { useCanvas } from '@/store/canvas';
 import { useArtboards, patchArtboard, createArtboardMutation } from '@/hooks/useArtboards';
 import { useQueryClient } from '@tanstack/react-query';
-
-const T = {
-  bg:      '#111115',
-  border:  'rgba(255,255,255,0.055)',
-  item:    'rgba(255,255,255,0.42)',
-  itemHov: 'rgba(255,255,255,0.72)',
-  selBg:   'rgba(51,133,255,0.12)',
-  selFg:   'rgba(255,255,255,0.88)',
-  accent:  '#3385FF',
-  dim:     'rgba(255,255,255,0.22)',
-  sep:     'rgba(255,255,255,0.04)',
-};
-
-// Map the panel's dark theme into Trees' CSS custom properties
-const treeThemeStyles = themeToTreeStyles({
-  type: 'dark',
-  bg: '#111115',
-  fg: 'rgba(255,255,255,0.42)',
-  colors: {
-    'editor.selectionBackground':       'rgba(51,133,255,0.14)',
-    'list.activeSelectionBackground':   'rgba(51,133,255,0.14)',
-    'list.inactiveSelectionBackground': 'rgba(51,133,255,0.08)',
-    'list.hoverBackground':             'rgba(255,255,255,0.04)',
-    'list.activeSelectionForeground':   'rgba(255,255,255,0.88)',
-    'editorIndentGuide.background':     'rgba(255,255,255,0.04)',
-  },
-});
+import { useCanvasTheme } from '@/store/canvasTheme';
+import { useTheme } from '@/store/theme';
 
 export function ArtboardNavigator() {
+  const T    = useCanvasTheme();
+  const mode = useTheme((s) => s.mode);
   const { selectedArtboardId, selectArtboard, workspaceId, projectId, liveArtboardIds, artboardFiberRoots } = useCanvas();
   const { artboards, rawArtboards } = useArtboards(workspaceId ?? undefined, projectId ?? undefined);
   const queryClient = useQueryClient();
+
+  // Map the panel theme into Trees' CSS custom properties — recomputed when mode changes
+  const treeThemeStyles = themeToTreeStyles(mode === 'dark' ? {
+    type: 'dark',
+    bg: T.bg,
+    fg: T.item,
+    colors: {
+      'editor.selectionBackground':       T.accentBg,
+      'list.activeSelectionBackground':   T.accentBg,
+      'list.inactiveSelectionBackground': T.selBg,
+      'list.hoverBackground':             T.hoverBg,
+      'list.activeSelectionForeground':   T.selFg,
+      'editorIndentGuide.background':     T.sep,
+    },
+  } : {
+    type: 'light',
+    bg: T.bg,
+    fg: T.item,
+    colors: {
+      'editor.selectionBackground':       T.accentBg,
+      'list.activeSelectionBackground':   T.accentBg,
+      'list.inactiveSelectionBackground': T.selBg,
+      'list.hoverBackground':             T.hoverBg,
+      'list.activeSelectionForeground':   T.selFg,
+      'editorIndentGuide.background':     T.sep,
+    },
+  });
 
   const deleteArtboard = useCallback(async (id: string, name: string) => {
     if (!window.confirm(`Delete "${name}"?`)) return;
@@ -126,12 +130,13 @@ export function ArtboardNavigator() {
           return (
             <NavRow
               key={ab.id}
+              T={T}
               selected={sel}
               live={live}
               onClick={() => selectArtboard(ab.id)}
               icon={
                 <SquareRegular
-                  style={{ fontSize: 11, color: sel ? T.accent : 'rgba(255,255,255,0.2)', flexShrink: 0 }}
+                  style={{ fontSize: 11, color: sel ? T.accent : T.dim, flexShrink: 0 }}
                 />
               }
               label={ab.label}
@@ -167,8 +172,8 @@ export function ArtboardNavigator() {
       <SectionLabel>Graph</SectionLabel>
       <div style={{ padding: '4px 14px 8px', display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
         <GraphStat label="artboards"  value={String(rawArtboards.length)} color={T.accent} />
-        <GraphStat label="live"       value={liveCount > 0 ? String(liveCount) : '—'} color={liveCount > 0 ? '#10B981' : 'rgba(255,255,255,0.25)'} />
-        <GraphStat label="components" value={totalComponents > 0 ? String(totalComponents) : '—'} color="rgba(255,255,255,0.45)" />
+        <GraphStat label="live"       value={liveCount > 0 ? String(liveCount) : '—'} color={liveCount > 0 ? T.live : T.fgDim} />
+        <GraphStat label="components" value={totalComponents > 0 ? String(totalComponents) : '—'} color={T.fgMuted} />
       </div>
 
       {/* ── Cross-artboard query ── */}
@@ -178,7 +183,10 @@ export function ArtboardNavigator() {
 }
 
 /* ── Artboard row ─────────────────────────────────────────── */
+import type { CanvasTokens } from '@/store/canvasTheme';
+
 function NavRow({
+  T,
   selected = false,
   live = false,
   onClick,
@@ -188,6 +196,7 @@ function NavRow({
   onFork,
   onDelete,
 }: {
+  T: CanvasTokens;
   selected?: boolean;
   live?: boolean;
   onClick?: () => void;
@@ -211,7 +220,7 @@ function NavRow({
         padding: '4px 6px 4px 10px',
         borderRadius: 5,
         cursor: 'pointer',
-        background: selected ? T.selBg : hov ? 'rgba(255,255,255,0.04)' : 'transparent',
+        background: selected ? T.selBg : hov ? T.hoverBg : 'transparent',
         color:      selected ? T.selFg : hov ? T.itemHov : T.item,
         fontSize: '0.75rem',
         letterSpacing: '-0.01em',
@@ -228,8 +237,8 @@ function NavRow({
       {live && !hov && (
         <span style={{
           width: 5, height: 5, borderRadius: '50%',
-          background: '#10B981', flexShrink: 0, display: 'block',
-          boxShadow: '0 0 4px rgba(16,185,129,0.8)',
+          background: T.live, flexShrink: 0, display: 'block',
+          boxShadow: `0 0 4px ${T.liveBorder}`,
         }} />
       )}
 
@@ -237,16 +246,14 @@ function NavRow({
       {(hov || selected) && (
         <div style={{ display: 'flex', gap: 2, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
           {onRename && (
-            <IconBtn title="Rename" onClick={onRename}>
-              {/* Pencil */}
+            <IconBtn T={T} title="Rename" onClick={onRename}>
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
                 <path d="M1 7.5L7 1.5l1.5 1.5-6 6H1V7.5z" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </IconBtn>
           )}
           {onFork && (
-            <IconBtn title="Fork" onClick={onFork}>
-              {/* Branch / fork icon */}
+            <IconBtn T={T} title="Fork" onClick={onFork}>
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
                 <circle cx="2" cy="2" r="1.2" stroke="currentColor" strokeWidth="1"/>
                 <circle cx="8" cy="2" r="1.2" stroke="currentColor" strokeWidth="1"/>
@@ -256,8 +263,7 @@ function NavRow({
             </IconBtn>
           )}
           {onDelete && (
-            <IconBtn title="Delete" onClick={onDelete} danger>
-              {/* Trash */}
+            <IconBtn T={T} title="Delete" onClick={onDelete} danger>
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
                 <path d="M2 2.5h6M4 2.5V1.5h2V2.5M3 2.5v6h4v-6" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
@@ -269,7 +275,7 @@ function NavRow({
   );
 }
 
-function IconBtn({ children, title, onClick, danger }: { children: React.ReactNode; title: string; onClick: () => void; danger?: boolean }) {
+function IconBtn({ T, children, title, onClick, danger }: { T: CanvasTokens; children: React.ReactNode; title: string; onClick: () => void; danger?: boolean }) {
   const [hov, setHov] = useState(false);
   return (
     <button
@@ -278,10 +284,10 @@ function IconBtn({ children, title, onClick, danger }: { children: React.ReactNo
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        background: hov ? (danger ? 'rgba(255,80,80,0.15)' : 'rgba(255,255,255,0.08)') : 'none',
+        background: hov ? (danger ? 'rgba(255,80,80,0.15)' : T.activeBg) : 'none',
         border: 'none', borderRadius: 3, padding: '2px 3px',
         cursor: 'pointer',
-        color: hov ? (danger ? '#FF6060' : 'rgba(255,255,255,0.8)') : 'rgba(255,255,255,0.3)',
+        color: hov ? (danger ? '#FF6060' : T.fg) : T.dim,
         transition: 'background 0.1s, color 0.1s',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}
@@ -293,6 +299,7 @@ function IconBtn({ children, title, onClick, danger }: { children: React.ReactNo
 
 /* ── Helpers ──────────────────────────────────────────────── */
 function SectionLabel({ children }: { children: string }) {
+  const T = useCanvasTheme();
   return (
     <div style={{
       padding: '12px 12px 5px',
@@ -311,27 +318,28 @@ function SectionLabel({ children }: { children: string }) {
 }
 
 function HSep() {
+  const T = useCanvasTheme();
   return <div style={{ height: 1, background: T.sep, margin: '6px 0', flexShrink: 0 }} />;
 }
 
 function ActiveDot() {
+  const T = useCanvasTheme();
   return (
     <span style={{
       marginLeft: 'auto',
-      width: 5,
-      height: 5,
+      width: 5, height: 5,
       borderRadius: '50%',
       background: T.accent,
-      flexShrink: 0,
-      display: 'block',
+      flexShrink: 0, display: 'block',
     }} />
   );
 }
 
 function GraphStat({ label, value, color }: { label: string; value: string; color: string }) {
+  const T = useCanvasTheme();
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-      <span style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: '0.625rem', color: 'rgba(255,255,255,0.28)' }}>
+      <span style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: '0.625rem', color: T.dim }}>
         {label}
       </span>
       <span style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: '0.625rem', color, fontWeight: 600 }}>
@@ -350,6 +358,7 @@ function countFiberNodes(node: { children?: unknown[] }): number {
 
 /* ── Cross-artboard query ─────────────────────────────────── */
 function CrossArtboardQuery({ workspaceId }: { workspaceId: string | null }) {
+  const T = useCanvasTheme();
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
   const [answer, setAnswer] = useState('');
@@ -392,11 +401,11 @@ function CrossArtboardQuery({ workspaceId }: { workspaceId: string | null }) {
           }}
           placeholder="Ask across artboards…"
           style={{
-            flex: 1, background: 'rgba(255,255,255,0.05)',
-            border: '1px solid rgba(255,255,255,0.08)',
+            flex: 1, background: T.bgDeep,
+            border: `1px solid ${T.border}`,
             borderRadius: 5, padding: '5px 8px',
             fontSize: '0.5875rem', fontFamily: 'inherit',
-            color: 'rgba(255,255,255,0.75)', outline: 'none',
+            color: T.fg, outline: 'none',
           }}
         />
         <button
@@ -415,9 +424,9 @@ function CrossArtboardQuery({ workspaceId }: { workspaceId: string | null }) {
       {status === 'done' && answer && (
         <div style={{
           marginTop: 6, padding: '6px 8px',
-          background: 'rgba(255,255,255,0.04)',
+          background: T.bgDeep,
           borderRadius: 5, fontSize: '0.5875rem',
-          color: 'rgba(255,255,255,0.6)', lineHeight: 1.55,
+          color: T.fgMuted, lineHeight: 1.55,
           fontFamily: "'Inter', sans-serif",
           maxHeight: 120, overflow: 'auto',
         }}>

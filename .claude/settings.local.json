@@ -150,7 +150,8 @@
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('dependencies',{}\\), indent=2\\)\\)\")",
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('version:', d.get\\('version'\\)\\)\")",
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('type:', d.get\\('type'\\)\\); print\\('error:', d.get\\('error',{}\\).get\\('message','none'\\)[:200]\\)\")",
-      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); text=next\\(\\(b['text'] for b in d.get\\('content',[]\\) if b['type']=='text'\\),''\\); print\\('STATUS:', d.get\\('type','?'\\)\\); print\\('ERROR:', d.get\\('error',{}\\).get\\('message','none'\\)[:300]\\); print\\('TEXT:', text[:300]\\)\")"
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); text=next\\(\\(b['text'] for b in d.get\\('content',[]\\) if b['type']=='text'\\),''\\); print\\('STATUS:', d.get\\('type','?'\\)\\); print\\('ERROR:', d.get\\('error',{}\\).get\\('message','none'\\)[:300]\\); print\\('TEXT:', text[:300]\\)\")",
+      "Bash(perl -pi -e 's/color: '\\\\''rgba\\\\\\(255,255,255,0\\\\.22\\\\\\)'\\\\''/color: T.dim/g;' -e 's/color: '\\\\''rgba\\\\\\(255,255,255,0\\\\.18\\\\\\)'\\\\''/color: T.dim/g;' -e 's/color: '\\\\''rgba\\\\\\(255,255,255,0\\\\.28\\\\\\)'\\\\''/color: T.key/g;' -e 's/color: '\\\\''rgba\\\\\\(255,255,255,0\\\\.32\\\\\\)'\\\\''/color: T.key/g;' -e 's/color: '\\\\''rgba\\\\\\(255,255,255,0\\\\.45\\\\\\)'\\\\''/color: T.fgMuted/g;' -e 's/color: '\\\\''rgba\\\\\\(255,255,255,0\\\\.5\\\\\\)'\\\\''/color: T.fgMuted/g;' -e 's/color: '\\\\''rgba\\\\\\(255,255,255,0\\\\.62\\\\\\)'\\\\''/color: T.fgMuted/g;' -e 's/color: '\\\\''rgba\\\\\\(255,255,255,0\\\\.85\\\\\\)'\\\\''/color: T.fg/g;' -e 's/color: '\\\\''rgba\\\\\\(255,255,255,0\\\\.88\\\\\\)'\\\\''/color: T.fg/g;' /Users/USER/Desktop/originmain/packages/app/src/components/inspector/Inspector.tsx)"
     ]
   }
 }

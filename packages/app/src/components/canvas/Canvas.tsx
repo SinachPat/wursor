@@ -5,9 +5,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useViewport } from '@/store/viewport';
 import { useCanvas } from '@/store/canvas';
 import { useArtboards, createArtboardMutation } from '@/hooks/useArtboards';
+import { useCanvasTheme } from '@/store/canvasTheme';
 import { Artboard } from './Artboard';
 
 export function Canvas() {
+  const T             = useCanvasTheme();
   const containerRef  = useRef<HTMLDivElement>(null);
   const panX          = useViewport((s) => s.panX);
   const panY          = useViewport((s) => s.panY);
@@ -151,7 +153,8 @@ export function Canvas() {
         gridRow: 2,
         position: 'relative',
         overflow: 'hidden',
-        background: '#0C0C10',
+        background: T.canvasBg,
+        transition: 'background 0.2s',
         cursor,
       }}
       onMouseDown={onMouseDown}
@@ -163,7 +166,7 @@ export function Canvas() {
         style={{
           position: 'absolute',
           inset: 0,
-          backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.055) 1px, transparent 1px)',
+          backgroundImage: `radial-gradient(circle, ${T.dotColor} 1px, transparent 1px)`,
           backgroundSize: `${gridSpacing}px ${gridSpacing}px`,
           backgroundPosition: `${panX % gridSpacing}px ${panY % gridSpacing}px`,
           pointerEvents: 'none',
