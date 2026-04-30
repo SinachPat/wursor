@@ -151,11 +151,10 @@ importers:
         version: 5.9.3
 
   packages/cli:
-    dependencies:
+    devDependencies:
       '@originmain/renderer':
         specifier: workspace:*
         version: link:../renderer
-    devDependencies:
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.17
