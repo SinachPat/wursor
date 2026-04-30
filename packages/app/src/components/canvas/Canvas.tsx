@@ -76,8 +76,10 @@ export function Canvas() {
       return;
     }
 
-    // Artboard creation tool: click on canvas to place a new artboard
-    if (activeTool === 'artboard' && e.target === e.currentTarget && workspaceId) {
+    // Artboard creation tool: click on canvas to place a new artboard.
+    // Note: existing artboards stop propagation on mousedown so this path
+    // only fires on empty canvas space.
+    if (activeTool === 'artboard' && workspaceId) {
       const label = `Artboard ${Date.now().toString(36).slice(-4).toUpperCase()}`;
       createArtboardMutation({
         workspace_id: workspaceId,

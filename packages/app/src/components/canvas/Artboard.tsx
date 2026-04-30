@@ -165,6 +165,7 @@ export function Artboard({ id, label, x, y, width, height, renderUrl }: Artboard
   return (
     <div
       style={{ position: 'absolute', top: effectiveY, left: effectiveX }}
+      onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => { e.stopPropagation(); selectArtboard(id); }}
     >
       {/* Label / drag handle */}
