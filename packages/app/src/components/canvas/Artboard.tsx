@@ -17,6 +17,17 @@ interface ArtboardProps {
   width: number;
   height: number;
   renderUrl?: string;
+  /** Route path appended to renderUrl so each artboard can show a different screen. */
+  route?: string;
+}
+
+/** Builds the iframe src from a base URL + optional route path.
+ *  e.g. ("http://localhost:4170/", "/dashboard") → "http://localhost:4170/dashboard" */
+function buildSrc(base: string, route?: string): string {
+  if (!route || route === '/' || route === '') return base;
+  const trimmed = base.replace(/\/$/, '');
+  const path = route.startsWith('/') ? route : '/' + route;
+  return trimmed + path;
 }
 
 // Status color map matching the inspector
@@ -27,10 +38,10 @@ const DIFF_STATUS_BADGE: Record<string, { color: string; bg: string; label: stri
   REJECTED: { color: '#FF8080', bg: 'rgba(255,128,128,0.15)', label: 'blocked' },
 };
 
-export function Artboard({ id, label, x, y, width, height, renderUrl }: ArtboardProps) {
+export function Artboard({ id, label, x, y, width, height, renderUrl, route }: ArtboardProps) {
   const {
     selectedArtboardId, selectArtboard, workspaceId, projectId,
-    setArtboardLive, setFiberRoot, selectComponent,
+    setArtboardLive, setFiberRoot, selectComponent, setComponentStyles,
     selectedComponentId,
   } = useCanvas();
   const selected = selectedArtboardId === id;
@@ -49,10 +60,23 @@ export function Artboard({ id, label, x, y, width, height, renderUrl }: Artboard
   }, [id, setFiberRoot, setArtboardLive]);
 
   const handleComponentSelected = useCallback((nodeId: string) => {
+    if (!nodeId) {
+      // Empty nodeId = COMPONENT_DESELECTED — clear selection + styles
+      selectComponent(null, null);
+      setComponentStyles(null);
+      return;
+    }
     if (!localFiberRoot) return;
     const node = findFiberNode(localFiberRoot, nodeId);
     selectComponent(nodeId, node ?? null);
-  }, [localFiberRoot, selectComponent]);
+  }, [localFiberRoot, selectComponent, setComponentStyles]);
+
+  const handleComponentStylesUpdate = useCallback((_nodeId: string, styles: Record<string, string>) => {
+    // Only update styles if this artboard is the one currently selected
+    if (selectedArtboardId === id) {
+      setComponentStyles(styles);
+    }
+  }, [id, selectedArtboardId, setComponentStyles]);
 
   // ── Drag to reposition ─────────────────────────────────────────────────────
   const isDragging    = useRef(false);
@@ -318,12 +342,13 @@ export function Artboard({ id, label, x, y, width, height, renderUrl }: Artboard
           <>
             <LiveArtboard
               id={id}
-              src={renderUrl}
+              src={buildSrc(renderUrl, route)}
               width={width}
               height={height}
               selectedComponentId={selectedComponentId}
               onFiberTreeUpdate={handleFiberUpdate}
               onComponentSelected={handleComponentSelected}
+              onComponentStylesUpdate={handleComponentStylesUpdate}
             />
             <SelectionOverlay
               artboardId={id}

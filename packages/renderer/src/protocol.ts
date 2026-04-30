@@ -28,7 +28,12 @@ export type HostMessage =
   | { type: 'SET_DESIGN_TOKENS'; tokens: Record<string, string> }
   | { type: 'NAVIGATE'; path: string }
   | { type: 'SELECT_COMPONENT'; nodeId: string }
-  | { type: 'DESELECT' };
+  | { type: 'DESELECT' }
+  /** Ask the renderer to respond with computed CSS properties for a fiber node. */
+  | { type: 'REQUEST_ELEMENT_STYLES'; nodeId: string }
+  /** Apply a single CSS property override directly to the component's DOM element.
+   *  Non-destructive — sets inline style only; source files are unchanged. */
+  | { type: 'PATCH_ELEMENT_STYLE'; nodeId: string; property: string; value: string };
 
 export interface HostEnvelope {
   source: typeof HOST_SOURCE;
@@ -43,7 +48,9 @@ export type RendererMessage =
   | { type: 'FIBER_TREE_UPDATE'; root: FiberNode }
   | { type: 'COMPONENT_SELECTED'; nodeId: string; rect: DOMRectLike }
   | { type: 'COMPONENT_DESELECTED' }
-  | { type: 'ERROR'; message: string };
+  | { type: 'ERROR'; message: string }
+  /** Response to REQUEST_ELEMENT_STYLES — computed CSS properties for the node. */
+  | { type: 'ELEMENT_STYLES'; nodeId: string; styles: Record<string, string> };
 
 export interface RendererEnvelope {
   source: typeof RENDERER_SOURCE;

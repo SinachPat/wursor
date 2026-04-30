@@ -130,7 +130,7 @@ function installFiberHook(): void {
       // Unnamed root fiber (HostRoot) — collectChildren handles Fragment recursively.
       const children: SerializedNode[] = [];
       collectChildren(fiber, parentId, children);
-      if (children.length === 1) return children[0];
+      if (children.length === 1) return children[0] ?? null;
       if (children.length === 0) return null;
       // Multiple named children at root — wrap in a synthetic root node.
       return { id: '__root__', name: '__root__', props: {}, children };
@@ -275,7 +275,8 @@ function installFiberHook(): void {
   function getFiberKey(el: Element): string | null {
     const keys = Object.keys(el);
     for (let i = 0; i < keys.length; i++) {
-      if (keys[i].startsWith('__reactFiber$')) return keys[i];
+      const k = keys[i];
+      if (k !== undefined && k.startsWith('__reactFiber$')) return k;
     }
     return null;
   }
@@ -321,7 +322,14 @@ function installFiberHook(): void {
     const data = event.data as {
       source?: string;
       artboardId?: string;
-      message?: { type: string; tokens?: Record<string, string>; path?: string; nodeId?: string };
+      message?: {
+        type: string;
+        tokens?: Record<string, string>;
+        path?: string;
+        nodeId?: string;
+        property?: string;
+        value?: string;
+      };
     };
     if (!data || data.source !== HOST_SOURCE)    return;
     if (data.artboardId !== artboardId)          return;
@@ -345,8 +353,75 @@ function installFiberHook(): void {
         selectedNodeId = null;
         removeHighlight();
         break;
+      case 'REQUEST_ELEMENT_STYLES':
+        if (msg.nodeId) respondWithStyles(msg.nodeId);
+        break;
+      case 'PATCH_ELEMENT_STYLE':
+        if (msg.nodeId && msg.property && msg.value !== undefined) {
+          patchElementStyle(msg.nodeId, msg.property, msg.value ?? '');
+        }
+        break;
     }
   });
+
+  // ── Element style inspection ──────────────────────────────────────────────
+  // Reads computed CSS properties from the fiber node's DOM element and posts
+  // them back as ELEMENT_STYLES.  We extract a curated subset covering the
+  // properties designers care about (typography, layout, visual) rather than the
+  // full ~300-property computed style object.
+
+  const INSPECTED_PROPS = [
+    // Typography
+    'color', 'font-family', 'font-size', 'font-weight', 'line-height',
+    'letter-spacing', 'text-align', 'text-transform', 'text-decoration',
+    // Layout
+    'display', 'width', 'height',
+    'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
+    'margin-top', 'margin-right', 'margin-bottom', 'margin-left',
+    'flex-direction', 'align-items', 'justify-content', 'gap',
+    'position', 'top', 'right', 'bottom', 'left',
+    // Visual
+    'background-color', 'border-radius', 'opacity',
+    'box-shadow', 'border-width', 'border-color', 'border-style',
+    'overflow', 'cursor', 'transition',
+  ] as const;
+
+  function respondWithStyles(nodeId: string): void {
+    const info = nodeMap.get(nodeId);
+    const styles: Record<string, string> = {};
+
+    if (info?.fiber?.stateNode && typeof info.fiber.stateNode === 'object'
+        && 'nodeType' in (info.fiber.stateNode as object)) {
+      try {
+        const computed = window.getComputedStyle(info.fiber.stateNode as Element);
+        for (const prop of INSPECTED_PROPS) {
+          const val = computed.getPropertyValue(prop);
+          if (val) styles[prop] = val;
+        }
+      } catch { /* element may be detached */ }
+    }
+
+    post({ type: 'ELEMENT_STYLES', nodeId, styles });
+  }
+
+  // ── Inline style patching ─────────────────────────────────────────────────
+  // Applies a single CSS property as an inline style on the component's DOM
+  // element.  Non-destructive — does NOT modify source files.  The change is
+  // immediately visible in the live render and can be recorded as a diff.
+
+  function patchElementStyle(nodeId: string, property: string, value: string): void {
+    const info = nodeMap.get(nodeId);
+    if (!info?.fiber?.stateNode || typeof info.fiber.stateNode !== 'object'
+        || !('nodeType' in (info.fiber.stateNode as object))) return;
+    try {
+      const el = info.fiber.stateNode as HTMLElement;
+      if (value === '') {
+        el.style.removeProperty(property);
+      } else {
+        el.style.setProperty(property, value);
+      }
+    } catch { /* element may be detached */ }
+  }
 
   function applyTokens(tokens: Record<string, string>): void {
     const root = document.documentElement;

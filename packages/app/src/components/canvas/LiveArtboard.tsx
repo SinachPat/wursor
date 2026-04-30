@@ -6,6 +6,7 @@ import {
   isRendererEnvelope,
 } from '@originmain/renderer';
 import type { FiberNode, RendererMessage } from '@originmain/renderer';
+import { useCanvas } from '@/store/canvas';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -26,6 +27,10 @@ export interface LiveArtboardProps {
   onReady?: () => void;
   onFiberTreeUpdate?: (root: FiberNode) => void;
   onComponentSelected?: (nodeId: string) => void;
+  /** Called when the iframe responds with computed CSS properties for a selected element. */
+  onComponentStylesUpdate?: (nodeId: string, styles: Record<string, string>) => void;
+  /** Forwards a CSS property patch from the Design tab into the iframe. */
+  patchElementStyle?: (nodeId: string, property: string, value: string) => void;
   style?: React.CSSProperties;
 }
 
@@ -41,6 +46,7 @@ export function LiveArtboard({
   onReady,
   onFiberTreeUpdate,
   onComponentSelected,
+  onComponentStylesUpdate,
   style,
 }: LiveArtboardProps) {
   const iframeRef  = useRef<HTMLIFrameElement>(null);
@@ -91,23 +97,45 @@ export function LiveArtboard({
           break;
         case 'COMPONENT_SELECTED':
           onComponentSelected?.(msg.nodeId);
+          // Request computed styles so the Design tab can populate immediately.
+          sendMessage('REQUEST_ELEMENT_STYLES', { nodeId: msg.nodeId });
           break;
         case 'COMPONENT_DESELECTED':
           // Renderer clicked empty space — clear the host-side selection.
           onComponentSelected?.('');
+          break;
+        case 'ELEMENT_STYLES':
+          onComponentStylesUpdate?.(msg.nodeId, msg.styles);
           break;
       }
     }
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [id, designTokens, selectedComponentId, sendMessage, onReady, onFiberTreeUpdate, onComponentSelected]);
+  }, [id, designTokens, selectedComponentId, sendMessage, onReady, onFiberTreeUpdate, onComponentSelected, onComponentStylesUpdate]);
 
   // ── Push updated design tokens whenever they change ───────────────────────
   useEffect(() => {
     if (!isReadyRef.current || !designTokens) return;
     sendMessage('SET_DESIGN_TOKENS', { tokens: designTokens });
   }, [designTokens, sendMessage]);
+
+  // ── Style edit mailbox ─────────────────────────────────────────────────────
+  // Watches the Zustand mailbox for PATCH_ELEMENT_STYLE events addressed to
+  // this artboard and forwards them to the iframe immediately.
+  const styleEditEvent = useCanvas((s) => s.styleEditEvent);
+  const clearStyleEdit = useCanvas((s) => s.clearStyleEdit);
+
+  useEffect(() => {
+    if (styleEditEvent?.artboardId === id && isReadyRef.current) {
+      sendMessage('PATCH_ELEMENT_STYLE', {
+        nodeId: styleEditEvent.nodeId,
+        property: styleEditEvent.property,
+        value: styleEditEvent.value,
+      });
+      clearStyleEdit();
+    }
+  }, [id, styleEditEvent, sendMessage, clearStyleEdit]);
 
   // ── Sync selection changes into the iframe ────────────────────────────────
   // Sends SELECT_COMPONENT on every selectedComponentId change so the blue

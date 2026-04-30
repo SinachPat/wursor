@@ -427,4 +427,45 @@ The original Layer 2 rendering system used direct cross-origin iframe script inj
 - [ ] **GitHub App + deployment_status webhook**: Full OAuth flow to connect GitHub repos + auto-populate `deploymentUrl` from Vercel/Netlify deployment webhooks
 - [ ] **Marketing page — remaining `section-dark` / `--bg-inv` surfaces**: other sections using `background: var(--bg-inv)` (e.g. `#features-alt`, footer) should be audited for the same light-mode-in-dark-mode inversion issue if the marketing page is expected to fully support theme toggling
 
-*Last updated: 2026-04-29 — Session 7 complete*
+### ✅ Completed — Session 8 (2026-04-30)
+
+#### Canvas artboard creation fixed
+- **Bug**: `e.target === e.currentTarget` guard in `Canvas.tsx` was always false because the canvas has a full-size `position:absolute; inset:0; z-index:2` transform layer that intercepts all pointer events. Pressing A + clicking the canvas never created an artboard.
+- **Fix**: Removed the guard. Added `onMouseDown={(e) => e.stopPropagation()}` to the artboard root div so clicks on existing artboards don't bubble up and trigger creation.
+
+#### Artboard drag stale-closure fix
+- **Bug**: `onUp` closed over `dragOffset` state from `useCallback` creation time (always `{dx:0,dy:0}`). Artboards snapped back to original position after drag.
+- **Fix**: Added `dragOffsetRef` mutable ref. `onMove` updates both state and ref; `onUp` reads only from ref.
+
+#### Design tab (live CSS inspector + editor)
+- **`packages/renderer/src/protocol.ts`** — Two new message types:
+  - `REQUEST_ELEMENT_STYLES { nodeId }` (Host → Renderer)
+  - `ELEMENT_STYLES { nodeId, styles }` (Renderer → Host)
+  - `PATCH_ELEMENT_STYLE { nodeId, property, value }` (Host → Renderer)
+- **`packages/live-sdk/src/hook.ts`** — Three new handlers:
+  - `REQUEST_ELEMENT_STYLES` → reads `window.getComputedStyle(el)` for ~30 curated properties → posts `ELEMENT_STYLES`
+  - `PATCH_ELEMENT_STYLE` → calls `el.style.setProperty(property, value)` on the fiber's DOM element
+- **`packages/app/src/store/canvas.ts`** — Added `selectedComponentStyles`, `setComponentStyles`, `styleEditEvent` mailbox, `patchStyleEdit`, `clearStyleEdit`.
+- **`packages/app/src/components/canvas/LiveArtboard.tsx`** — Sends `REQUEST_ELEMENT_STYLES` immediately after `COMPONENT_SELECTED`. Handles `ELEMENT_STYLES` response. Watches Zustand `styleEditEvent` and forwards `PATCH_ELEMENT_STYLE` to the iframe.
+- **`packages/app/src/components/canvas/Artboard.tsx`** — Wires `onComponentStylesUpdate` → `setComponentStyles`; handles deselect with styles clear.
+- **`packages/app/src/components/inspector/Inspector.tsx`** — **DESIGN** tab added as first tab. `DesignTab` component shows Typography, Layout, Visual sections. Every property is inline-editable — changes send `PATCH_ELEMENT_STYLE` via the Zustand mailbox for immediate live preview.
+- **Inspector tab order**: Design → Props → Diff → Graph (was Props → Diff → Graph).
+- **Default tab**: Design (was Props).
+
+#### Route-aware artboards (multi-screen workflow)
+- **`packages/app/src/hooks/useArtboards.ts`** — `CanvasArtboard` gets `route?: string`; `toCanvasArtboard` extracts `metadata_jsonb.route`.
+- **`packages/app/src/components/canvas/Artboard.tsx`** — `route` prop; `buildSrc(base, route)` helper combines base URL + path. Artboards on the same proxy now show different pages.
+- **`packages/app/src/components/inspector/Inspector.tsx`** — `route` field in PropsTab Render Target section; editable inline; saved to `metadata_jsonb.route`. `reservedKeys` set expanded to exclude `route` from "extra props" section.
+
+#### On-canvas onboarding
+- **`packages/app/src/components/canvas/Canvas.tsx`** — Empty canvas now shows a 3-step guide: ① Press A + click, ② CLI command (with copy-ready code block), ③ Paste proxy URL. Replaces the single-line hint.
+
+#### CLI published
+- `@originmain/cli@0.0.3` on npm. README covers quick start, flags, programmatic API, how it works.
+
+#### Bug fixes (prior sessions)
+- HTTP 204 with body in `GET /api/design-language` (RFC 7230 §3.3 violation)
+- `tools/list` MCP endpoint missing `inputSchema` (breaks IDE clients)
+- `ProjectSettingsForm` wrong role constant + wrong delete-confirm comparison target
+
+*Last updated: 2026-04-30 — Session 8 complete*

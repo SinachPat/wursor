@@ -233,30 +233,80 @@ export function Canvas() {
         />
       )}
 
-      {/* Empty canvas hint — shown only when workspace has no artboards yet */}
+      {/* Empty canvas onboarding — shown only when the project has no artboards yet */}
       {artboards.length === 0 && (
         <div style={{
           position: 'absolute', inset: 0, display: 'flex',
-          flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          alignItems: 'center', justifyContent: 'center',
           pointerEvents: 'none', zIndex: 3,
         }}>
           <div style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
-            opacity: 0.4,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20,
+            opacity: 0.55, maxWidth: 320,
           }}>
-            <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
-              <rect x="4" y="4" width="12" height="12" rx="2" stroke="rgba(255,255,255,0.5)" strokeWidth="1.2" strokeDasharray="3 2"/>
-              <rect x="20" y="4" width="12" height="12" rx="2" stroke="rgba(255,255,255,0.5)" strokeWidth="1.2" strokeDasharray="3 2"/>
-              <rect x="4" y="20" width="12" height="12" rx="2" stroke="rgba(255,255,255,0.5)" strokeWidth="1.2" strokeDasharray="3 2"/>
-              <rect x="20" y="20" width="12" height="12" rx="2" stroke="rgba(255,255,255,0.5)" strokeWidth="1.2" strokeDasharray="3 2"/>
+            {/* Icon */}
+            <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+              <rect x="3" y="3" width="15" height="15" rx="3" stroke="rgba(255,255,255,0.5)" strokeWidth="1.3" strokeDasharray="3.5 2"/>
+              <rect x="22" y="3" width="15" height="15" rx="3" stroke="rgba(255,255,255,0.5)" strokeWidth="1.3" strokeDasharray="3.5 2"/>
+              <rect x="3" y="22" width="15" height="15" rx="3" stroke="rgba(255,255,255,0.5)" strokeWidth="1.3" strokeDasharray="3.5 2"/>
+              <rect x="22" y="22" width="15" height="15" rx="3" stroke="rgba(255,255,255,0.5)" strokeWidth="1.3" strokeDasharray="3.5 2"/>
             </svg>
-            <span style={{
-              fontFamily: "'JetBrains Mono', monospace",
-              fontSize: '0.5625rem', color: 'rgba(255,255,255,0.45)',
-              letterSpacing: '0.08em', textTransform: 'uppercase',
-            }}>
-              Press A to create an artboard
-            </span>
+
+            <div style={{ textAlign: 'center' }}>
+              <div style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: '0.65rem', color: 'rgba(255,255,255,0.7)',
+                letterSpacing: '0.1em', textTransform: 'uppercase',
+                marginBottom: 4,
+              }}>
+                Get started
+              </div>
+              <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '0.7rem', color: 'rgba(255,255,255,0.35)', lineHeight: 1.5 }}>
+                Live render your running app into design frames
+              </div>
+            </div>
+
+            {/* Steps */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, width: '100%' }}>
+              {[
+                { n: '1', text: 'Press A and click the canvas to place a screen' },
+                { n: '2', text: 'Start the CLI proxy pointing at your dev server', code: 'npx @originmain/cli dev --target http://localhost:3000' },
+                { n: '3', text: "Paste the proxy URL into the screen's Connect field" },
+              ].map(({ n, text, code }) => (
+                <div key={n} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  <div style={{
+                    width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
+                    border: '1px solid rgba(51,133,255,0.5)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: '0.5rem', color: 'rgba(51,133,255,0.9)',
+                    fontWeight: 600,
+                  }}>
+                    {n}
+                  </div>
+                  <div>
+                    <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '0.6875rem', color: 'rgba(255,255,255,0.55)', lineHeight: 1.45 }}>
+                      {text}
+                    </div>
+                    {code && (
+                      <div style={{
+                        marginTop: 5,
+                        padding: '4px 8px',
+                        background: 'rgba(51,133,255,0.1)',
+                        border: '1px solid rgba(51,133,255,0.2)',
+                        borderRadius: 5,
+                        fontFamily: "'JetBrains Mono', monospace",
+                        fontSize: '0.5625rem',
+                        color: 'rgba(51,133,255,0.85)',
+                        letterSpacing: '-0.01em',
+                      }}>
+                        {code}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}

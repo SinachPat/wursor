@@ -9,6 +9,8 @@ export interface CanvasArtboard {
   width: number;
   height: number;
   renderUrl?: string;
+  /** Route path appended to renderUrl when rendering a specific screen, e.g. "/dashboard". */
+  route?: string;
 }
 
 
@@ -21,6 +23,7 @@ function toCanvasArtboard(ab: Artboard): CanvasArtboard | null {
   if (x === null || y === null || width === null || height === null) return null;
   const base: CanvasArtboard = { id: ab.id, label: ab.name, x, y, width, height };
   if (typeof meta['renderUrl'] === 'string') base.renderUrl = meta['renderUrl'];
+  if (typeof meta['route'] === 'string' && meta['route']) base.route = meta['route'];
   return base;
 }
 

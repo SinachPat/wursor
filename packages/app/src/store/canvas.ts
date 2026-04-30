@@ -30,6 +30,18 @@ interface CanvasStore {
   selectedComponentId: string | null;
   selectedComponentData: FiberNode | null;
   selectComponent: (id: string | null, data: FiberNode | null) => void;
+
+  // ── Component computed styles (populated by ELEMENT_STYLES response) ────────
+  /** Computed CSS property map for the currently-selected component DOM element. */
+  selectedComponentStyles: Record<string, string> | null;
+  setComponentStyles: (styles: Record<string, string> | null) => void;
+
+  // ── Style edit mailbox ──────────────────────────────────────────────────────
+  // The Design tab drops a patch here; the owning LiveArtboard picks it up,
+  // forwards it to the iframe, then clears it.
+  styleEditEvent: { artboardId: string; nodeId: string; property: string; value: string } | null;
+  patchStyleEdit: (artboardId: string, nodeId: string, property: string, value: string) => void;
+  clearStyleEdit: () => void;
 }
 
 export const useCanvas = create<CanvasStore>((set) => ({
@@ -38,7 +50,7 @@ export const useCanvas = create<CanvasStore>((set) => ({
 
   selectedArtboardId: null,
   selectArtboard: (id) =>
-    set({ selectedArtboardId: id, selectedComponentId: null, selectedComponentData: null }),
+    set({ selectedArtboardId: id, selectedComponentId: null, selectedComponentData: null, selectedComponentStyles: null }),
 
   workspaceId: null,
   projectId: null,
@@ -58,5 +70,14 @@ export const useCanvas = create<CanvasStore>((set) => ({
 
   selectedComponentId: null,
   selectedComponentData: null,
-  selectComponent: (id, data) => set({ selectedComponentId: id, selectedComponentData: data }),
+  selectComponent: (id, data) =>
+    set({ selectedComponentId: id, selectedComponentData: data, selectedComponentStyles: null }),
+
+  selectedComponentStyles: null,
+  setComponentStyles: (styles) => set({ selectedComponentStyles: styles }),
+
+  styleEditEvent: null,
+  patchStyleEdit: (artboardId, nodeId, property, value) =>
+    set({ styleEditEvent: { artboardId, nodeId, property, value } }),
+  clearStyleEdit: () => set({ styleEditEvent: null }),
 }));

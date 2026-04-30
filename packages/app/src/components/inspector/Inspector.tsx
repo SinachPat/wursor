@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useCanvas } from '@/store/canvas';
 import { useHistory } from '@/store/history';
 import { useArtboards, patchArtboard } from '@/hooks/useArtboards';
@@ -17,12 +17,12 @@ const TYPE_COLORS: Record<string, string> = {
   b: '#FFBA7B',
 };
 
-type TabId = 'props' | 'diff' | 'graph';
+type TabId = 'design' | 'props' | 'diff' | 'graph';
 
 export function Inspector() {
   const T = useCanvasTheme();
-  const { selectedArtboardId, liveArtboardIds, artboardFiberRoots, selectedComponentId, selectedComponentData, workspaceId, projectId } = useCanvas();
-  const [tab, setTab] = useState<TabId>('props');
+  const { selectedArtboardId, liveArtboardIds, artboardFiberRoots, selectedComponentId, selectedComponentData, selectedComponentStyles, workspaceId, projectId } = useCanvas();
+  const [tab, setTab] = useState<TabId>('design');
   const { rawArtboards } = useArtboards(workspaceId ?? undefined, projectId ?? undefined);
   const selectedArtboard = rawArtboards.find((ab) => ab.id === selectedArtboardId) ?? null;
   const isLive = selectedArtboardId ? liveArtboardIds.has(selectedArtboardId) : false;
@@ -44,7 +44,7 @@ export function Inspector() {
     >
       {/* Tab bar */}
       <div style={{ display: 'flex', borderBottom: `1px solid ${T.border}`, flexShrink: 0 }}>
-        {(['props', 'diff', 'graph'] as TabId[]).map((t) => (
+        {(['design', 'props', 'diff', 'graph'] as TabId[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -95,6 +95,12 @@ export function Inspector() {
               Select an artboard
             </span>
           </div>
+        ) : tab === 'design' ? (
+          <DesignTab
+            artboardId={selectedArtboardId}
+            componentId={selectedComponentId}
+            styles={selectedComponentStyles}
+          />
         ) : tab === 'props' ? (
           <PropsTab
             artboard={selectedArtboard}
@@ -141,6 +147,259 @@ export function Inspector() {
   );
 }
 
+/* ── Design tab ───────────────────────────────────────────── */
+
+// Groups of CSS properties shown in the Design panel, ordered as in Figma.
+const DESIGN_SECTIONS: Array<{
+  label: string;
+  props: Array<{ key: string; label: string; type: 'color' | 'text' | 'number' }>;
+}> = [
+  {
+    label: 'Typography',
+    props: [
+      { key: 'font-family',    label: 'Family',   type: 'text'   },
+      { key: 'font-size',      label: 'Size',     type: 'text'   },
+      { key: 'font-weight',    label: 'Weight',   type: 'text'   },
+      { key: 'line-height',    label: 'Line H.',  type: 'text'   },
+      { key: 'letter-spacing', label: 'Tracking', type: 'text'   },
+      { key: 'color',          label: 'Color',    type: 'color'  },
+      { key: 'text-align',     label: 'Align',    type: 'text'   },
+      { key: 'text-transform', label: 'Transform',type: 'text'   },
+    ],
+  },
+  {
+    label: 'Layout',
+    props: [
+      { key: 'display',         label: 'Display',  type: 'text'   },
+      { key: 'width',           label: 'Width',    type: 'text'   },
+      { key: 'height',          label: 'Height',   type: 'text'   },
+      { key: 'padding-top',     label: 'Pad↑',     type: 'text'   },
+      { key: 'padding-bottom',  label: 'Pad↓',     type: 'text'   },
+      { key: 'padding-left',    label: 'Pad←',     type: 'text'   },
+      { key: 'padding-right',   label: 'Pad→',     type: 'text'   },
+      { key: 'margin-top',      label: 'Mar↑',     type: 'text'   },
+      { key: 'margin-bottom',   label: 'Mar↓',     type: 'text'   },
+      { key: 'gap',             label: 'Gap',      type: 'text'   },
+      { key: 'flex-direction',  label: 'Direction',type: 'text'   },
+      { key: 'align-items',     label: 'Align',    type: 'text'   },
+      { key: 'justify-content', label: 'Justify',  type: 'text'   },
+    ],
+  },
+  {
+    label: 'Visual',
+    props: [
+      { key: 'background-color', label: 'Fill',    type: 'color'  },
+      { key: 'border-radius',    label: 'Radius',  type: 'text'   },
+      { key: 'opacity',          label: 'Opacity', type: 'number' },
+      { key: 'border-width',     label: 'Border W',type: 'text'   },
+      { key: 'border-color',     label: 'Border C',type: 'color'  },
+      { key: 'border-style',     label: 'Border S',type: 'text'   },
+      { key: 'box-shadow',       label: 'Shadow',  type: 'text'   },
+    ],
+  },
+];
+
+/** Converts a computed rgb()/rgba() string into a hex-like color for the picker. */
+function rgbToHex(rgb: string): string {
+  const m = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+  if (!m) return '#000000';
+  const r = parseInt(m[1] ?? '0').toString(16).padStart(2, '0');
+  const g = parseInt(m[2] ?? '0').toString(16).padStart(2, '0');
+  const b = parseInt(m[3] ?? '0').toString(16).padStart(2, '0');
+  return `#${r}${g}${b}`;
+}
+
+function DesignTab({
+  artboardId,
+  componentId,
+  styles,
+}: {
+  artboardId: string | null;
+  componentId: string | null;
+  styles: Record<string, string> | null;
+}) {
+  const T = useCanvasTheme();
+  const { patchStyleEdit } = useCanvas();
+
+  if (!artboardId) {
+    return (
+      <Section label="Design">
+        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.625rem', color: T.dim }}>
+          Select an artboard
+        </span>
+      </Section>
+    );
+  }
+
+  if (!componentId) {
+    return (
+      <div style={{ padding: '32px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, textAlign: 'center' }}>
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" style={{ opacity: 0.22 }}>
+          <rect x="2" y="2" width="24" height="24" rx="4" stroke="white" strokeWidth="1.4" strokeDasharray="4 2"/>
+          <circle cx="14" cy="14" r="4" stroke="white" strokeWidth="1.4"/>
+        </svg>
+        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.5625rem', color: T.dim, letterSpacing: '0.04em', lineHeight: 1.6 }}>
+          Click a component in the<br/>artboard to inspect & edit
+        </span>
+      </div>
+    );
+  }
+
+  if (!styles) {
+    return (
+      <Section label="Design">
+        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.625rem', color: T.dim }}>
+          Fetching styles…
+        </span>
+      </Section>
+    );
+  }
+
+  const patch = (property: string, value: string) => {
+    if (!artboardId || !componentId) return;
+    patchStyleEdit(artboardId, componentId, property, value);
+  };
+
+  return (
+    <>
+      {DESIGN_SECTIONS.map((section) => {
+        // Only render sections that have at least one property present
+        const populated = section.props.filter((p) => styles[p.key]);
+        if (populated.length === 0) return null;
+        return (
+          <div key={section.label}>
+            <Section label={section.label}>
+              {populated.map((p) => (
+                <DesignRow
+                  key={p.key}
+                  label={p.label}
+                  propKey={p.key}
+                  value={styles[p.key] ?? ''}
+                  type={p.type}
+                  onPatch={patch}
+                />
+              ))}
+            </Section>
+            <HSep />
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+function DesignRow({
+  label,
+  propKey,
+  value,
+  type,
+  onPatch,
+}: {
+  label: string;
+  propKey: string;
+  value: string;
+  type: 'color' | 'text' | 'number';
+  onPatch: (property: string, value: string) => void;
+}) {
+  const T = useCanvasTheme();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+
+  // Keep draft in sync when the incoming value changes (e.g. component re-selected)
+  const prevValue = useRef(value);
+  if (prevValue.current !== value) {
+    prevValue.current = value;
+    setDraft(value);
+  }
+
+  const commit = () => {
+    setEditing(false);
+    if (draft.trim() !== value) onPatch(propKey, draft.trim());
+  };
+
+  // Color swatch for color-type props
+  const hexColor = type === 'color' ? rgbToHex(value) : null;
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 6 }}>
+      <span style={{
+        fontFamily: "'JetBrains Mono', monospace",
+        fontSize: '0.5625rem',
+        color: T.key,
+        flexShrink: 0,
+        width: 56,
+        letterSpacing: '-0.01em',
+      }}>
+        {label}
+      </span>
+
+      {editing ? (
+        <div style={{ flex: 1, display: 'flex', gap: 3 }}>
+          <input
+            autoFocus
+            value={draft}
+            onChange={e => {
+              setDraft(e.target.value);
+              // Live preview on every keystroke
+              onPatch(propKey, e.target.value);
+            }}
+            onBlur={commit}
+            onKeyDown={e => {
+              if (e.key === 'Enter') commit();
+              if (e.key === 'Escape') { setEditing(false); setDraft(value); onPatch(propKey, value); }
+              e.stopPropagation();
+            }}
+            style={{
+              flex: 1, minWidth: 0,
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: '0.5625rem',
+              background: T.bgDeep,
+              border: `1px solid ${T.accent}`,
+              borderRadius: 4,
+              padding: '2px 6px',
+              color: T.fg,
+              outline: 'none',
+            }}
+          />
+        </div>
+      ) : (
+        <div
+          onClick={() => { setEditing(true); setDraft(value); }}
+          style={{
+            flex: 1, display: 'flex', alignItems: 'center', gap: 4,
+            cursor: 'text',
+            padding: '2px 4px',
+            borderRadius: 4,
+            border: '1px solid transparent',
+            transition: 'border-color 0.1s',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = T.border; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'transparent'; }}
+        >
+          {hexColor && (
+            <span style={{
+              width: 10, height: 10, borderRadius: 2, flexShrink: 0,
+              background: hexColor,
+              border: '1px solid rgba(255,255,255,0.15)',
+            }} />
+          )}
+          <span style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: '0.5625rem',
+            color: T.fgMuted,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            letterSpacing: '-0.01em',
+          }}>
+            {value}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Props tab ────────────────────────────────────────────── */
 function PropsTab({
   artboard,
@@ -157,6 +416,8 @@ function PropsTab({
   const queryClient = useQueryClient();
   const [editingUrl, setEditingUrl] = useState(false);
   const [urlDraft, setUrlDraft] = useState('');
+  const [editingRoute, setEditingRoute] = useState(false);
+  const [routeDraft, setRouteDraft] = useState('');
 
   // Drift report state
   const [driftStatus, setDriftStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
@@ -210,7 +471,7 @@ function PropsTab({
     { key: 'height', val: String(meta['height'] ?? 0), color: N },
   ];
 
-  const reservedKeys = new Set(['x', 'y', 'width', 'height', 'renderUrl']);
+  const reservedKeys = new Set(['x', 'y', 'width', 'height', 'renderUrl', 'route']);
   const extraProps = Object.entries(meta)
     .filter(([k]) => !reservedKeys.has(k))
     .map(([k, v]) => {
@@ -221,6 +482,22 @@ function PropsTab({
     });
 
   const renderUrl = typeof meta['renderUrl'] === 'string' ? meta['renderUrl'] as string : '';
+  const currentRoute = typeof meta['route'] === 'string' ? meta['route'] as string : '/';
+
+  const saveRoute = useCallback(async () => {
+    if (!artboard) return;
+    const cleaned = routeDraft.trim() || '/';
+    const { route: _r, ...rest } = artboard.metadata_jsonb;
+    const meta2: Record<string, unknown> =
+      cleaned === '/' ? { ...rest } : { ...rest, route: cleaned };
+    try {
+      await patchArtboard(artboard.id, { metadata_jsonb: meta2 });
+      queryClient.invalidateQueries({ queryKey: ['artboards', workspaceId, projectId ?? undefined] });
+    } catch (e) {
+      console.error('[Inspector] patch route failed', e);
+    }
+    setEditingRoute(false);
+  }, [artboard, routeDraft, workspaceId, projectId, queryClient]);
 
   return (
     <>
@@ -326,6 +603,64 @@ function PropsTab({
           ) : (
             <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.625rem', color: T.dim }}>
               not connected
+            </span>
+          )}
+        </div>
+
+        {/* route — which screen/path this artboard renders */}
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: editingRoute ? 6 : 0 }}>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.625rem', color: T.key }}>
+              route
+            </span>
+            <button
+              onClick={() => { setRouteDraft(currentRoute); setEditingRoute(true); }}
+              style={{
+                fontSize: '0.5rem', fontFamily: "'JetBrains Mono', monospace",
+                background: 'none', border: 'none', color: T.accent,
+                cursor: 'pointer', padding: 0, letterSpacing: '0.06em',
+                display: editingRoute ? 'none' : 'block',
+              }}
+            >
+              edit
+            </button>
+          </div>
+
+          {editingRoute ? (
+            <div style={{ display: 'flex', gap: 4 }}>
+              <input
+                autoFocus
+                value={routeDraft}
+                onChange={e => setRouteDraft(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') void saveRoute();
+                  if (e.key === 'Escape') setEditingRoute(false);
+                }}
+                placeholder="/dashboard"
+                style={{
+                  flex: 1, fontSize: '0.5875rem', fontFamily: "'JetBrains Mono', monospace",
+                  background: T.bgDeep, border: `1px solid ${T.border}`,
+                  borderRadius: 5, padding: '4px 8px', color: T.fg,
+                  outline: 'none',
+                }}
+              />
+              <button
+                onClick={() => void saveRoute()}
+                style={{
+                  fontSize: '0.5625rem', fontFamily: "'JetBrains Mono', monospace",
+                  background: T.accent, border: 'none', borderRadius: 5,
+                  color: '#fff', padding: '4px 8px', cursor: 'pointer', flexShrink: 0,
+                }}
+              >
+                ✓
+              </button>
+            </div>
+          ) : (
+            <span style={{
+              fontFamily: "'JetBrains Mono', monospace", fontSize: '0.625rem',
+              color: currentRoute === '/' ? T.dim : '#7DD3A8',
+            }}>
+              {currentRoute}
             </span>
           )}
         </div>
