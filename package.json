@@ -9,6 +9,8 @@
     "test": "vitest run --coverage",
     "build": "pnpm --filter @originmain/app run build",
     "dev": "pnpm --filter @originmain/app run dev",
+    "cli:build": "pnpm --filter @originmain/cli run build",
+    "cli:dev": "node packages/cli/dist/cli.js dev",
     "migration:dry-run": "supabase db diff --schema public"
   },
   "devDependencies": {

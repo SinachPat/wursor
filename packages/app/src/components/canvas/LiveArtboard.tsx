@@ -43,9 +43,16 @@ export function LiveArtboard({
   onComponentSelected,
   style,
 }: LiveArtboardProps) {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const iframeRef  = useRef<HTMLIFrameElement>(null);
   // Track whether the iframe has sent READY so we don't send messages too early.
   const isReadyRef = useRef(false);
+
+  // Reset ready state whenever src changes.  Without this, isReadyRef stays
+  // true from the previous page, causing design-token / selection effects to
+  // fire against a half-loaded iframe between navigation and the new READY.
+  useEffect(() => {
+    isReadyRef.current = false;
+  }, [src]);
 
   // ── Send a typed message to the iframe ───────────────────────────────────
   const sendMessage = useCallback(
@@ -84,6 +91,10 @@ export function LiveArtboard({
           break;
         case 'COMPONENT_SELECTED':
           onComponentSelected?.(msg.nodeId);
+          break;
+        case 'COMPONENT_DESELECTED':
+          // Renderer clicked empty space — clear the host-side selection.
+          onComponentSelected?.('');
           break;
       }
     }

@@ -107,7 +107,9 @@ export const TOUR_STEPS: TourStep[] = [
       </>
     ),
     codeBlock: `# Terminal 2 — keep your dev server running in Terminal 1
-npx @originmain/cli dev --target http://localhost:3000
+# From the monorepo root:
+pnpm cli:build          # one-time build (skip if already built)
+pnpm cli:dev --target http://localhost:3000
 
 # ✓ Proxy listening on http://localhost:4170
 # Paste http://localhost:4170 into the artboard URL input`,

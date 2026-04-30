@@ -8,17 +8,25 @@
     "originmain": "./dist/cli.js"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
   },
+  "files": [
+    "dist/cli.js",
+    "dist/index.js",
+    "README.md"
+  ],
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "build": "tsc -p tsconfig.build.json"
+    "build": "node build.mjs"
   },
-  "dependencies": {
-    "@originmain/renderer": "workspace:*"
-  },
+  "dependencies": {},
   "devDependencies": {
+    "@originmain/renderer": "workspace:*",
     "@types/node": "^22.0.0",
+    "esbuild": "^0.28.0",
     "typescript": "^5.5.0"
   },
   "engines": {

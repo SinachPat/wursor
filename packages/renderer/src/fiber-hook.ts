@@ -133,10 +133,10 @@ export function buildProxyFiberHookScript(): string {
   var HOST_SOURCE     = ${JSON.stringify(HOST_SOURCE)};
 
   // ── Runtime state ─────────────────────────────────────────────────────────
-  var currentTree    = null;   // latest serialized FiberNode tree
-  var nodeMap        = {};     // nodeId → { domRect }  (flat for O(1) lookup)
-  var selectedNodeId = null;   // currently highlighted component
-  var highlightEl    = null;   // the blue-ring DOM overlay element
+  var nodeMap        = {};          // nodeId → { domRect, fiber }
+  var fiberMap       = new WeakMap(); // fiber → nodeId (reverse lookup for click)
+  var selectedNodeId = null;        // currently highlighted component
+  var highlightEl    = null;        // the blue-ring DOM overlay element
 
   // ── postMessage helper ────────────────────────────────────────────────────
   function post(msg) {
@@ -165,11 +165,15 @@ export function buildProxyFiberHookScript(): string {
       catch (e) { /* don't break existing DevTools */ }
     }
     try {
+      // Reset maps before each walk so stale entries from the previous tree
+      // don't accumulate. fiberMap is a WeakMap so it self-cleans, but we
+      // rebuild nodeMap from scratch on every commit.
+      nodeMap  = {};
+      fiberMap = new WeakMap();
+
       var tree = serializeFiber(root.current, '');
-      currentTree = tree;
-      rebuildNodeMap(tree);
       post({ type: 'FIBER_TREE_UPDATE', root: tree });
-      // Re-sync the highlight ring after each React commit (position may shift).
+      // Re-sync the highlight ring after each React commit (layout may shift).
       if (selectedNodeId) updateHighlight();
     } catch (err) {
       post({ type: 'ERROR', message: String(err) });
@@ -178,22 +182,24 @@ export function buildProxyFiberHookScript(): string {
 
   // ── Fiber serialization (stable path-based IDs) ───────────────────────────
   // ID format: "ComponentName:siblingIndex/ChildName:siblingIndex/..."
-  // Stable across re-renders provided the tree structure doesn't change.
+  //
+  // IMPORTANT: unnamed fibers (Fragment, Context.Provider, React.memo wrappers)
+  // are transparent — their children are collected directly into their parent's
+  // children array. Returning only the first named child (the old approach)
+  // caused entire subtrees to vanish from the tree.
 
   function serializeFiber(fiber, parentId) {
     if (!fiber) return null;
     var name = getDisplayName(fiber);
-
     if (!name) {
-      // Unnamed fiber (Fragment, Context, Provider) — skip this level,
-      // but keep walking children so named descendants are not lost.
-      var c = fiber.child;
-      while (c) {
-        var s = serializeFiber(c, parentId);
-        if (s) return s;
-        c = c.sibling;
-      }
-      return null;
+      // Unnamed root fiber (HostRoot) — skip to first named child.
+      // collectChildren handles the Fragment case recursively.
+      var children = [];
+      collectChildren(fiber, parentId, children);
+      if (children.length === 1) return children[0];
+      if (children.length === 0) return null;
+      // Multiple named children at root — wrap in a synthetic root node.
+      return { id: '__root__', name: '__root__', props: {}, children: children };
     }
 
     var nodeId = (parentId ? parentId + '/' : '') + name + ':' + String(fiber.index);
@@ -201,13 +207,31 @@ export function buildProxyFiberHookScript(): string {
     var node   = { id: nodeId, name: name, props: serializeProps(fiber.memoizedProps), children: [] };
     if (rect) node.domRect = rect;
 
+    // Register in both maps for O(1) lookup.
+    nodeMap[nodeId] = { domRect: rect || null, fiber: fiber };
+    fiberMap.set(fiber, nodeId);
+
+    collectChildren(fiber, nodeId, node.children);
+    return node;
+  }
+
+  // Collect all NAMED descendants of fiber.child into out[], transparently
+  // flattening unnamed intermediates (Fragments, Providers, wrappers).
+  function collectChildren(fiber, parentId, out) {
     var child = fiber.child;
     while (child) {
-      var serialized = serializeFiber(child, nodeId);
-      if (serialized) node.children.push(serialized);
+      var name = getDisplayName(child);
+      if (name) {
+        var serialized = serializeFiber(child, parentId);
+        if (serialized) out.push(serialized);
+      } else {
+        // Unnamed (Fragment / Context / Provider / forwardRef wrapper etc.):
+        // flatten its children directly into our level — they share parentId.
+        fiberMap.set(child, null); // mark as non-selectable
+        collectChildren(child, parentId, out);
+      }
       child = child.sibling;
     }
-    return node;
   }
 
   function getDisplayName(fiber) {
@@ -242,23 +266,20 @@ export function buildProxyFiberHookScript(): string {
     return out;
   }
 
-  // ── Node map: flat O(1) lookup by stable ID ───────────────────────────────
-  function rebuildNodeMap(node) {
-    nodeMap = {};
-    fillMap(node);
-  }
-  function fillMap(node) {
-    if (!node) return;
-    nodeMap[node.id] = { domRect: node.domRect || null };
-    var children = node.children;
-    for (var i = 0; i < children.length; i++) fillMap(children[i]);
-  }
-
   // ── Highlight overlay (blue ring inside the iframe) ───────────────────────
+  // updateHighlight re-measures from the live fiber stateNode so the ring
+  // stays accurate even after scroll (between React commits).
   function updateHighlight() {
-    var info = nodeMap[selectedNodeId];
-    if (info && info.domRect) renderHighlight(info.domRect);
-    else removeHighlight();
+    var info = selectedNodeId ? nodeMap[selectedNodeId] : null;
+    if (!info) { removeHighlight(); return; }
+
+    // Re-measure from the live DOM element for scroll accuracy.
+    var rect = info.fiber ? getDomRect(info.fiber) : info.domRect;
+    if (rect && rect.width > 0 && rect.height > 0) {
+      renderHighlight(rect);
+    } else {
+      removeHighlight();
+    }
   }
 
   function renderHighlight(rect) {
@@ -266,8 +287,6 @@ export function buildProxyFiberHookScript(): string {
       highlightEl = document.createElement('div');
       highlightEl.id = '__om_sel__';
       highlightEl.setAttribute('aria-hidden', 'true');
-      // CSS kept inline so no stylesheet dependency. Transition animates when
-      // the selected component moves (e.g. during a re-render or scroll).
       highlightEl.style.cssText = [
         'position:fixed', 'pointer-events:none', 'z-index:2147483647',
         'box-shadow:0 0 0 2px #3385FF',
@@ -290,41 +309,62 @@ export function buildProxyFiberHookScript(): string {
     }
   }
 
-  // ── Click-to-select (capturing phase) ────────────────────────────────────
-  // Finds the deepest named fiber node at the click point and reports it back.
-  // In normal canvas usage the SelectionOverlay sits on top of the iframe and
-  // this listener fires when the overlay is bypassed (e.g. direct preview mode).
-
-  document.addEventListener('click', function(event) {
-    var node = findDeepestAt(currentTree, event.clientX, event.clientY);
-    if (node && node.domRect) {
-      post({ type: 'COMPONENT_SELECTED', nodeId: node.id, rect: node.domRect });
-    }
+  // Re-measure on scroll so the ring follows the element without needing
+  // a React commit (which only fires on state/prop changes).
+  window.addEventListener('scroll', function() {
+    if (selectedNodeId) updateHighlight();
   }, true);
 
-  function findDeepestAt(node, x, y) {
-    if (!node) return null;
-    var r   = node.domRect;
-    var hit = r && x >= r.x && x <= r.x + r.width && y >= r.y && y <= r.y + r.height;
+  // ── Click-to-select (capturing phase) ────────────────────────────────────
+  // Uses document.elementFromPoint to get the live DOM element at the click
+  // position (accurate even after scroll), then walks the React fiber tree
+  // upward via __reactFiber$ keys to find the nearest tracked component.
+  // Falls back to a tree-based hit test if the fiber key is not present
+  // (e.g. in some SSR-hydrated contexts).
 
-    if (hit) {
-      // Matched — recurse children for a deeper (more specific) match.
-      var children = node.children;
-      for (var i = 0; i < children.length; i++) {
-        var deeper = findDeepestAt(children[i], x, y);
-        if (deeper) return deeper;
-      }
-      return node;
-    }
-
-    // No hit on this node — still check children for overflow:visible cases.
-    var children = node.children;
-    for (var i = 0; i < children.length; i++) {
-      var found = findDeepestAt(children[i], x, y);
-      if (found) return found;
+  function getFiberKey(el) {
+    var keys = Object.keys(el);
+    for (var i = 0; i < keys.length; i++) {
+      if (keys[i].indexOf('__reactFiber$') === 0) return keys[i];
     }
     return null;
   }
+
+  document.addEventListener('click', function(event) {
+    // Ignore clicks on our own highlight overlay.
+    if (event.target === highlightEl) return;
+
+    var el = document.elementFromPoint(event.clientX, event.clientY);
+
+    // Walk the DOM upward, trying to find a tracked React fiber at each level.
+    var current = el;
+    while (current && current !== document.documentElement) {
+      var fiberKey = current ? getFiberKey(current) : null;
+      if (fiberKey) {
+        // Walk the fiber's return (parent) chain to find the nearest node we track.
+        var fiber = current[fiberKey];
+        while (fiber) {
+          var nodeId = fiberMap.get(fiber);
+          if (nodeId) {
+            // Re-measure from the live element for accurate post-scroll rect.
+            var liveEl = fiber.stateNode;
+            var rect = (liveEl && typeof liveEl.getBoundingClientRect === 'function')
+              ? (function(r) { return { x: r.x, y: r.y, width: r.width, height: r.height }; })(liveEl.getBoundingClientRect())
+              : null;
+            if (rect) {
+              post({ type: 'COMPONENT_SELECTED', nodeId: nodeId, rect: rect });
+              return;
+            }
+          }
+          fiber = fiber.return;
+        }
+      }
+      current = current.parentElement;
+    }
+
+    // Nothing found — clear the selection.
+    post({ type: 'COMPONENT_DESELECTED' });
+  }, true);
 
   // ── Host → Renderer message handler ──────────────────────────────────────
   window.addEventListener('message', function(event) {

@@ -47,7 +47,8 @@ function main(): void {
 
   if (values.help || !command) {
     printUsage();
-    process.exit(command ? 0 : 1);
+    // --help is a success; missing command is a usage error.
+    process.exit(values.help ? 0 : 1);
   }
 
   if (command !== 'dev') {
