@@ -1,6 +1,6 @@
 # @originmain/cli
 
-A reverse proxy that enables live React component inspection inside [Originmain](https://originmain.com) artboards.
+A reverse proxy that enables live React component inspection inside [Originmain](https://originmain.sinachpat.com) artboards.
 
 Point it at your running dev server and paste the proxy URL into an artboard's **Connect app** field. From that point on, Originmain can read your component tree in real time, highlight selected components, and push design tokens into the running app — without any changes to your source code.
 
