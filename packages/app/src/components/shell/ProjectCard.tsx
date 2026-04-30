@@ -26,6 +26,7 @@ export function ProjectCard({ workspaceId, projectId, name, framework, appUrl, d
   return (
     <Link href={`/workspace/${workspaceId}/project/${projectId}`} style={{ textDecoration: 'none' }}>
       <div
+        data-tour="project-card"
         style={{
           background: 'var(--card-bg)',
           border: '1px solid var(--card-border)',

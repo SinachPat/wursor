@@ -5,6 +5,7 @@ import { serverClient } from '@/lib/supabase';
 import { AppHeader } from '@/components/shell/AppHeader';
 import { ProjectCard } from '@/components/shell/ProjectCard';
 import { DesignLanguageUpload } from '@/components/shell/DesignLanguageUpload';
+import { TourAutoStart } from '@/components/walkthrough/TourAutoStart';
 import { getActiveDesignLanguageFile } from '@originmain/origin-graph';
 import type { Workspace, Project } from '@originmain/origin-graph';
 
@@ -47,6 +48,8 @@ export default async function WorkspacePage({ params }: { params: Promise<{ wid:
 
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--page-bg)', fontFamily: "'Inter', -apple-system, sans-serif" }}>
+      {/* Auto-start tour for first-time visitors (client component, renders null) */}
+      <TourAutoStart />
       <AppHeader breadcrumbs={[
         { label: 'Workspaces', href: '/workspaces' },
         { label: workspace.name },
@@ -54,8 +57,8 @@ export default async function WorkspacePage({ params }: { params: Promise<{ wid:
 
       <main style={{ maxWidth: 960, margin: '0 auto', padding: '48px 24px' }}>
 
-        {/* Title row */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 32 }}>
+        {/* Title row — data-tour="projects-section" anchors the tour spotlight */}
+        <div data-tour="projects-section" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 32 }}>
           <div>
             <h1 style={{ fontSize: '1.5rem', fontWeight: 700, letterSpacing: '-0.03em', color: 'var(--page-text)', margin: 0 }}>
               Projects
@@ -92,13 +95,16 @@ export default async function WorkspacePage({ params }: { params: Promise<{ wid:
               </svg>
               Settings
             </Link>
-            <Link href={`/workspace/${wid}/project/new`} style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              background: 'var(--btn-bg)', color: 'var(--btn-fg)',
-              fontSize: '0.875rem', fontWeight: 600,
-              padding: '9px 18px', borderRadius: 9,
-              textDecoration: 'none', letterSpacing: '-0.01em',
-            }}>
+            <Link
+              href={`/workspace/${wid}/project/new`}
+              data-tour="new-project-btn"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                background: 'var(--btn-bg)', color: 'var(--btn-fg)',
+                fontSize: '0.875rem', fontWeight: 600,
+                padding: '9px 18px', borderRadius: 9,
+                textDecoration: 'none', letterSpacing: '-0.01em',
+              }}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
               </svg>

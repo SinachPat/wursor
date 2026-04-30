@@ -17,7 +17,12 @@ export interface LiveArtboardProps {
   src: string;
   width?: number;
   height?: number;
+  /** DLF design tokens to inject into the iframe as CSS custom properties. */
   designTokens?: Record<string, string>;
+  /** The currently selected component node ID (from the canvas store).
+   *  When set, sends SELECT_COMPONENT to the iframe so the fiber hook renders
+   *  a blue highlight ring over that component's DOM element. */
+  selectedComponentId?: string | null;
   onReady?: () => void;
   onFiberTreeUpdate?: (root: FiberNode) => void;
   onComponentSelected?: (nodeId: string) => void;
@@ -32,25 +37,31 @@ export function LiveArtboard({
   width = 1280,
   height = 720,
   designTokens,
+  selectedComponentId,
   onReady,
   onFiberTreeUpdate,
   onComponentSelected,
   style,
 }: LiveArtboardProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  // Track whether the iframe has sent READY so we don't send messages too early.
+  const isReadyRef = useRef(false);
 
-  // Send a message to the iframe via the typed protocol
+  // ── Send a typed message to the iframe ───────────────────────────────────
   const sendMessage = useCallback(
     (type: Parameters<typeof createHostEnvelope>[1]['type'], payload?: Record<string, unknown>) => {
       const iframe = iframeRef.current;
       if (!iframe?.contentWindow) return;
-      const envelope = createHostEnvelope(id, { type, ...(payload ?? {}) } as Parameters<typeof createHostEnvelope>[1]);
+      const envelope = createHostEnvelope(
+        id,
+        { type, ...(payload ?? {}) } as Parameters<typeof createHostEnvelope>[1],
+      );
       iframe.contentWindow.postMessage(envelope, '*');
     },
-    [id]
+    [id],
   );
 
-  // Handle messages from the renderer iframe
+  // ── Handle messages from the renderer iframe ──────────────────────────────
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
       if (!isRendererEnvelope(event.data)) return;
@@ -59,10 +70,13 @@ export function LiveArtboard({
       const msg: RendererMessage = event.data.message;
       switch (msg.type) {
         case 'READY':
-          // The fiber hook is already installed — either by the CLI proxy
-          // (injected into the HTML response) or by @originmain/live SDK
-          // (imported before React in the user's app). No injection needed.
+          isReadyRef.current = true;
+          // Push current design tokens into the iframe immediately.
           if (designTokens) sendMessage('SET_DESIGN_TOKENS', { tokens: designTokens });
+          // Restore any active selection that existed before the iframe loaded.
+          if (selectedComponentId) {
+            sendMessage('SELECT_COMPONENT', { nodeId: selectedComponentId });
+          }
           onReady?.();
           break;
         case 'FIBER_TREE_UPDATE':
@@ -76,26 +90,39 @@ export function LiveArtboard({
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [id, designTokens, sendMessage, onReady, onFiberTreeUpdate, onComponentSelected]);
+  }, [id, designTokens, selectedComponentId, sendMessage, onReady, onFiberTreeUpdate, onComponentSelected]);
 
-  // Push updated design tokens whenever they change
+  // ── Push updated design tokens whenever they change ───────────────────────
   useEffect(() => {
-    if (!designTokens) return;
+    if (!isReadyRef.current || !designTokens) return;
     sendMessage('SET_DESIGN_TOKENS', { tokens: designTokens });
   }, [designTokens, sendMessage]);
+
+  // ── Sync selection changes into the iframe ────────────────────────────────
+  // Sends SELECT_COMPONENT on every selectedComponentId change so the blue
+  // highlight ring stays in sync with the canvas selection store.
+  useEffect(() => {
+    if (!isReadyRef.current) return;
+    if (selectedComponentId) {
+      sendMessage('SELECT_COMPONENT', { nodeId: selectedComponentId });
+    } else {
+      sendMessage('DESELECT');
+    }
+  }, [selectedComponentId, sendMessage]);
 
   return (
     <iframe
       ref={iframeRef}
       // The name attribute carries the artboard ID to the fiber hook.
-      // The hook reads window.name to tag postMessage envelopes.
+      // The hook reads window.name to tag postMessage envelopes and to
+      // guard against activating outside Originmain iframes.
       // Format: "om:<artboardId>"
       name={`om:${id}`}
       src={src}
       title={`artboard-${id}`}
-      // Security: allow-scripts required to run React; allow-same-origin required
-      // for postMessage with targeted origin validation. Do NOT combine these with
-      // untrusted third-party content.
+      // Security: allow-scripts required for React; allow-same-origin required
+      // for postMessage origin validation. Do NOT add allow-top-navigation or
+      // allow-popups unless explicitly needed — principle of least privilege.
       sandbox="allow-scripts allow-same-origin allow-forms"
       style={{
         width,

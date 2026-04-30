@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { UserButton } from '@clerk/nextjs';
 import { useTheme } from '@/store/theme';
+import { useWalkthrough } from '@/store/walkthrough';
 
 interface Crumb { label: string; href?: string }
 
@@ -16,6 +17,7 @@ interface AppHeaderProps {
 
 export function AppHeader({ breadcrumbs = [], workspaceName, workspaceId }: AppHeaderProps) {
   const { mode, toggle } = useTheme();
+  const startTour = useWalkthrough((s) => s.start);
 
   // Back-compat: if old props are passed without breadcrumbs, synthesise them
   const crumbs: Crumb[] = breadcrumbs.length > 0
@@ -72,6 +74,34 @@ export function AppHeader({ breadcrumbs = [], workspaceName, workspaceId }: AppH
       ))}
 
       <div style={{ flex: 1 }} />
+
+      {/* Tour trigger */}
+      <button
+        onClick={startTour}
+        title="Start product tour"
+        aria-label="Start product tour"
+        style={{
+          background: 'none', border: `1px solid ${mode === 'dark' ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.10)'}`,
+          cursor: 'pointer',
+          color: mode === 'dark' ? 'rgba(255,255,255,0.4)' : '#A1A1AA',
+          width: 26, height: 26, borderRadius: '50%',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: '0.75rem', fontWeight: 600, marginRight: 8,
+          transition: 'color 0.12s, background 0.12s, border-color 0.12s',
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.color = '#3385FF';
+          e.currentTarget.style.borderColor = 'rgba(51,133,255,0.45)';
+          e.currentTarget.style.background = 'rgba(51,133,255,0.08)';
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.color = mode === 'dark' ? 'rgba(255,255,255,0.4)' : '#A1A1AA';
+          e.currentTarget.style.borderColor = mode === 'dark' ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.10)';
+          e.currentTarget.style.background = 'none';
+        }}
+      >
+        ?
+      </button>
 
       {/* Theme toggle */}
       <button

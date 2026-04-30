@@ -5,6 +5,7 @@ import { FluentProvider } from '@fluentui/react-components';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { originmainLightTheme, originmainDarkTheme } from '@originmain/ui';
 import { useTheme } from '@/store/theme';
+import { TourOverlay } from '@/components/walkthrough/TourOverlay';
 
 export function Providers({ children }: { children: ReactNode }) {
   // TanStack Query v5: create QueryClient inside useState so it's stable across
@@ -35,6 +36,7 @@ export function Providers({ children }: { children: ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <FluentProvider theme={theme} style={{ height: '100%' }}>
         {children}
+        <TourOverlay />
       </FluentProvider>
     </QueryClientProvider>
   );

@@ -109,6 +109,7 @@ export function ArtboardNavigator() {
 
   return (
     <div
+      data-tour="navigator-panel"
       className="dark-panel"
       style={{
         gridColumn: 1,

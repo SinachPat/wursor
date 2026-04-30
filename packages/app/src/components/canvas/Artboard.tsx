@@ -28,7 +28,11 @@ const DIFF_STATUS_BADGE: Record<string, { color: string; bg: string; label: stri
 };
 
 export function Artboard({ id, label, x, y, width, height, renderUrl }: ArtboardProps) {
-  const { selectedArtboardId, selectArtboard, workspaceId, projectId, setArtboardLive, setFiberRoot, selectComponent } = useCanvas();
+  const {
+    selectedArtboardId, selectArtboard, workspaceId, projectId,
+    setArtboardLive, setFiberRoot, selectComponent,
+    selectedComponentId,
+  } = useCanvas();
   const selected = selectedArtboardId === id;
   const queryClient = useQueryClient();
 
@@ -305,6 +309,7 @@ export function Artboard({ id, label, x, y, width, height, renderUrl }: Artboard
               src={renderUrl}
               width={width}
               height={height}
+              selectedComponentId={selectedComponentId}
               onFiberTreeUpdate={handleFiberUpdate}
               onComponentSelected={handleComponentSelected}
             />
@@ -360,6 +365,7 @@ function EmptyArtboardContent({
 
   return (
     <div
+      data-tour="artboard-empty"
       style={{
         width, height, display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
@@ -432,6 +438,7 @@ function EmptyArtboardContent({
             npx @originmain/cli dev --target :3000
           </p>
           <button
+            data-tour="artboard-url-btn"
             onClick={() => setEditing(true)}
             style={{
               padding: '7px 14px', borderRadius: 6, border: '1px solid rgba(0,0,0,0.12)',

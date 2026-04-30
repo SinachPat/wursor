@@ -29,6 +29,7 @@ export function Inspector() {
 
   return (
     <div
+      data-tour="inspector-panel"
       className="dark-panel"
       style={{
         gridColumn: 3,

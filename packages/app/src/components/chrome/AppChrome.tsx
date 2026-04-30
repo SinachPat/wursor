@@ -12,6 +12,7 @@ import { useCanvas, type Tool } from '@/store/canvas';
 import { useViewport } from '@/store/viewport';
 import { useTheme } from '@/store/theme';
 import { useCanvasTheme } from '@/store/canvasTheme';
+import { useWalkthrough } from '@/store/walkthrough';
 
 interface AppChromeProps {
   workspaceId?: string;
@@ -26,6 +27,7 @@ export function AppChrome({ workspaceId, projectId, workspaceName, projectName }
   const setActiveTool      = useCanvas((s) => s.setActiveTool);
   const { mode: themeMode, toggle: toggleTheme } = useTheme();
   const CT = useCanvasTheme();
+  const startTour = useWalkthrough((s) => s.start);
 
   // Push workspace/project IDs into the store so Canvas and Navigator can read them.
   useEffect(() => {
@@ -167,6 +169,36 @@ export function AppChrome({ workspaceId, projectId, workspaceName, projectName }
           )}
 
           <div style={{ flex: 1 }} />
+
+          {/* Tour trigger */}
+          <button
+            onClick={startTour}
+            title="Start product tour"
+            aria-label="Start product tour"
+            style={{
+              background: 'none',
+              border: `1px solid ${CT.border}`,
+              cursor: 'pointer',
+              color: CT.fgMuted,
+              width: 22, height: 22, borderRadius: '50%',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '0.6875rem', fontWeight: 600, marginRight: 6,
+              transition: 'color 0.12s, background 0.12s, border-color 0.12s',
+              flexShrink: 0,
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.color = CT.accent;
+              e.currentTarget.style.borderColor = `${CT.accent}66`;
+              e.currentTarget.style.background = `${CT.accent}14`;
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.color = CT.fgMuted;
+              e.currentTarget.style.borderColor = CT.border;
+              e.currentTarget.style.background = 'none';
+            }}
+          >
+            ?
+          </button>
 
           {/* Theme toggle */}
           <button
