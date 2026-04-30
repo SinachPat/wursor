@@ -3,7 +3,7 @@
 // Authentication: Bearer <workspace_token> (HMAC-SHA256, issued by issueWorkspaceToken).
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyWorkspaceToken, TOOL_MAP } from '@originmain/agent-bridge';
+import { verifyWorkspaceToken, TOOL_MAP, getToolList } from '@originmain/agent-bridge';
 import type { JsonRpcRequest, ToolContext } from '@originmain/agent-bridge';
 import {
   getDiffsByStatus,
@@ -47,12 +47,10 @@ export async function POST(req: NextRequest) {
   }
 
   // tools/list — meta-endpoint; return available tools without executing one.
+  // MCP spec requires each entry to include inputSchema so clients can
+  // construct valid tool calls without out-of-band documentation.
   if (body.method === 'tools/list') {
-    const tools = [...TOOL_MAP.values()].map(t => ({
-      name: t.name,
-      description: t.description,
-    }));
-    return NextResponse.json({ jsonrpc: '2.0', id: body.id, result: { tools } });
+    return NextResponse.json({ jsonrpc: '2.0', id: body.id, result: { tools: getToolList() } });
   }
 
   // ── Dispatch ────────────────────────────────────────────────────────────────

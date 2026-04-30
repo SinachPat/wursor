@@ -55,8 +55,12 @@ export function Artboard({ id, label, x, y, width, height, renderUrl }: Artboard
   }, [localFiberRoot, selectComponent]);
 
   // ── Drag to reposition ─────────────────────────────────────────────────────
-  const isDragging = useRef(false);
-  const dragStart  = useRef({ mouseX: 0, mouseY: 0, artX: 0, artY: 0 });
+  const isDragging    = useRef(false);
+  const dragStart     = useRef({ mouseX: 0, mouseY: 0, artX: 0, artY: 0 });
+  // dragOffsetRef carries the live offset into the onUp closure, avoiding the
+  // stale-state problem that occurs when useCallback captures dragOffset before
+  // any mousemove events have fired.
+  const dragOffsetRef = useRef({ dx: 0, dy: 0 });
   const [dragOffset, setDragOffset] = useState({ dx: 0, dy: 0 });
 
   const onLabelMouseDown = useCallback((e: React.MouseEvent) => {
@@ -65,6 +69,7 @@ export function Artboard({ id, label, x, y, width, height, renderUrl }: Artboard
     e.stopPropagation();
     e.preventDefault();
     isDragging.current = true;
+    dragOffsetRef.current = { dx: 0, dy: 0 };
     const { zoom, panX, panY } = useViewport.getState();
     dragStart.current = {
       mouseX: (e.clientX - panX) / zoom,
@@ -79,10 +84,13 @@ export function Artboard({ id, label, x, y, width, height, renderUrl }: Artboard
       const { zoom: z, panX: px, panY: py } = useViewport.getState();
       const curX = (mv.clientX - px) / z;
       const curY = (mv.clientY - py) / z;
-      setDragOffset({
+      const offset = {
         dx: curX - dragStart.current.mouseX,
         dy: curY - dragStart.current.mouseY,
-      });
+      };
+      // Update the ref first so onUp always reads the final position.
+      dragOffsetRef.current = offset;
+      setDragOffset(offset);
     };
 
     const onUp = () => {
@@ -91,8 +99,10 @@ export function Artboard({ id, label, x, y, width, height, renderUrl }: Artboard
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
 
-      const newX = Math.round(dragStart.current.artX + dragOffset.dx);
-      const newY = Math.round(dragStart.current.artY + dragOffset.dy);
+      // Read the final offset from the ref — never stale regardless of when
+      // useCallback last reconstructed onLabelMouseDown.
+      const newX = Math.round(dragStart.current.artX + dragOffsetRef.current.dx);
+      const newY = Math.round(dragStart.current.artY + dragOffsetRef.current.dy);
 
       // Persist position
       fetch(`/api/artboards/${id}`, {
@@ -104,12 +114,13 @@ export function Artboard({ id, label, x, y, width, height, renderUrl }: Artboard
       }).then(() => {
         queryClient.invalidateQueries({ queryKey: ['artboards', workspaceId, projectId ?? undefined] });
         setDragOffset({ dx: 0, dy: 0 });
+        dragOffsetRef.current = { dx: 0, dy: 0 };
       }).catch(console.error);
     };
 
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
-  }, [id, x, y, width, height, renderUrl, workspaceId, projectId, queryClient, dragOffset.dx, dragOffset.dy]);
+  }, [id, x, y, width, height, renderUrl, workspaceId, projectId, queryClient]);
 
   // ── Inline rename ──────────────────────────────────────────────────────────
   const [renaming, setRenaming] = useState(false);

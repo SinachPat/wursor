@@ -4,7 +4,7 @@
 // import time; any later installation is too late.
 //
 // Full bidirectional protocol:
-//   Renderer → Host : READY, FIBER_TREE_UPDATE, COMPONENT_SELECTED, ERROR
+//   Renderer → Host : READY, FIBER_TREE_UPDATE, COMPONENT_SELECTED, COMPONENT_DESELECTED, ERROR
 //   Host → Renderer : SET_DESIGN_TOKENS, NAVIGATE, SELECT_COMPONENT, DESELECT
 //
 // Node IDs are stable path strings: "Component:idx/Child:idx/…"
@@ -57,8 +57,11 @@ function installFiberHook(): void {
   }
 
   // ── Runtime state ─────────────────────────────────────────────────────────
-  let currentTree: SerializedNode | null = null;
-  const nodeMap = new Map<string, { domRect: DomRect | null }>();
+  // nodeMap: nodeId → { domRect (snapshot), fiber (live reference for re-measurement) }
+  let nodeMap = new Map<string, { domRect: DomRect | null; fiber: FiberLike }>();
+  // fiberMap: fiber object → nodeId for O(1) hit-test lookup via __reactFiber$ DOM keys.
+  // A null value means the fiber is unnamed/transparent and not directly selectable.
+  let fiberMap = new WeakMap<object, string | null>();
   let selectedNodeId: string | null = null;
   let highlightEl: HTMLElement | null = null;
 
@@ -93,9 +96,13 @@ function installFiberHook(): void {
       const root = args[1] as { current: FiberLike } | undefined;
       if (!root?.current) return;
 
+      // Reset both maps before each walk so stale entries from the previous tree
+      // don't accumulate. fiberMap is a WeakMap so it self-cleans, but nodeMap
+      // must be rebuilt from scratch on every commit.
+      nodeMap  = new Map();
+      fiberMap = new WeakMap();
+
       const tree = serializeFiber(root.current, '');
-      currentTree = tree;
-      rebuildNodeMap(tree);
       post({ type: 'FIBER_TREE_UPDATE', root: tree });
       // Re-sync the highlight ring after each React commit (component may move).
       if (selectedNodeId) updateHighlight();
@@ -105,6 +112,12 @@ function installFiberHook(): void {
   };
 
   // ── Fiber serialization (stable path-based IDs) ───────────────────────────
+  // ID format: "ComponentName:siblingIndex/ChildName:siblingIndex/..."
+  //
+  // IMPORTANT: unnamed fibers (Fragment, Context.Provider, React.memo wrappers)
+  // are transparent — their children are collected directly into their parent's
+  // children array. Returning only the first named child (old approach) caused
+  // entire subtrees to vanish from the tree.
 
   function serializeFiber(
     fiber: FiberLike | null,
@@ -114,14 +127,13 @@ function installFiberHook(): void {
 
     const name = getDisplayName(fiber);
     if (!name) {
-      // Unnamed fiber — skip level but keep walking children.
-      let child = fiber.child;
-      while (child) {
-        const s = serializeFiber(child, parentId);
-        if (s) return s;
-        child = child.sibling;
-      }
-      return null;
+      // Unnamed root fiber (HostRoot) — collectChildren handles Fragment recursively.
+      const children: SerializedNode[] = [];
+      collectChildren(fiber, parentId, children);
+      if (children.length === 1) return children[0];
+      if (children.length === 0) return null;
+      // Multiple named children at root — wrap in a synthetic root node.
+      return { id: '__root__', name: '__root__', props: {}, children };
     }
 
     const nodeId = (parentId ? parentId + '/' : '') + name + ':' + String(fiber.index);
@@ -134,13 +146,31 @@ function installFiberHook(): void {
     };
     if (rect) node.domRect = rect;
 
+    // Register in both maps for O(1) lookup.
+    nodeMap.set(nodeId, { domRect: rect, fiber });
+    fiberMap.set(fiber, nodeId);
+
+    collectChildren(fiber, nodeId, node.children);
+    return node;
+  }
+
+  // Collect all named descendants of fiber.child into out[], transparently
+  // flattening unnamed intermediates (Fragments, Providers, wrappers).
+  function collectChildren(fiber: FiberLike, parentId: string, out: SerializedNode[]): void {
     let child = fiber.child;
     while (child) {
-      const serialized = serializeFiber(child, nodeId);
-      if (serialized) node.children.push(serialized);
+      const name = getDisplayName(child);
+      if (name) {
+        const serialized = serializeFiber(child, parentId);
+        if (serialized) out.push(serialized);
+      } else {
+        // Unnamed (Fragment / Context / Provider / forwardRef wrapper etc.):
+        // mark as non-selectable and flatten children directly into our level.
+        fiberMap.set(child, null);
+        collectChildren(child, parentId, out);
+      }
       child = child.sibling;
     }
-    return node;
   }
 
   function getDisplayName(fiber: FiberLike): string | null {
@@ -187,25 +217,21 @@ function installFiberHook(): void {
     return out;
   }
 
-  // ── Node map: flat O(1) lookup by stable ID ───────────────────────────────
-
-  function rebuildNodeMap(node: SerializedNode | null): void {
-    nodeMap.clear();
-    fillMap(node);
-  }
-
-  function fillMap(node: SerializedNode | null): void {
-    if (!node) return;
-    nodeMap.set(node.id, { domRect: node.domRect ?? null });
-    for (const child of node.children) fillMap(child);
-  }
-
   // ── Highlight overlay (blue ring inside the iframe) ───────────────────────
+  // updateHighlight re-measures from the live fiber stateNode so the ring stays
+  // accurate even after scroll (between React commits).
 
   function updateHighlight(): void {
     const info = selectedNodeId ? nodeMap.get(selectedNodeId) : undefined;
-    if (info?.domRect) renderHighlight(info.domRect);
-    else removeHighlight();
+    if (!info) { removeHighlight(); return; }
+
+    // Re-measure from the live DOM element for scroll accuracy.
+    const rect = getDomRect(info.fiber) ?? info.domRect;
+    if (rect && rect.width > 0 && rect.height > 0) {
+      renderHighlight(rect);
+    } else {
+      removeHighlight();
+    }
   }
 
   function renderHighlight(rect: DomRect): void {
@@ -235,39 +261,59 @@ function installFiberHook(): void {
     }
   }
 
-  // ── Click-to-select (capturing phase) ────────────────────────────────────
-
-  document.addEventListener('click', (event: MouseEvent) => {
-    const node = findDeepestAt(currentTree, event.clientX, event.clientY);
-    if (node?.domRect) {
-      post({ type: 'COMPONENT_SELECTED', nodeId: node.id, rect: node.domRect });
-    }
+  // Re-measure on scroll so the ring follows the element without needing
+  // a React commit (which only fires on state/prop changes).
+  window.addEventListener('scroll', () => {
+    if (selectedNodeId) updateHighlight();
   }, true);
 
-  function findDeepestAt(
-    node: SerializedNode | null,
-    x: number,
-    y: number,
-  ): SerializedNode | null {
-    if (!node) return null;
-    const r   = node.domRect;
-    const hit = r && x >= r.x && x <= r.x + r.width && y >= r.y && y <= r.y + r.height;
+  // ── Click-to-select (capturing phase) ────────────────────────────────────
+  // Uses document.elementFromPoint to get the live DOM element at the click
+  // position (accurate even after scroll), then walks the React fiber tree
+  // upward via __reactFiber$ keys to find the nearest tracked component.
 
-    if (hit) {
-      for (const child of node.children) {
-        const deeper = findDeepestAt(child, x, y);
-        if (deeper) return deeper;
-      }
-      return node;
-    }
-
-    // No hit — still check children for overflow:visible scenarios.
-    for (const child of node.children) {
-      const found = findDeepestAt(child, x, y);
-      if (found) return found;
+  function getFiberKey(el: Element): string | null {
+    const keys = Object.keys(el);
+    for (let i = 0; i < keys.length; i++) {
+      if (keys[i].startsWith('__reactFiber$')) return keys[i];
     }
     return null;
   }
+
+  document.addEventListener('click', (event: MouseEvent) => {
+    // Ignore clicks on our own highlight overlay.
+    if (event.target === highlightEl) return;
+
+    const el = document.elementFromPoint(event.clientX, event.clientY);
+
+    // Walk the DOM upward, trying to find a tracked React fiber at each level.
+    let current: Element | null = el;
+    while (current && current !== document.documentElement) {
+      const fiberKey = getFiberKey(current);
+      if (fiberKey) {
+        // Walk the fiber's return (parent) chain to find the nearest tracked node.
+        let fiber: FiberLike | null =
+          (current as unknown as Record<string, unknown>)[fiberKey] as FiberLike | null;
+        while (fiber) {
+          const nodeId = fiberMap.get(fiber);
+          if (nodeId) {
+            // Re-measure from the live element for accurate post-scroll rect.
+            const liveEl = fiber.stateNode;
+            if (liveEl && typeof liveEl === 'object' && 'getBoundingClientRect' in liveEl) {
+              const r = (liveEl as Element).getBoundingClientRect();
+              post({ type: 'COMPONENT_SELECTED', nodeId, rect: { x: r.x, y: r.y, width: r.width, height: r.height } });
+              return;
+            }
+          }
+          fiber = fiber.return;
+        }
+      }
+      current = current.parentElement;
+    }
+
+    // Nothing found — clear the selection.
+    post({ type: 'COMPONENT_DESELECTED' });
+  }, true);
 
   // ── Host → Renderer message handler ──────────────────────────────────────
 
@@ -327,6 +373,8 @@ interface FiberLike {
   index: number;
   child: FiberLike | null;
   sibling: FiberLike | null;
+  /** Parent fiber — needed for click-to-select chain walk via __reactFiber$ keys. */
+  return: FiberLike | null;
   stateNode: unknown;
   memoizedProps: Record<string, unknown> | null;
 }

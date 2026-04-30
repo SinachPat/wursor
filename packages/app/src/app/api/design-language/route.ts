@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   try {
     const db = serverClient();
     const file = await getActiveDesignLanguageFile(db, workspaceId);
-    if (!file) return NextResponse.json(null, { status: 204 });
+    if (!file) return NextResponse.json(null);
     return NextResponse.json(file);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';

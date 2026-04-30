@@ -62,7 +62,7 @@ export function ProjectSettingsForm({
   memberRole,
 }: ProjectSettingsFormProps) {
   const router = useRouter();
-  const isOwnerOrDev = memberRole === 'OWNER' || memberRole === 'DEVELOPER' || memberRole === 'DESIGNER';
+  const isOwnerOrDev = memberRole === 'OWNER' || memberRole === 'ENGINEER' || memberRole === 'DESIGNER';
 
   /* ── Form state ── */
   const [name, setName]               = useState(initialName);
@@ -229,7 +229,7 @@ export function ProjectSettingsForm({
                 border: '1px solid rgba(239,68,68,0.35)', background: 'transparent',
                 color: '#EF4444', cursor: deleteConfirm.trim() === initialName.trim() ? 'pointer' : 'not-allowed',
                 flexShrink: 0,
-                opacity: deleteConfirm.trim() !== name.trim() || deleting ? 0.4 : 1,
+                opacity: deleteConfirm.trim() !== initialName.trim() || deleting ? 0.4 : 1,
               }}
             >
               {deleting ? 'Deleting…' : 'Delete project'}

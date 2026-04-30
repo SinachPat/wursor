@@ -28,8 +28,7 @@ export type HostMessage =
   | { type: 'SET_DESIGN_TOKENS'; tokens: Record<string, string> }
   | { type: 'NAVIGATE'; path: string }
   | { type: 'SELECT_COMPONENT'; nodeId: string }
-  | { type: 'DESELECT' }
-  | { type: 'INJECT_FIBER_HOOK' };
+  | { type: 'DESELECT' };
 
 export interface HostEnvelope {
   source: typeof HOST_SOURCE;
