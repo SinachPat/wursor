@@ -5,7 +5,7 @@
   "description": "Originmain CLI — reverse proxy for live React component inspection.",
   "type": "module",
   "bin": {
-    "originmain": "./dist/cli.js"
+    "originmain": "dist/cli.js"
   },
   "exports": {
     ".": {
