@@ -26,8 +26,11 @@ const nextConfig: NextConfig = {
   },
   async rewrites() {
     return {
-      beforeFiles: [
-        { source: '/', destination: '/marketing.html' },
+      // afterFiles runs after the filesystem check — static HTML files in
+      // public/features/ are served when the clean URL is requested
+      // (e.g. /features/live-artboard → /features/live-artboard.html)
+      afterFiles: [
+        { source: '/features/:slug', destination: '/features/:slug.html' },
       ],
     };
   },
