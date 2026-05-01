@@ -54,8 +54,11 @@ export function Artboard({ id, label, x, y, width, height, renderUrl, route, onR
 
   // ── Fiber tree (from LiveArtboard) ─────────────────────────────────────────
   const [localFiberRoot, setLocalFiberRoot] = useState<FiberNode | undefined>(undefined);
+  // Set true when READY fires but no React commit follows (static HTML page).
+  const [isStaticPage, setIsStaticPage] = useState(false);
 
   const handleFiberUpdate = useCallback((root: FiberNode) => {
+    setIsStaticPage(false); // React confirmed — clear any static-page warning
     setFiberRoot(id, root);
     setArtboardLive(id, true);
     setLocalFiberRoot(root);
@@ -355,11 +358,31 @@ export function Artboard({ id, label, x, y, width, height, renderUrl, route, onR
               width={width}
               height={height}
               selectedComponentId={selectedComponentId}
+              onReady={() => { setArtboardLive(id, true); setIsStaticPage(false); }}
               onFiberTreeUpdate={handleFiberUpdate}
               onComponentSelected={handleComponentSelected}
               onComponentStylesUpdate={handleComponentStylesUpdate}
               onRoutesDiscovered={(routes) => onRoutesDiscovered?.(id, routes)}
+              onStaticPageDetected={() => setIsStaticPage(true)}
             />
+
+            {/* Static-page banner — shown when the proxy serves a non-React page */}
+            {isStaticPage && (
+              <div style={{
+                position: 'absolute', bottom: 0, left: 0, right: 0,
+                background: 'rgba(245,158,11,0.92)', backdropFilter: 'blur(8px)',
+                padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 8,
+                zIndex: 20, pointerEvents: 'none',
+              }}>
+                <span style={{ fontSize: 12 }}>⚠️</span>
+                <span style={{
+                  fontFamily: "'JetBrains Mono', monospace", fontSize: '0.5875rem',
+                  color: '#1C1917', letterSpacing: '-0.01em',
+                }}>
+                  Static HTML page — no React components detected. Navigate to a React route to enable inspection.
+                </span>
+              </div>
+            )}
             <SelectionOverlay
               artboardId={id}
               {...(localFiberRoot !== undefined ? { fiberRoot: localFiberRoot } : {})}

@@ -16,7 +16,11 @@ export type {
   RendererEnvelope,
 } from './protocol.js';
 
+// React fiber hook — hooks into __REACT_DEVTOOLS_GLOBAL_HOOK__ to intercept
+// React commits. Works only in React apps loaded in an Originmain iframe.
 export { buildFiberHookScript, buildProxyFiberHookScript } from './fiber-hook.js';
+// Universal DOM inspector — fallback for static HTML pages (React not required)
+export { buildDomInspectorScript } from './dom-inspector.js';
 
 export {
   createRendererHostConfig,

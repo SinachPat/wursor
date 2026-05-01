@@ -48,7 +48,7 @@ export interface HostEnvelope {
 export type RendererMessage =
   | { type: 'READY' }
   | { type: 'FIBER_TREE_UPDATE'; root: FiberNode }
-  | { type: 'COMPONENT_SELECTED'; nodeId: string; rect: DOMRectLike }
+  | { type: 'COMPONENT_SELECTED'; nodeId: string; nodeName?: string; rect: DOMRectLike }
   | { type: 'COMPONENT_DESELECTED' }
   | { type: 'ERROR'; message: string }
   /** Response to REQUEST_ELEMENT_STYLES — computed CSS properties for the node. */

@@ -31,6 +31,9 @@ export interface LiveArtboardProps {
   onComponentStylesUpdate?: (nodeId: string, styles: Record<string, string>) => void;
   /** Called when the iframe discovers routes in the running app. */
   onRoutesDiscovered?: (routes: Array<{ path: string; label: string }>) => void;
+  /** Called when READY fires but no React commits arrive within 4 s — signals a
+   *  static HTML page where the fiber hook can't find a React runtime. */
+  onStaticPageDetected?: () => void;
   style?: React.CSSProperties;
 }
 
@@ -48,11 +51,16 @@ export function LiveArtboard({
   onComponentSelected,
   onComponentStylesUpdate,
   onRoutesDiscovered,
+  onStaticPageDetected,
   style,
 }: LiveArtboardProps) {
   const iframeRef  = useRef<HTMLIFrameElement>(null);
   // Track whether the iframe has sent READY so we don't send messages too early.
   const isReadyRef = useRef(false);
+  // Whether a React commit (FIBER_TREE_UPDATE) has been received for this src.
+  const hasReactRef = useRef(false);
+  // Timer that fires if READY arrives but no React commits follow — static page.
+  const staticTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // After READY fires the nodeMap inside the iframe is still empty — we can't
   // request styles until after the first FIBER_TREE_UPDATE (which populates it).
   // This ref holds the nodeId to re-request styles for after that first commit.
@@ -63,7 +71,10 @@ export function LiveArtboard({
   // fire against a half-loaded iframe between navigation and the new READY.
   useEffect(() => {
     isReadyRef.current = false;
+    hasReactRef.current = false;
     pendingStylesFetchRef.current = null;
+    if (staticTimerRef.current) clearTimeout(staticTimerRef.current);
+    staticTimerRef.current = null;
   }, [src]);
 
   // ── Send a typed message to the iframe ───────────────────────────────────
@@ -100,8 +111,19 @@ export function LiveArtboard({
             pendingStylesFetchRef.current = selectedComponentId;
           }
           onReady?.();
+          // Start a 4-second timer: if React never commits, this is a static page.
+          if (staticTimerRef.current) clearTimeout(staticTimerRef.current);
+          staticTimerRef.current = setTimeout(() => {
+            if (!hasReactRef.current) onStaticPageDetected?.();
+          }, 4000);
           break;
         case 'FIBER_TREE_UPDATE':
+          // Mark that this iframe contains a live React app.
+          hasReactRef.current = true;
+          if (staticTimerRef.current) {
+            clearTimeout(staticTimerRef.current);
+            staticTimerRef.current = null;
+          }
           onFiberTreeUpdate?.(msg.root);
           // If READY deferred a style fetch (nodeMap was empty at that point),
           // the first commit has now populated nodeMap — request styles now.

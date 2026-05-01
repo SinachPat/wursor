@@ -478,10 +478,13 @@ export function buildProxyFiberHookScript(): string {
   }
 
   // ── Route discovery ───────────────────────────────────────────────────────
-  // Scans <a href> links and the fiber nodeMap for same-origin routes, then
-  // posts ROUTES_DISCOVERED so the host canvas can auto-create artboards for
-  // every page. Called once 800 ms after READY (giving React time to paint)
-  // and again on every SPA popstate so navigation is reflected in the canvas.
+  // Mines routes from four sources (in priority order):
+  //  1. window.__NEXT_DATA__ (Next.js Pages Router build manifest)
+  //  2. window.__next_router_basepath (App Router)
+  //  3. <a href> same-origin anchor links in the rendered DOM
+  //  4. Fiber nodeMap — Link/NavLink/NextLink component props
+  // Called 800 ms after READY and on every SPA popstate navigation.
+
   function humanLabel(path) {
     var seg = path.replace(/\/+$/, '').split('/').filter(function(s) { return s.length > 0; });
     if (seg.length === 0) return 'Home';
@@ -494,24 +497,58 @@ export function buildProxyFiberHookScript(): string {
     var routes = [];
 
     function addRoute(path, hint) {
-      if (!path || seen[path]) return;
-      if (path.charAt(0) === '#') return;
-      seen[path] = true;
-      var label = (hint && typeof hint === 'string' && hint.trim().slice(0, 50)) || humanLabel(path);
-      routes.push({ path: path, label: label });
+      if (!path || typeof path !== 'string') return;
+      // Skip hash fragments, external links that slipped through, and dynamic segments
+      if (path.charAt(0) !== '/') return;
+      // Normalise: strip trailing slash except for root
+      var norm = path.length > 1 ? path.replace(/\\/+$/, '') : '/';
+      if (seen[norm]) return;
+      seen[norm] = true;
+      var label = (hint && typeof hint === 'string' && hint.trim().slice(0, 50)) || humanLabel(norm);
+      routes.push({ path: norm, label: label });
     }
 
+    // ① Current page is always included
     addRoute(window.location.pathname, document.title || undefined);
 
+    // ② Next.js Pages Router — __NEXT_DATA__ contains the full page list in build id manifest
+    try {
+      var nextData = window.__NEXT_DATA__;
+      if (nextData && nextData.buildId) {
+        // Fetch the pages manifest — available at /_next/static/{buildId}/_buildManifest.js
+        var manifestUrl = '/_next/static/' + nextData.buildId + '/_buildManifest.js';
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', manifestUrl, false); // sync — runs at init time before user interaction
+        xhr.send();
+        if (xhr.status === 200) {
+          // Manifest exposes self.__BUILD_MANIFEST = { sortedPages: [...] }
+          var match = xhr.responseText.match(/sortedPages\\s*:\\s*(\\[[^\\]]+\\])/);
+          if (match) {
+            try {
+              var pages = JSON.parse(match[1]);
+              pages.forEach(function(p) {
+                // Skip catch-all and dynamic segments for now; static routes only
+                if (p.indexOf('[') === -1) addRoute(p);
+              });
+            } catch (e) { /* parse failed */ }
+          }
+        }
+      }
+    } catch (e) { /* Next.js not present or manifest unavailable */ }
+
+    // ③ <a href> same-origin links from the rendered DOM
     var anchors = document.querySelectorAll('a[href]');
     for (var i = 0; i < anchors.length; i++) {
       try {
         var url = new URL(anchors[i].href, window.location.href);
         if (url.origin !== window.location.origin) continue;
-        addRoute(url.pathname, anchors[i].textContent || undefined);
+        // Skip hash-only links
+        if (!url.pathname || url.hash && !url.pathname) continue;
+        addRoute(url.pathname, (anchors[i].textContent || '').trim() || undefined);
       } catch (e) { /* skip malformed hrefs */ }
     }
 
+    // ④ Fiber nodeMap — Link/NavLink props carry href/to
     Object.keys(nodeMap).forEach(function(nid) {
       var entry = nodeMap[nid];
       var fiber = entry && entry.fiber;
@@ -519,7 +556,11 @@ export function buildProxyFiberHookScript(): string {
       if (name && /^(Link|NavLink|NextLink|RouterLink|a)$/.test(name)) {
         var props = fiber.memoizedProps;
         var href = props && (props.href || props.to);
-        if (typeof href === 'string' && href.charAt(0) === '/') addRoute(href);
+        if (typeof href === 'string') addRoute(href);
+        // Next.js <Link href={{ pathname }}>
+        if (href && typeof href === 'object' && typeof href.pathname === 'string') {
+          addRoute(href.pathname);
+        }
       }
     });
 
@@ -529,6 +570,7 @@ export function buildProxyFiberHookScript(): string {
   // ── Ready signal ──────────────────────────────────────────────────────────
   post({ type: 'READY' });
   setTimeout(discoverRoutes, 800);
+  // Re-discover on SPA navigation (Next.js App Router fires popstate on push)
   window.addEventListener('popstate', function() { setTimeout(discoverRoutes, 100); });
 })();`;
 }
