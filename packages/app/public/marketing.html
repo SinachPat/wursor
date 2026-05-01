@@ -1,0 +1,2753 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Originmain — Where design intent becomes production code</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+
+/* ════════════════════════════════════════════════════════════
+   DESIGN TOKENS — Fluent × Figma Sites synthesis
+   ════════════════════════════════════════════════════════════ */
+:root {
+  /* Surfaces */
+  --bg:          #FFFFFF;
+  --bg-subtle:   #FAFAFA;
+  --bg-muted:    #F4F4F5;
+  --bg-strong:   #EBEBEB;
+  --bg-inv:      #0A0A0A;
+  --bg-inv-2:    #141414;
+  --bg-inv-3:    #1C1C1C;
+
+  /* Text */
+  --fg:          #0A0A0A;
+  --fg-2:        #52525B;
+  --fg-3:        #A1A1AA;
+  --fg-4:        #D4D4D8;
+  --fg-inv:      rgba(255,255,255,0.92);
+  --fg-inv-2:    rgba(255,255,255,0.52);
+  --fg-inv-3:    rgba(255,255,255,0.28);
+
+  /* Brand */
+  --blue:        #0066FF;
+  --blue-dark:   #0050CC;
+  --blue-light:  #3385FF;
+  --blue-soft:   rgba(0,102,255,0.07);
+  --blue-mid:    rgba(0,102,255,0.15);
+  --purple:      #7C3AED;
+  --teal:        #0891B2;
+
+  /* Borders */
+  --border:      rgba(0,0,0,0.07);
+  --border-2:    rgba(0,0,0,0.12);
+  --border-inv:  rgba(255,255,255,0.08);
+  --border-inv-2:rgba(255,255,255,0.14);
+
+  /* Radius */
+  --r-1:  4px;
+  --r-2:  8px;
+  --r-3:  12px;
+  --r-4:  16px;
+  --r-5:  20px;
+  --r-6:  24px;
+  --r-full: 9999px;
+
+  /* Fluent elevation shadows */
+  --sh-xs: 0 1px 2px rgba(0,0,0,0.05);
+  --sh-sm: 0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.05);
+  --sh-md: 0 4px 8px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.04);
+  --sh-lg: 0 10px 24px rgba(0,0,0,0.08), 0 4px 8px rgba(0,0,0,0.05);
+  --sh-xl: 0 20px 40px rgba(0,0,0,0.09), 0 8px 16px rgba(0,0,0,0.05);
+  --sh-2xl:0 32px 64px rgba(0,0,0,0.11), 0 16px 32px rgba(0,0,0,0.06);
+  --sh-product: 0 48px 96px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.05);
+
+  /* Typography */
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', 'SF Mono', ui-monospace, 'Cascadia Code', monospace;
+}
+
+/* ════════════════════════════════════════════════════════════
+   DARK MODE — flip every semantic token
+   ════════════════════════════════════════════════════════════ */
+[data-theme="dark"] {
+  --bg:          #0A0A0A;
+  --bg-subtle:   #0F0F11;
+  --bg-muted:    #161618;
+  --bg-strong:   #1C1C1E;
+  --bg-inv:      #F4F4F5;
+  --bg-inv-2:    #E4E4E7;
+  --bg-inv-3:    #D4D4D8;
+
+  --fg:          rgba(255,255,255,0.92);
+  --fg-2:        rgba(255,255,255,0.58);
+  --fg-3:        rgba(255,255,255,0.34);
+  --fg-4:        rgba(255,255,255,0.16);
+  --fg-inv:      #09090B;
+  --fg-inv-2:    rgba(0,0,0,0.62);
+  --fg-inv-3:    rgba(0,0,0,0.35);
+
+  --border:      rgba(255,255,255,0.07);
+  --border-2:    rgba(255,255,255,0.12);
+  --border-inv:  rgba(0,0,0,0.08);
+  --border-inv-2:rgba(0,0,0,0.14);
+
+  --sh-xs: 0 1px 2px rgba(0,0,0,0.3);
+  --sh-sm: 0 1px 3px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.25);
+  --sh-md: 0 4px 8px rgba(0,0,0,0.32), 0 2px 4px rgba(0,0,0,0.22);
+  --sh-lg: 0 10px 24px rgba(0,0,0,0.38), 0 4px 8px rgba(0,0,0,0.26);
+  --sh-xl: 0 20px 40px rgba(0,0,0,0.42), 0 8px 16px rgba(0,0,0,0.28);
+  --sh-2xl:0 32px 64px rgba(0,0,0,0.48), 0 16px 32px rgba(0,0,0,0.32);
+  --sh-product: 0 48px 96px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.05);
+}
+
+/* Nav glass adapts in dark mode */
+[data-theme="dark"] #nav.scrolled {
+  background: rgba(10,10,10,0.88);
+}
+/* Mobile nav drawer — dark mode: swap hardcoded white for dark surface */
+[data-theme="dark"] .nav-mobile {
+  background: rgba(10,10,10,0.97);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+/* Desktop product dropdown — dark mode */
+[data-theme="dark"] .nav-dropdown-menu {
+  background: rgba(15,15,17,0.98);
+}
+
+/* ════════════════════════════════════════════════════════════
+   RESET
+   ════════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; scroll-behavior: smooth; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
+body { font-family: var(--font); background: var(--bg); color: var(--fg); line-height: 1.6; overflow-x: hidden; }
+img, svg { display: block; max-width: 100%; }
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; cursor: pointer; border: none; background: none; }
+
+/* ════════════════════════════════════════════════════════════
+   LAYOUT
+   ════════════════════════════════════════════════════════════ */
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 40px; }
+.wrap-wide { max-width: 1280px; margin: 0 auto; padding: 0 40px; }
+.section { padding: 128px 0; }
+.section-muted { background: var(--bg-subtle); }
+.section-dark { background: var(--bg-inv); }
+
+/* ════════════════════════════════════════════════════════════
+   TYPE SCALE — Inter, tight tracking, confident
+   ════════════════════════════════════════════════════════════ */
+.d1 {
+  font-size: clamp(3rem, 7.5vw, 5.5rem);
+  font-weight: 900;
+  line-height: 1.0;
+  letter-spacing: -0.045em;
+  color: var(--fg);
+}
+.d2 {
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.038em;
+  color: var(--fg);
+}
+.d3 {
+  font-size: clamp(1.25rem, 2.5vw, 1.625rem);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.028em;
+  color: var(--fg);
+}
+.subtitle {
+  font-size: clamp(1rem, 2vw, 1.1875rem);
+  font-weight: 400;
+  line-height: 1.7;
+  color: var(--fg-2);
+}
+.label {
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.label-blue { color: var(--blue); }
+
+/* ════════════════════════════════════════════════════════════
+   COMPONENTS
+   ════════════════════════════════════════════════════════════ */
+
+/* Buttons — Fluent motion */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  padding: 11px 22px;
+  border-radius: var(--r-2);
+  transition: transform 0.12s cubic-bezier(.16,1,.3,1), opacity 0.12s, box-shadow 0.12s;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+  position: relative;
+  overflow: hidden;
+}
+.btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0);
+  transition: background 0.12s;
+}
+.btn:hover::after { background: rgba(255,255,255,0.06); }
+.btn:active { transform: scale(0.98) !important; }
+
+.btn-primary {
+  background: var(--fg);
+  color: var(--bg);
+  box-shadow: var(--sh-sm);
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: var(--sh-md); }
+
+.btn-secondary {
+  background: transparent;
+  color: var(--fg);
+  border: 1px solid var(--border-2);
+}
+.btn-secondary:hover { background: var(--bg-muted); transform: translateY(-1px); }
+
+.btn-blue {
+  background: var(--blue);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(0,102,255,0.3);
+}
+.btn-blue:hover { background: var(--blue-dark); transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,102,255,0.35); }
+
+.btn-lg { font-size: 1rem; padding: 13px 28px; }
+.btn-xl { font-size: 1.0625rem; padding: 15px 34px; border-radius: var(--r-3); }
+.btn-full { width: 100%; justify-content: center; }
+
+/* Badge / Pills */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  padding: 5px 12px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+  color: var(--fg-2);
+  letter-spacing: -0.01em;
+}
+.badge-new {
+  background: linear-gradient(135deg, rgba(124,58,237,0.08), rgba(0,102,255,0.08));
+  border-color: rgba(124,58,237,0.2);
+  color: var(--purple);
+}
+.badge-live {
+  background: rgba(16,185,129,0.08);
+  border-color: rgba(16,185,129,0.2);
+  color: #059669;
+}
+
+/* Divider */
+.divider { height: 1px; background: var(--border); }
+.divider-inv { height: 1px; background: var(--border-inv); }
+
+/* Section header */
+.section-head { text-align: center; max-width: 640px; margin: 0 auto 72px; }
+.section-head .label { display: block; margin-bottom: 16px; }
+.section-head .d2 { margin-bottom: 18px; }
+.section-head .subtitle { margin: 0 auto; }
+
+/* ════════════════════════════════════════════════════════════
+   NAVIGATION — Figma Sites clean nav + Fluent acrylic
+   ════════════════════════════════════════════════════════════ */
+#nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 200;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  padding: 0 40px;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+#nav.scrolled {
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--sh-xs);
+}
+.nav-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+}
+.nav-logo   { justify-self: start; }
+.nav-links  { justify-self: center; }
+.nav-actions{ justify-self: end; }
+.nav-logo {
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: var(--fg);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.nav-logo span { color: var(--blue); }
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  list-style: none;
+}
+.nav-links a {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--fg-2);
+  padding: 6px 14px;
+  border-radius: var(--r-1);
+  transition: color 0.12s, background 0.12s;
+  letter-spacing: -0.01em;
+}
+.nav-links a:hover { color: var(--fg); }
+.nav-actions { display: flex; align-items: center; gap: 8px; }
+.nav-theme-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-2);
+  background: none;
+  border: 1px solid var(--border-2);
+  color: var(--fg-3);
+  font-size: 0.9rem;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.nav-theme-btn:hover { background: var(--bg-muted); color: var(--fg); border-color: var(--border-2); }
+
+/* ── Hamburger ── */
+.nav-burger {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  width: 36px;
+  height: 36px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--r-2);
+  transition: background 0.12s;
+  flex-shrink: 0;
+}
+.nav-burger:hover { background: var(--bg-muted); }
+.nav-burger span {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background: var(--fg);
+  border-radius: 2px;
+  transition: transform 0.22s cubic-bezier(0.16,1,0.3,1), opacity 0.18s;
+  transform-origin: center;
+}
+.nav-burger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.nav-burger.open span:nth-child(2) { opacity: 0; transform: scaleX(0); }
+.nav-burger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+/* ── Mobile drawer ── */
+.nav-mobile {
+  display: none;
+  /* fixed — not absolute — so it reliably overlays page content on all
+     mobile browsers including iOS Safari, where absolute children of a
+     fixed parent can be clipped to the parent's rendered height. */
+  position: fixed;
+  top: 60px; left: 0; right: 0;
+  z-index: 199;
+  background: rgba(255,255,255,0.97);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.07);
+  padding: 12px 24px 24px;
+  flex-direction: column;
+  gap: 2px;
+  max-height: calc(100dvh - 60px);
+  overflow-y: auto;
+}
+.nav-mobile.open { display: flex; }
+.nav-mobile ul { list-style: none; display: flex; flex-direction: column; }
+.nav-mobile ul li a {
+  display: block;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--fg-2);
+  padding: 11px 4px;
+  border-bottom: 1px solid var(--border);
+  letter-spacing: -0.01em;
+  transition: color 0.1s;
+}
+.nav-mobile ul li:last-child a { border-bottom: none; }
+.nav-mobile ul li a:hover { color: var(--fg); }
+.nav-mobile-ctas {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  margin-top: 16px;
+}
+.nav-mobile-ctas .btn {
+  flex: 1;
+  justify-content: center;
+  padding: 10px 12px;
+  font-size: .875rem;
+}
+
+/* ── Nav dropdown ── */
+.nav-dropdown { position: relative; }
+.nav-dropdown > a { display: flex; align-items: center; gap: 4px; }
+.nav-dd-caret { transition: transform 0.15s; }
+.nav-dropdown.open .nav-dd-caret { transform: rotate(180deg); }
+.nav-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-4px);
+  background: rgba(255,255,255,0.98);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  border-radius: var(--r-3);
+  box-shadow: var(--sh-xl);
+  padding: 10px 8px 8px;  /* top padding bridges the visual gap without a dead zone */
+  min-width: 248px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s, transform 0.15s, visibility 0.15s;
+  pointer-events: none;
+}
+.nav-dropdown-menu.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: all;
+}
+/* Mobile sub-nav (product pages list inside hamburger drawer) */
+.nav-mobile-sub { display: none; padding: 2px 0 6px 14px; flex-direction: column; }
+.nav-mobile-sub.open { display: flex; }
+.nav-mobile-sub a { font-size: 0.875rem; color: var(--fg-3); padding: 8px 4px; border-bottom: 1px solid var(--border); letter-spacing: -0.01em; transition: color 0.1s; }
+.nav-mobile-sub a:last-child { border-bottom: none; }
+.nav-mobile-sub a:hover { color: var(--fg); }
+.nav-dd-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: var(--r-2);
+  transition: background 0.1s;
+  cursor: pointer;
+}
+.nav-dd-item:hover { background: var(--bg-muted); }
+.nav-dd-icon {
+  width: 30px; height: 30px;
+  background: var(--blue-soft);
+  border: 1px solid var(--blue-mid);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; font-size: 13px;
+  color: var(--blue);
+}
+.nav-dd-text { display: flex; flex-direction: column; }
+.nav-dd-name { font-size: 0.8125rem; font-weight: 600; color: var(--fg); letter-spacing: -0.01em; }
+.nav-dd-desc { font-size: 0.6875rem; color: var(--fg-3); margin-top: 1px; line-height: 1.4; }
+.nav-dd-sep { height: 1px; background: var(--border); margin: 4px 0; }
+
+/* ════════════════════════════════════════════════════════════
+   HERO — Figma Sites: product-forward, massive type
+   ════════════════════════════════════════════════════════════ */
+#hero {
+  padding: 168px 40px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.hero-noise {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(0,102,255,0.045) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 30% at 80% 20%, rgba(124,58,237,0.03) 0%, transparent 50%);
+  pointer-events: none;
+}
+.hero-badge { margin-bottom: 32px; }
+.hero-hl { max-width: 920px; margin-bottom: 24px; }
+.hero-hl em {
+  font-style: normal;
+  background: linear-gradient(135deg, var(--fg) 0%, var(--fg-2) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.hero-sub { max-width: 520px; margin: 0 auto 48px; }
+.hero-ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 88px; }
+.hero-note {
+  font-size: 0.8125rem;
+  color: var(--fg-3);
+  margin-top: -72px;
+  margin-bottom: 56px;
+  letter-spacing: -0.01em;
+}
+
+/* ════════════════════════════════════════════════════════════
+   PRODUCT SHOT — the star of the hero
+   ════════════════════════════════════════════════════════════ */
+.product-shell {
+  width: 100%;
+  max-width: 1080px;
+  border-radius: 16px 16px 0 0;
+  overflow: hidden;
+  box-shadow: var(--sh-product);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-bottom: none;
+  position: relative;
+}
+
+/* Browser chrome */
+.p-chrome {
+  background: #1C1C22;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  flex-shrink: 0;
+}
+.p-dot { width: 12px; height: 12px; border-radius: 50%; }
+.p-dot.r { background: #FF5F57; }
+.p-dot.y { background: #FFBD2E; }
+.p-dot.g { background: #28C840; }
+.p-url {
+  flex: 1;
+  margin: 0 12px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 6px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  color: rgba(255,255,255,0.35);
+  max-width: 360px;
+}
+.p-lock {
+  font-size: 0.625rem;
+  margin-right: 6px;
+  color: rgba(255,255,255,0.25);
+}
+
+/* App chrome grid */
+.p-app {
+  display: grid;
+  grid-template-rows: 44px 1fr;
+  grid-template-columns: 220px 1fr 284px;
+  height: 560px;
+  background: #0D0D11;
+}
+
+/* App toolbar */
+.p-toolbar {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  background: #141418;
+  border-bottom: 1px solid rgba(255,255,255,0.055);
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  gap: 6px;
+}
+.p-wordmark {
+  font-size: 0.875rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: rgba(255,255,255,0.9);
+  padding: 0 10px;
+  margin-right: 4px;
+}
+.p-wordmark span { color: #3385FF; }
+.p-tb-sep {
+  width: 1px;
+  height: 20px;
+  background: rgba(255,255,255,0.08);
+  margin: 0 4px;
+}
+.p-tb-group { display: flex; align-items: center; gap: 2px; }
+.p-tb-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8125rem;
+  color: rgba(255,255,255,0.38);
+  cursor: default;
+  transition: background 0.1s;
+}
+.p-tb-btn.active {
+  background: rgba(51,133,255,0.15);
+  color: #3385FF;
+}
+.p-tb-btn.on { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); }
+.p-zoom {
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  color: rgba(255,255,255,0.4);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 4px;
+  padding: 3px 8px;
+  cursor: default;
+  min-width: 44px;
+  text-align: center;
+}
+.p-live {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(16,185,129,0.1);
+  border: 1px solid rgba(16,185,129,0.2);
+}
+.p-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10B981;
+  box-shadow: 0 0 0 2px rgba(16,185,129,0.25);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(16,185,129,0.25); }
+  50%       { box-shadow: 0 0 0 4px rgba(16,185,129,0.1); }
+}
+.p-live-txt { font-family: var(--mono); font-size: 0.625rem; color: #10B981; font-weight: 500; }
+
+/* Left nav panel */
+.p-nav {
+  background: #111115;
+  border-right: 1px solid rgba(255,255,255,0.055);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.p-nav-section {
+  padding: 14px 12px 4px;
+  font-family: var(--mono);
+  font-size: 0.5625rem;
+  color: rgba(255,255,255,0.25);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.p-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.42);
+  cursor: default;
+  transition: background 0.1s;
+  border-radius: 0;
+}
+.p-nav-item.sel {
+  background: rgba(51,133,255,0.12);
+  color: rgba(255,255,255,0.88);
+}
+.p-nav-item .dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+  flex-shrink: 0;
+}
+.p-nav-item.sel .dot { background: #3385FF; }
+.p-nav-item .type-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.p-sep-line { height: 1px; background: rgba(255,255,255,0.04); margin: 6px 0; }
+
+/* Canvas area */
+.p-canvas {
+  position: relative;
+  overflow: hidden;
+  background: #0D0D11;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.p-grid {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px);
+  background-size: 24px 24px;
+  pointer-events: none;
+}
+
+/* Artboards */
+.p-artboard {
+  position: absolute;
+  background: #FFFFFF;
+  border-radius: 8px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+}
+.p-ab-label {
+  position: absolute;
+  top: -22px;
+  left: 0;
+  font-family: var(--mono);
+  font-size: 0.5625rem;
+  color: rgba(255,255,255,0.4);
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+.p-artboard.selected {
+  box-shadow: 0 0 0 2px #3385FF, 0 8px 40px rgba(0,0,0,0.6);
+}
+.p-artboard.selected .p-ab-label { color: #3385FF; }
+.p-handle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: #fff;
+  border: 2px solid #3385FF;
+  border-radius: 2px;
+  z-index: 10;
+}
+.p-handle.tl { top: -4px; left: -4px; }
+.p-handle.tr { top: -4px; right: -4px; }
+.p-handle.bl { bottom: -4px; left: -4px; }
+.p-handle.br { bottom: -4px; right: -4px; }
+
+/* Dashboard card mock */
+.p-dash-card { padding: 18px; }
+.p-dc-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.p-dc-title { font-size: 0.6875rem; font-weight: 600; color: #111; letter-spacing: -0.01em; }
+.p-dc-badge { font-size: 0.5625rem; background: #ECFDF5; color: #059669; padding: 2px 7px; border-radius: 99px; font-weight: 600; font-family: monospace; }
+.p-dc-val { font-size: 1.375rem; font-weight: 800; color: #0A0A0A; letter-spacing: -0.045em; line-height: 1; margin-bottom: 5px; }
+.p-dc-delta { font-size: 0.625rem; color: #059669; font-weight: 600; margin-bottom: 14px; }
+.p-dc-bar { height: 3px; background: #F0F0F0; border-radius: 99px; overflow: hidden; margin-bottom: 14px; }
+.p-dc-fill { height: 100%; width: 68%; background: linear-gradient(90deg, #0066FF, #3385FF); border-radius: 99px; }
+.p-dc-chips { display: flex; gap: 4px; }
+.p-chip { font-size: 0.5rem; background: #F5F5F5; color: #666; padding: 3px 8px; border-radius: 99px; font-weight: 500; }
+
+/* Profile card mock */
+.p-profile { padding: 20px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.p-avatar { width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(135deg, #7C3AED, #0066FF); margin: 0 auto 12px; }
+.p-pname { font-size: 0.75rem; font-weight: 700; color: #0A0A0A; letter-spacing: -0.02em; margin-bottom: 3px; }
+.p-prole { font-size: 0.5875rem; color: #A1A1AA; margin-bottom: 14px; }
+.p-prow { display: flex; justify-content: space-between; width: 100%; margin-bottom: 5px; }
+.p-pk { font-size: 0.5875rem; color: #A1A1AA; }
+.p-pv { font-size: 0.5875rem; font-weight: 600; color: #0A0A0A; }
+
+/* Inspector panel */
+.p-insp {
+  background: #111115;
+  border-left: 1px solid rgba(255,255,255,0.055);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.p-tabs { display: flex; border-bottom: 1px solid rgba(255,255,255,0.055); }
+.p-tab {
+  flex: 1;
+  padding: 11px 0;
+  font-family: var(--mono);
+  font-size: 0.625rem;
+  color: rgba(255,255,255,0.3);
+  text-align: center;
+  letter-spacing: 0.06em;
+  cursor: default;
+  text-transform: uppercase;
+}
+.p-tab.on {
+  color: rgba(255,255,255,0.88);
+  border-bottom: 2px solid #3385FF;
+}
+.p-isec {
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.p-isec-hd {
+  font-family: var(--mono);
+  font-size: 0.5rem;
+  color: rgba(255,255,255,0.25);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.p-irow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+.p-ik { font-family: var(--mono); font-size: 0.625rem; color: rgba(255,255,255,0.35); }
+.p-iv { font-family: var(--mono); font-size: 0.625rem; }
+.p-iv.s { color: #7DD3A8; }
+.p-iv.n { color: #7EB8FF; }
+.p-iv.b { color: #FFBA7B; }
+.p-diff {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  padding: 3px 8px;
+  border-radius: 4px;
+  margin-bottom: 3px;
+  line-height: 1.5;
+}
+.p-diff.del { background: rgba(255,70,70,0.09); color: #FF8080; }
+.p-diff.add { background: rgba(70,220,120,0.09); color: #7DDBA0; }
+.p-statusbar {
+  margin-top: auto;
+  height: 26px;
+  background: #0D0D11;
+  border-top: 1px solid rgba(255,255,255,0.04);
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  gap: 14px;
+  flex-shrink: 0;
+}
+.p-st { font-family: var(--mono); font-size: 0.5625rem; color: rgba(255,255,255,0.25); }
+.p-st.on { color: rgba(255,255,255,0.55); }
+
+/* ════════════════════════════════════════════════════════════
+   LOGOS STRIP
+   ════════════════════════════════════════════════════════════ */
+#logos {
+  padding: 56px 0 80px;
+  border-bottom: 1px solid var(--border);
+}
+.logos-label { text-align: center; margin-bottom: 32px; }
+.logos-list {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 56px;
+  flex-wrap: wrap;
+}
+.logo-item {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--fg-4);
+  letter-spacing: -0.03em;
+  transition: color 0.15s;
+  cursor: default;
+}
+.logo-item:hover { color: var(--fg-3); }
+
+/* ════════════════════════════════════════════════════════════
+   FEATURE BLOCKS — alternating editorial layout
+   ════════════════════════════════════════════════════════════ */
+.feat-block {
+  padding: 120px 40px;
+  overflow: hidden;
+}
+.feat-block-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 96px;
+  align-items: center;
+}
+.feat-block-inner.reverse { direction: rtl; }
+.feat-block-inner.reverse > * { direction: ltr; }
+
+.feat-copy .label { display: block; margin-bottom: 20px; }
+.feat-copy .d3 { margin-bottom: 18px; }
+.feat-copy .subtitle { margin-bottom: 28px; }
+.feat-points { list-style: none; display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; }
+.feat-points li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 0.9375rem;
+  color: var(--fg-2);
+  line-height: 1.55;
+}
+.feat-point-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--r-1);
+  background: var(--blue-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+  font-size: 0.625rem;
+  color: var(--blue);
+}
+
+/* Feature visual panels */
+.feat-visual {
+  border-radius: var(--r-5);
+  overflow: hidden;
+  box-shadow: var(--sh-2xl);
+  border: 1px solid var(--border);
+  aspect-ratio: 4/3;
+  position: relative;
+}
+.feat-visual-dark {
+  background: #0D0D11;
+  border-color: rgba(255,255,255,0.07);
+}
+.feat-visual-light { background: var(--bg-muted); }
+
+/* Visual for Live Artboard */
+.fv-artboard-scene {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fv-grid {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+.fv-ab {
+  width: 200px;
+  background: #fff;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.55);
+  position: relative;
+  z-index: 1;
+}
+.fv-ab.selected {
+  outline: 2px solid #3385FF;
+  outline-offset: 2px;
+}
+.fv-ab-lbl {
+  position: absolute;
+  top: -20px;
+  left: 0;
+  font-family: var(--mono);
+  font-size: 0.5rem;
+  color: #3385FF;
+  white-space: nowrap;
+}
+.fv-mini-title { font-size: 0.625rem; font-weight: 700; color: #111; margin-bottom: 8px; }
+.fv-mini-val { font-size: 1rem; font-weight: 800; color: #0A0A0A; letter-spacing: -0.04em; margin-bottom: 6px; }
+.fv-mini-bar { height: 2px; background: #F0F0F0; border-radius: 99px; overflow: hidden; }
+.fv-mini-fill { height: 100%; width: 68%; background: #0066FF; }
+
+/* Visual for Intent Diff */
+.fv-diff-scene {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.fv-diff-header { font-family: var(--mono); font-size: 0.5625rem; color: rgba(255,255,255,0.3); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px; }
+.fv-diff-file { font-family: var(--mono); font-size: 0.625rem; color: rgba(255,255,255,0.5); margin-bottom: 12px; }
+.fv-line { font-family: var(--mono); font-size: 0.65rem; padding: 4px 8px; border-radius: 4px; line-height: 1.5; }
+.fv-line.ctx { color: rgba(255,255,255,0.3); }
+.fv-line.del { background: rgba(255,70,70,0.1); color: #FF8080; }
+.fv-line.add { background: rgba(70,220,120,0.1); color: #7DDBA0; }
+
+/* Visual for Origin Graph */
+.fv-graph-scene {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fv-node {
+  position: absolute;
+  background: #1C1C26;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-family: var(--mono);
+  font-size: 0.5875rem;
+  color: rgba(255,255,255,0.7);
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+.fv-node.root {
+  background: rgba(51,133,255,0.15);
+  border-color: rgba(51,133,255,0.3);
+  color: #7EB8FF;
+}
+.fv-edge {
+  position: absolute;
+  background: rgba(255,255,255,0.06);
+  height: 1px;
+  transform-origin: left center;
+}
+
+/* ════════════════════════════════════════════════════════════
+   FEATURES GRID — 6 cards
+   ════════════════════════════════════════════════════════════ */
+#features {
+  padding: 128px 0;
+  background: var(--bg-subtle);
+}
+.feat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border-radius: var(--r-5);
+  overflow: hidden;
+  margin-top: 0;
+}
+.feat-cell {
+  background: var(--bg-subtle);
+  padding: 40px 36px;
+  transition: background 0.15s;
+  position: relative;
+}
+.feat-cell:hover { background: var(--bg); }
+.feat-cell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background: radial-gradient(ellipse 80% 60% at var(--mx,50%) var(--my,50%), rgba(0,102,255,0.04), transparent);
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+.feat-cell:hover::after { opacity: 1; }
+.feat-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-2);
+  background: var(--blue-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.125rem;
+  margin-bottom: 20px;
+  border: 1px solid var(--blue-mid);
+}
+.feat-cell h3 {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--fg);
+  letter-spacing: -0.025em;
+  margin-bottom: 10px;
+  line-height: 1.25;
+}
+.feat-cell p {
+  font-size: 0.9375rem;
+  color: var(--fg-2);
+  line-height: 1.65;
+}
+
+/* ════════════════════════════════════════════════════════════
+   WORKFLOW
+   ════════════════════════════════════════════════════════════ */
+#workflow { padding: 128px 0; }
+.steps-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0;
+  margin-top: 72px;
+  position: relative;
+}
+.steps-row::before {
+  content: '';
+  position: absolute;
+  top: 26px;
+  left: calc(10% + 8px);
+  right: calc(10% + 8px);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border-2) 15%, var(--border-2) 85%, transparent);
+  z-index: 0;
+}
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 0 16px;
+  position: relative;
+  z-index: 1;
+}
+.step-num {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 1px solid var(--border-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--blue);
+  letter-spacing: -0.04em;
+  margin-bottom: 20px;
+  box-shadow: var(--sh-sm);
+}
+.step h3 {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--fg);
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+}
+.step p { font-size: 0.8125rem; color: var(--fg-2); line-height: 1.6; }
+
+/* ════════════════════════════════════════════════════════════
+   INTEGRATIONS
+   ════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════
+   INTEGRATIONS — Dark bento grid with per-brand glows
+   ════════════════════════════════════════════════════════════ */
+#integrations {
+  background: #08080C;
+  padding: 140px 0;
+  position: relative;
+  overflow: hidden;
+}
+/* Dot-grid atmosphere */
+#integrations::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.032) 1px, transparent 1px);
+  background-size: 28px 28px;
+  pointer-events: none;
+}
+/* Section header dark overrides */
+#integrations .section-head .label { color: rgba(255,255,255,0.28); }
+#integrations .section-head h2.d2  { color: #fff; }
+#integrations .section-head .subtitle { color: rgba(255,255,255,0.42); }
+
+/* Ambient glow orbs */
+.int-orb {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(80px);
+  opacity: 0.55;
+}
+.int-orb-1 { width:500px;height:300px;top:0;left:50%;transform:translateX(-50%);
+             background:radial-gradient(ellipse,rgba(51,133,255,.15),transparent 70%); }
+.int-orb-2 { width:320px;height:320px;bottom:10%;left:5%;
+             background:radial-gradient(ellipse,rgba(162,89,255,.1),transparent 70%); }
+.int-orb-3 { width:260px;height:260px;bottom:15%;right:8%;
+             background:radial-gradient(ellipse,rgba(97,218,251,.08),transparent 70%); }
+
+/* ── Bento grid ── */
+.int-bento {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-top: 64px;
+  position: relative;
+  z-index: 1;
+}
+.int-card {
+  background: #111115;
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 16px;
+  padding: 26px 28px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 168px;
+  transition: border-color .2s, box-shadow .25s cubic-bezier(.16,1,.3,1), transform .2s cubic-bezier(.16,1,.3,1);
+  cursor: default;
+}
+/* Coloured top accent line */
+.int-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--glow,rgba(255,255,255,.3)) 40%, transparent);
+  opacity: .65;
+}
+/* Fluent reveal radial highlight */
+.int-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background: radial-gradient(
+    ellipse 70% 60% at var(--mx,50%) var(--my,50%),
+    var(--glow-soft,rgba(255,255,255,.04)),
+    transparent
+  );
+  transition: opacity .3s;
+  pointer-events: none;
+}
+.int-card:hover::after { opacity: 1; }
+.int-card:hover {
+  border-color: rgba(255,255,255,.13);
+  box-shadow:
+    0 0 0 1px var(--glow-dim,rgba(255,255,255,.06)),
+    0 20px 48px rgba(0,0,0,.5),
+    0 0 56px var(--glow-ambient,rgba(255,255,255,.02));
+  transform: translateY(-3px);
+}
+/* Wide cards */
+.int-card.w2 { grid-column: span 2; }
+
+/* Icon badge */
+.int-ico {
+  width: 42px; height: 42px;
+  border-radius: 11px;
+  background: var(--ico-bg,rgba(255,255,255,.07));
+  border: 1px solid var(--ico-bd,rgba(255,255,255,.1));
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  position: relative; z-index: 1;
+}
+.int-ico svg { display: block; }
+
+/* Text */
+.int-name {
+  font-size: .9375rem;
+  font-weight: 700;
+  color: rgba(255,255,255,.9);
+  letter-spacing: -.025em;
+  line-height: 1.25;
+  position: relative; z-index: 1;
+}
+.int-desc {
+  font-size: .8rem;
+  color: rgba(255,255,255,.36);
+  line-height: 1.6;
+  flex: 1;
+  position: relative; z-index: 1;
+}
+
+/* Footer row */
+.int-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,.05);
+  position: relative; z-index: 1;
+  margin-top: auto;
+}
+.int-tag {
+  font-family: 'JetBrains Mono',ui-monospace,monospace;
+  font-size: .5rem;
+  font-weight: 500;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.2);
+}
+.int-status {
+  display: flex; align-items: center; gap: 5px;
+  font-family: 'JetBrains Mono',ui-monospace,monospace;
+  font-size: .5rem; font-weight: 500;
+  letter-spacing: .05em;
+  color: rgba(255,255,255,.28);
+}
+.int-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: #10B981;
+  box-shadow: 0 0 6px rgba(16,185,129,.7);
+  animation: int-pulse 2.4s ease-in-out infinite;
+}
+@keyframes int-pulse {
+  0%,100% { opacity:1; box-shadow:0 0 6px rgba(16,185,129,.7); }
+  50%      { opacity:.4; box-shadow:0 0 2px rgba(16,185,129,.3); }
+}
+/* "More" card */
+.int-more {
+  background: transparent !important;
+  border-style: dashed !important;
+  border-color: rgba(255,255,255,.08) !important;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 6px !important;
+  min-height: 168px;
+}
+.int-more::before, .int-more::after { display: none; }
+.int-more-n {
+  font-size: 2rem; font-weight: 900;
+  color: rgba(255,255,255,.1);
+  letter-spacing: -.05em; line-height: 1;
+}
+.int-more-l {
+  font-size: .75rem; color: rgba(255,255,255,.22);
+  font-weight: 500; letter-spacing: -.01em;
+}
+
+/* ════════════════════════════════════════════════════════════
+   COMPARISON
+   ════════════════════════════════════════════════════════════ */
+#comparison { padding: 128px 0; }
+.cmp-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 72px;
+}
+.cmp-card {
+  border-radius: var(--r-5);
+  padding: 40px 32px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  transition: box-shadow 0.2s;
+}
+.cmp-card:hover { box-shadow: var(--sh-lg); }
+.cmp-card.hero-card {
+  background: #06060E;
+  border-color: rgba(51,133,255,0.4);
+  box-shadow: 0 0 0 1px rgba(51,133,255,0.18), var(--sh-xl);
+  transform: translateY(-10px);
+}
+.cmp-eyebrow { font-family: var(--mono); font-size: 0.625rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg-3); margin-bottom: 14px; }
+.cmp-card.hero-card .cmp-eyebrow { color: rgba(51,133,255,0.85); }
+.cmp-name {
+  font-size: 1.625rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: var(--fg);
+  margin-bottom: 16px;
+  line-height: 1.15;
+}
+.cmp-card.hero-card .cmp-name { color: #fff; }
+.cmp-hr { height: 1px; background: var(--border); margin: 18px 0; }
+.cmp-card.hero-card .cmp-hr { background: rgba(255,255,255,0.08); }
+.cmp-body { font-size: 0.9375rem; line-height: 1.7; color: var(--fg-2); margin-bottom: 20px; }
+.cmp-card.hero-card .cmp-body { color: rgba(255,255,255,0.62); }
+.cmp-tags { display: flex; flex-wrap: wrap; gap: 7px; }
+.cmp-tag {
+  font-size: 0.8125rem;
+  padding: 4px 12px;
+  border-radius: var(--r-full);
+  font-weight: 500;
+  background: var(--bg-muted);
+  color: var(--fg-2);
+}
+.cmp-card.hero-card .cmp-tag { background: rgba(51,133,255,0.12); color: rgba(51,133,255,0.9); border: 1px solid rgba(51,133,255,0.2); }
+
+/* ════════════════════════════════════════════════════════════
+   TESTIMONIAL
+   ════════════════════════════════════════════════════════════ */
+#testimonial {
+  padding: 160px 40px;
+  background: var(--bg-subtle);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.testi-inner { max-width: 760px; margin: 0 auto; text-align: center; }
+.testi-logo { margin: 0 auto 40px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+.testi-logo-dot {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, var(--purple), var(--blue));
+  border-radius: var(--r-2);
+}
+.testi-logo-name { font-size: 0.9375rem; font-weight: 700; color: var(--fg); letter-spacing: -0.02em; }
+.testi-quote {
+  font-size: clamp(1.25rem, 3vw, 1.875rem);
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: -0.028em;
+  color: var(--fg);
+  margin-bottom: 32px;
+}
+.testi-attr { font-size: 0.9375rem; color: var(--fg-3); letter-spacing: -0.01em; }
+.testi-attr strong { color: var(--fg-2); font-weight: 500; }
+
+/* ════════════════════════════════════════════════════════════
+   PRICING
+   ════════════════════════════════════════════════════════════ */
+#pricing { padding: 128px 0; }
+.pricing-toggle { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 56px; }
+.toggle-pill {
+  display: flex;
+  background: var(--bg-muted);
+  border-radius: var(--r-full);
+  padding: 4px;
+  border: 1px solid var(--border);
+}
+.toggle-opt {
+  padding: 7px 20px;
+  border-radius: var(--r-full);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--fg-2);
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: -0.01em;
+}
+.toggle-opt.active { background: var(--bg); color: var(--fg); box-shadow: var(--sh-xs); }
+.toggle-save {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #059669;
+  background: rgba(16,185,129,0.08);
+  border: 1px solid rgba(16,185,129,0.2);
+  padding: 4px 12px;
+  border-radius: var(--r-full);
+}
+.px-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.px-card {
+  border-radius: var(--r-5);
+  padding: 40px 32px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  transition: box-shadow 0.2s;
+}
+.px-card:hover { box-shadow: var(--sh-lg); }
+.px-card.featured {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 1px var(--blue), var(--sh-xl);
+  position: relative;
+}
+.px-tag {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--blue);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 14px;
+  border-radius: var(--r-full);
+  white-space: nowrap;
+}
+.px-tier { font-family: var(--mono); font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg-3); margin-bottom: 12px; }
+.px-card.featured .px-tier { color: var(--blue); }
+.px-price {
+  font-size: 3rem;
+  font-weight: 900;
+  letter-spacing: -0.05em;
+  color: var(--fg);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.px-period { font-size: 0.875rem; color: var(--fg-3); margin-bottom: 28px; letter-spacing: -0.01em; }
+.px-hr { height: 1px; background: var(--border); margin: 24px 0; }
+.px-feats { list-style: none; display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; }
+.px-feats li { display: flex; align-items: flex-start; gap: 12px; font-size: 0.9375rem; color: var(--fg-2); line-height: 1.5; letter-spacing: -0.01em; }
+.px-check { color: var(--blue); font-weight: 700; flex-shrink: 0; margin-top: 1px; font-size: 0.875rem; }
+
+/* ════════════════════════════════════════════════════════════
+   BOTTOM CTA — dark, gradient, commanding
+   ════════════════════════════════════════════════════════════ */
+#cta-bottom {
+  background: #06060E;
+  padding: 140px 40px;
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+}
+#cta-bottom::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 80% at 30% 50%, rgba(124,58,237,0.18) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 80% at 70% 50%, rgba(0,102,255,0.15) 0%, transparent 60%);
+  pointer-events: none;
+}
+.cta-inner { position: relative; max-width: 720px; margin: 0 auto; }
+.cta-headline {
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  font-weight: 900;
+  letter-spacing: -0.045em;
+  color: rgba(255,255,255,0.94);
+  line-height: 1.05;
+  margin-bottom: 20px;
+}
+.cta-sub { font-size: 1.125rem; color: rgba(255,255,255,0.52); margin-bottom: 48px; line-height: 1.65; }
+.cta-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.btn-white {
+  background: #fff;
+  color: #0A0A0A;
+  box-shadow: 0 4px 12px rgba(255,255,255,0.15);
+}
+.btn-white:hover { background: #F5F5F5; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(255,255,255,0.2); }
+.btn-outline-white {
+  background: transparent;
+  color: rgba(255,255,255,0.72);
+  border: 1px solid rgba(255,255,255,0.18);
+}
+.btn-outline-white:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.9); transform: translateY(-1px); }
+
+/* ════════════════════════════════════════════════════════════
+   FOOTER
+   ════════════════════════════════════════════════════════════ */
+footer {
+  background: #08080C;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  padding: 80px 40px 40px;
+}
+.ft-inner { max-width: 1120px; margin: 0 auto; }
+.ft-top {
+  display: grid;
+  grid-template-columns: 280px repeat(4, 1fr);
+  gap: 48px;
+  padding-bottom: 64px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  margin-bottom: 40px;
+}
+.ft-brand-logo {
+  font-size: 1.0625rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: rgba(255,255,255,0.92);
+  margin-bottom: 10px;
+}
+.ft-brand-logo span { color: #3385FF; }
+.ft-brand-tag { font-size: 0.875rem; color: rgba(255,255,255,0.32); line-height: 1.65; max-width: 200px; }
+.ft-col h4 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.75);
+  margin-bottom: 18px;
+  letter-spacing: -0.02em;
+}
+.ft-col ul { list-style: none; display: flex; flex-direction: column; gap: 11px; }
+.ft-col a {
+  font-size: 0.9375rem;
+  color: rgba(255,255,255,0.35);
+  transition: color 0.14s;
+  letter-spacing: -0.01em;
+}
+.ft-col a:hover { color: rgba(255,255,255,0.7); }
+.ft-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.ft-copy { font-size: 0.875rem; color: rgba(255,255,255,0.25); letter-spacing: -0.01em; }
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: var(--r-full);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  font-size: 0.875rem;
+  color: rgba(255,255,255,0.45);
+  transition: background 0.14s, color 0.14s;
+  letter-spacing: -0.01em;
+}
+.theme-toggle:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.75); }
+
+/* ════════════════════════════════════════════════════════════
+   SCROLL REVEAL ANIMATION
+   ════════════════════════════════════════════════════════════ */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s cubic-bezier(0.16,1,0.3,1), transform 0.7s cubic-bezier(0.16,1,0.3,1);
+}
+.reveal.in { opacity: 1; transform: none; }
+.stagger > * {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.55s cubic-bezier(0.16,1,0.3,1), transform 0.55s cubic-bezier(0.16,1,0.3,1);
+}
+.stagger.in > *:nth-child(1) { opacity: 1; transform: none; transition-delay: 0.00s; }
+.stagger.in > *:nth-child(2) { opacity: 1; transform: none; transition-delay: 0.07s; }
+.stagger.in > *:nth-child(3) { opacity: 1; transform: none; transition-delay: 0.14s; }
+.stagger.in > *:nth-child(4) { opacity: 1; transform: none; transition-delay: 0.21s; }
+.stagger.in > *:nth-child(5) { opacity: 1; transform: none; transition-delay: 0.28s; }
+.stagger.in > *:nth-child(6) { opacity: 1; transform: none; transition-delay: 0.35s; }
+
+/* ════════════════════════════════════════════════════════════
+   RESPONSIVE
+   ════════════════════════════════════════════════════════════ */
+@media (max-width: 1024px) {
+  .feat-block-inner { grid-template-columns: 1fr; gap: 56px; }
+  .feat-block-inner.reverse { direction: ltr; }
+  .feat-grid { grid-template-columns: repeat(2, 1fr); }
+  .cmp-grid, .px-grid { grid-template-columns: 1fr; max-width: 480px; margin-left: auto; margin-right: auto; }
+  .px-card.featured { margin: 8px 0; }
+}
+@media (max-width: 1024px) {
+  .int-bento { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 768px) {
+  .int-bento { grid-template-columns: repeat(2, 1fr); }
+  .int-card.w2 { grid-column: span 2; }
+  .wrap, .wrap-wide { padding: 0 24px; }
+  #nav { padding: 0 24px; }
+  .nav-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+  .nav-links { display: none; }
+  .nav-actions .btn { display: none; }
+  .nav-actions .nav-theme-btn { display: none; }
+  .nav-burger { display: flex; }
+  .section { padding: 80px 0; }
+  .feat-block { padding: 80px 24px; }
+  #hero { padding: 140px 24px 0; }
+  .hero-ctas { flex-direction: column; align-items: center; }
+  .p-app { height: 380px; grid-template-columns: 160px 1fr; }
+  .p-insp { display: none; }
+  .feat-grid { grid-template-columns: 1fr; }
+  .steps-row { grid-template-columns: 1fr 1fr; gap: 40px; }
+  .steps-row::before { display: none; }
+  .ft-top { grid-template-columns: 1fr 1fr; }
+  .logos-list { gap: 32px; }
+  .cta-actions { flex-direction: column; align-items: center; }
+}
+@media (max-width: 480px) {
+  .d1 { font-size: 2.5rem; }
+  .ft-top { grid-template-columns: 1fr; }
+  .p-app { grid-template-columns: 1fr; height: 320px; }
+  .p-nav { display: none; }
+  .int-bento { grid-template-columns: 1fr; }
+  .int-card.w2 { grid-column: span 1; }
+}
+
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════ NAV ═══════════════════════════ -->
+<nav id="nav">
+  <div class="nav-inner">
+    <a href="#" class="nav-logo">Origin<span>main</span></a>
+    <ul class="nav-links">
+      <li class="nav-dropdown">
+        <a href="#features" style="display:flex;align-items:center;gap:4px;">
+          Product
+          <svg class="nav-dd-caret" width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </a>
+        <div class="nav-dropdown-menu">
+          <a class="nav-dd-item" href="/features/live-artboard.html">
+            <div class="nav-dd-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1.5" y="2.5" width="11" height="9" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M5 6.5l1.8 2 1.2-1.6 1.4 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            <div class="nav-dd-text"><span class="nav-dd-name">Live Artboard</span><span class="nav-dd-desc">Your app rendered live in the canvas</span></div>
+          </a>
+          <a class="nav-dd-item" href="/features/origin-graph.html">
+            <div class="nav-dd-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="2.5" r="1.5" fill="currentColor"/><circle cx="2.5" cy="11" r="1.5" fill="currentColor"/><circle cx="11.5" cy="11" r="1.5" fill="currentColor"/><path d="M6.2 3.8L3.2 9.6M7.8 3.8l3 5.8M3.8 11h6.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></div>
+            <div class="nav-dd-text"><span class="nav-dd-name">Origin Graph</span><span class="nav-dd-desc">Every component, indexed and queryable</span></div>
+          </a>
+          <a class="nav-dd-item" href="/features/intent-diff.html">
+            <div class="nav-dd-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1.5" y="4" width="6.5" height="7.5" rx="1.3" stroke="currentColor" stroke-width="1.3"/><rect x="6" y="2.5" width="6.5" height="7.5" rx="1.3" stroke="currentColor" stroke-width="1.3"/></svg></div>
+            <div class="nav-dd-text"><span class="nav-dd-name">Intent Diff</span><span class="nav-dd-desc">Ship component-level diffs, not redlines</span></div>
+          </a>
+          <div class="nav-dd-sep"></div>
+          <a class="nav-dd-item" href="/features/completion-zone.html">
+            <div class="nav-dd-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><path d="M7 1.5L8.1 5.4 12 6.5l-3.9 1.1L7 11.5 5.9 7.6 2 6.5l3.9-1.1z"/><circle cx="11" cy="2.5" r="1" fill="currentColor" opacity="0.5"/></svg></div>
+            <div class="nav-dd-text"><span class="nav-dd-name">Completion Zone</span><span class="nav-dd-desc">AI-filled design, constrained to your system</span></div>
+          </a>
+          <a class="nav-dd-item" href="/features/agent-bridge.html">
+            <div class="nav-dd-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 5h11M9.5 2.5l3 2.5-3 2.5"/><path d="M12.5 9h-11M4.5 6.5L1.5 9l3 2.5"/></svg></div>
+            <div class="nav-dd-text"><span class="nav-dd-name">Agent Bridge</span><span class="nav-dd-desc">MCP channel to Cursor, Claude Code & more</span></div>
+          </a>
+          <a class="nav-dd-item" href="/features/integrations.html">
+            <div class="nav-dd-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M5.5 8.5l3-3"/><path d="M3.8 6.8L2.8 7.8A2.5 2.5 0 006.3 11l1-1"/><path d="M10.2 7.2l1-1A2.5 2.5 0 007.7 3l-1 1"/></svg></div>
+            <div class="nav-dd-text"><span class="nav-dd-name">Integrations</span><span class="nav-dd-desc">Linear, Slack, GitHub, Figma & more</span></div>
+          </a>
+        </div>
+      </li>
+      <li><a href="#integrations">Integrations</a></li>
+      <li><a href="#pricing">Pricing</a></li>
+      <li><a href="#">Docs</a></li>
+    </ul>
+    <div class="nav-actions">
+      <button class="nav-theme-btn" id="navThemeBtn" aria-label="Toggle theme" title="Toggle dark mode">
+        <span id="navThemeIcon">☾</span>
+      </button>
+      <a href="/sign-in" class="btn btn-secondary" style="padding:7px 16px;font-size:.875rem">Log in</a>
+      <a href="/sign-up" class="btn btn-primary" style="padding:8px 18px;font-size:.875rem">Get Started</a>
+      <button class="nav-burger" id="nav-burger" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Mobile drawer (hidden on desktop) -->
+  <div class="nav-mobile" id="nav-mobile" aria-hidden="true">
+    <ul>
+      <li>
+        <a href="#features" id="mob-product-toggle" style="display:flex;justify-content:space-between;align-items:center;">
+          Product
+          <svg id="mob-dd-caret" width="10" height="6" viewBox="0 0 10 6" fill="none" style="transition:transform 0.15s;"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </a>
+        <div class="nav-mobile-sub" id="nav-mobile-sub">
+          <a href="/features/live-artboard.html">Live Artboard</a>
+          <a href="/features/origin-graph.html">Origin Graph</a>
+          <a href="/features/intent-diff.html">Intent Diff</a>
+          <a href="/features/completion-zone.html">Completion Zone</a>
+          <a href="/features/agent-bridge.html">Agent Bridge</a>
+          <a href="/features/integrations.html">Integrations</a>
+        </div>
+      </li>
+      <li><a href="#integrations">Integrations</a></li>
+      <li><a href="#pricing">Pricing</a></li>
+      <li><a href="#">Docs</a></li>
+    </ul>
+    <div class="nav-mobile-ctas">
+      <a href="/sign-in" class="btn btn-secondary">Log in</a>
+      <a href="/sign-up" class="btn btn-primary">Get Started</a>
+      <button class="nav-theme-btn" id="mobThemeBtn" aria-label="Toggle theme" style="margin-left:auto;">
+        <span id="mobThemeIcon">☾</span>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══════════════════════ HERO ══════════════════════════ -->
+<section id="hero">
+  <div class="hero-noise"></div>
+
+  <div class="hero-badge reveal">
+    <span class="badge badge-new">
+      <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><circle cx="4" cy="4" r="3.5" fill="#7C3AED" fill-opacity=".5"/><circle cx="4" cy="4" r="2" fill="#7C3AED"/></svg>
+      Early Access — Now Open
+    </span>
+  </div>
+
+  <h1 class="d1 hero-hl reveal">
+    Design is code.<br>Code is design.
+  </h1>
+
+  <p class="subtitle hero-sub reveal">
+    The first canvas where every artboard is a live render of your actual app —
+    and every edit writes a code diff.
+  </p>
+
+  <div class="hero-ctas reveal">
+    <a href="/sign-up" class="btn btn-primary btn-lg">Get Started Free</a>
+    <a href="#" class="btn btn-secondary btn-lg">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      Watch the demo
+    </a>
+  </div>
+
+  <p class="hero-note reveal">Free to start · No credit card required · Works with any React codebase</p>
+
+  <!-- Product shell -->
+  <div class="product-shell reveal">
+    <!-- Browser chrome -->
+    <div class="p-chrome">
+      <div class="p-dot r"></div>
+      <div class="p-dot y"></div>
+      <div class="p-dot g"></div>
+      <div class="p-url">
+        <span class="p-lock">🔒</span>
+        app.originmain.io/canvas
+      </div>
+    </div>
+
+    <!-- App -->
+    <div class="p-app">
+
+      <!-- Toolbar -->
+      <div class="p-toolbar">
+        <span class="p-wordmark">Om<span>•</span></span>
+        <div class="p-tb-sep"></div>
+        <div class="p-tb-group">
+          <div class="p-tb-btn active" title="Select">↖</div>
+          <div class="p-tb-btn" title="Pan">✥</div>
+        </div>
+        <div class="p-tb-sep"></div>
+        <div class="p-tb-group">
+          <div class="p-tb-btn" title="New Artboard"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1.5" y="2.5" width="11" height="9" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M5 6.5l1.8 2 1.2-1.6 1.4 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <div class="p-tb-btn" title="Completion Zone"><svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><path d="M7 1.5L8.1 5.4 12 6.5l-3.9 1.1L7 11.5 5.9 7.6 2 6.5l3.9-1.1z"/><circle cx="11" cy="2.5" r="1" fill="currentColor" opacity="0.5"/></svg></div>
+          <div class="p-tb-btn" title="Intent Diff"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1.5" y="4" width="6.5" height="7.5" rx="1.3" stroke="currentColor" stroke-width="1.3"/><rect x="6" y="2.5" width="6.5" height="7.5" rx="1.3" stroke="currentColor" stroke-width="1.3"/></svg></div>
+        </div>
+        <div class="p-tb-sep"></div>
+        <div class="p-tb-group">
+          <div class="p-tb-btn on" title="Origin Graph"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="2.5" r="1.5" fill="currentColor"/><circle cx="2.5" cy="11" r="1.5" fill="currentColor"/><circle cx="11.5" cy="11" r="1.5" fill="currentColor"/><path d="M6.2 3.8L3.2 9.6M7.8 3.8l3 5.8M3.8 11h6.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></div>
+        </div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+          <div class="p-zoom">100%</div>
+          <div class="p-live">
+            <div class="p-live-dot"></div>
+            <span class="p-live-txt">Live</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Left nav -->
+      <div class="p-nav">
+        <div class="p-nav-section">Artboards</div>
+        <div class="p-nav-item sel">
+          <div class="dot"></div>DashboardCard
+        </div>
+        <div class="p-nav-item">
+          <div class="dot"></div>UserProfile
+        </div>
+        <div class="p-nav-item">
+          <div class="dot"></div>NavSidebar
+        </div>
+        <div class="p-nav-item">
+          <div class="dot"></div>DataTable
+        </div>
+        <div class="p-sep-line"></div>
+        <div class="p-nav-section">Files</div>
+        <div class="p-nav-item">
+          <div class="dot"></div>src/components
+        </div>
+        <div class="p-nav-item" style="padding-left:24px;font-size:.6875rem;">
+          <div class="dot" style="opacity:.5"></div>DashboardCard
+        </div>
+        <div class="p-nav-item" style="padding-left:24px;font-size:.6875rem;">
+          <div class="dot" style="opacity:.5"></div>UserProfile
+        </div>
+        <div class="p-nav-item" style="padding-left:24px;font-size:.6875rem;">
+          <div class="dot" style="opacity:.5"></div>StatsCard
+        </div>
+        <div class="p-sep-line"></div>
+        <div class="p-nav-section">Graph</div>
+        <div class="p-nav-item" style="font-size:.6875rem;color:rgba(255,255,255,.35);">
+          <span style="font-family:monospace;font-size:.55rem;color:rgba(51,133,255,.7)">●</span>
+          284 nodes indexed
+        </div>
+      </div>
+
+      <!-- Canvas -->
+      <div class="p-canvas">
+        <div class="p-grid"></div>
+
+        <!-- Artboard 1: DashboardCard (selected) -->
+        <div class="p-artboard selected" style="top:60px;left:60px;width:210px;">
+          <div class="p-ab-label">DashboardCard</div>
+          <div class="p-handle tl"></div>
+          <div class="p-handle tr"></div>
+          <div class="p-handle bl"></div>
+          <div class="p-handle br"></div>
+          <div class="p-dash-card">
+            <div class="p-dc-head">
+              <div class="p-dc-title">Revenue Overview</div>
+              <div class="p-dc-badge">Live</div>
+            </div>
+            <div class="p-dc-val">$12,450</div>
+            <div class="p-dc-delta">↑ +2.4% vs last month</div>
+            <div class="p-dc-bar"><div class="p-dc-fill"></div></div>
+            <div class="p-dc-chips">
+              <div class="p-chip">Q4 2024</div>
+              <div class="p-chip">MRR</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Artboard 2: UserProfile -->
+        <div class="p-artboard" style="top:60px;right:60px;width:160px;">
+          <div class="p-ab-label">UserProfile</div>
+          <div class="p-profile">
+            <div class="p-avatar"></div>
+            <div class="p-pname">Sarah Chen</div>
+            <div class="p-prole">Design Engineer</div>
+            <div class="p-prow"><span class="p-pk">Team</span><span class="p-pv">Acme Inc</span></div>
+            <div class="p-prow"><span class="p-pk">Role</span><span class="p-pv">Admin</span></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Inspector -->
+      <div class="p-insp">
+        <div class="p-tabs">
+          <div class="p-tab on">PROPS</div>
+          <div class="p-tab">DIFF</div>
+          <div class="p-tab">GRAPH</div>
+        </div>
+        <div class="p-isec">
+          <div class="p-isec-hd">Component Props</div>
+          <div class="p-irow"><span class="p-ik">title</span><span class="p-iv s">"Revenue Overview"</span></div>
+          <div class="p-irow"><span class="p-ik">value</span><span class="p-iv s">"$12,450"</span></div>
+          <div class="p-irow"><span class="p-ik">delta</span><span class="p-iv n">+2.4</span></div>
+          <div class="p-irow"><span class="p-ik">period</span><span class="p-iv s">"monthly"</span></div>
+          <div class="p-irow"><span class="p-ik">loading</span><span class="p-iv b">false</span></div>
+        </div>
+        <div class="p-isec">
+          <div class="p-isec-hd">Intent Diff</div>
+          <div class="p-diff del">− borderRadius: 8px</div>
+          <div class="p-diff add">+ borderRadius: 12px</div>
+          <div class="p-diff del">− accentColor: #2A6CD4</div>
+          <div class="p-diff add">+ accentColor: #0066FF</div>
+        </div>
+        <div class="p-isec">
+          <div class="p-isec-hd">Render Target</div>
+          <div class="p-irow"><span class="p-ik">file</span><span class="p-iv n">dashboard.tsx:42</span></div>
+          <div class="p-irow"><span class="p-ik">status</span><span class="p-iv s">connected</span></div>
+          <div class="p-irow"><span class="p-ik">agent</span><span class="p-iv s">claude-code</span></div>
+        </div>
+        <div class="p-statusbar">
+          <span class="p-st on">● Live render</span>
+          <span class="p-st">Agent: ready</span>
+          <span class="p-st" style="margin-left:auto">284 nodes</span>
+        </div>
+      </div>
+
+    </div><!-- /p-app -->
+  </div><!-- /product-shell -->
+</section>
+
+<!-- ═══════════════════════ LOGOS ═════════════════════════ -->
+<div id="logos">
+  <div class="wrap">
+    <p class="label logos-label" style="display:block;text-align:center;">Used by design engineers at</p>
+    <div class="logos-list stagger">
+      <div class="logo-item">Vercel</div>
+      <div class="logo-item">Linear</div>
+      <div class="logo-item">Stripe</div>
+      <div class="logo-item">Resend</div>
+      <div class="logo-item">PlanetScale</div>
+      <div class="logo-item">Lemon Squeezy</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ FEATURE BLOCK 1: Live Artboard ════ -->
+<div class="feat-block">
+  <div class="feat-block-inner">
+    <div class="feat-copy reveal">
+      <span class="label label-blue">Live Artboard</span>
+      <h2 class="d3">Your app, live in the canvas.</h2>
+      <p class="subtitle">Not a mockup. Not a screenshot. Every artboard is a real render of your actual component tree — running your real code, connected to your real data.</p>
+      <ul class="feat-points">
+        <li>
+          <span class="feat-point-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1.5" y="2.5" width="11" height="9" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M5 6.5l1.8 2 1.2-1.6 1.4 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          Any route becomes an artboard. Open a URL and it renders instantly.
+        </li>
+        <li>
+          <span class="feat-point-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="2.5" r="1.5" fill="currentColor"/><circle cx="2.5" cy="11" r="1.5" fill="currentColor"/><circle cx="11.5" cy="11" r="1.5" fill="currentColor"/><path d="M6.2 3.8L3.2 9.6M7.8 3.8l3 5.8M3.8 11h6.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>
+          Changes in the canvas write back to your component props — no round trips.
+        </li>
+        <li>
+          <span class="feat-point-icon">⚡</span>
+          Hot reload and real-time data. The canvas reflects your app state at all times.
+        </li>
+      </ul>
+      <a href="/features/live-artboard.html" class="btn btn-primary">See it in action →</a>
+    </div>
+    <div class="feat-visual feat-visual-dark reveal">
+      <div class="fv-artboard-scene">
+        <div class="fv-grid"></div>
+        <div style="position:relative;z-index:1;">
+          <div class="fv-ab selected">
+            <div class="fv-ab-lbl">DashboardCard — live</div>
+            <div class="fv-mini-title">Revenue Overview</div>
+            <div class="fv-mini-val">$12,450</div>
+            <div class="fv-mini-bar"><div class="fv-mini-fill"></div></div>
+          </div>
+        </div>
+        <!-- Subtle glow -->
+        <div style="position:absolute;inset:0;background:radial-gradient(ellipse 50% 50% at 50% 50%,rgba(51,133,255,0.06),transparent);pointer-events:none;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ FEATURE BLOCK 2: Intent Diff ══════ -->
+<div class="feat-block section-muted">
+  <div class="feat-block-inner reverse">
+    <div class="feat-copy reveal">
+      <span class="label label-blue">Intent Diff</span>
+      <h2 class="d3">Ship a diff, not a redline.</h2>
+      <p class="subtitle">Visual changes expressed at the component level — not the pixel level. Every edit on the canvas becomes a machine-readable diff of exactly what changed and why.</p>
+      <ul class="feat-points">
+        <li>
+          <span class="feat-point-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1.5" y="4" width="6.5" height="7.5" rx="1.3" stroke="currentColor" stroke-width="1.3"/><rect x="6" y="2.5" width="6.5" height="7.5" rx="1.3" stroke="currentColor" stroke-width="1.3"/></svg></span>
+          Intent Diffs describe changes in your design language: "increase Card border-radius."
+        </li>
+        <li>
+          <span class="feat-point-icon">🤖</span>
+          Agents receive the diff and apply it precisely — no interpretation required.
+        </li>
+        <li>
+          <span class="feat-point-icon">✓</span>
+          Parity is verified automatically. The canvas confirms the result.
+        </li>
+      </ul>
+      <a href="/features/intent-diff.html" class="btn btn-primary">Explore Intent Diff →</a>
+    </div>
+    <div class="feat-visual feat-visual-dark reveal">
+      <div class="fv-diff-scene">
+        <div class="fv-diff-header">Intent Diff — DashboardCard.tsx</div>
+        <div class="fv-diff-file">src/components/DashboardCard.tsx · 3 changes</div>
+        <div class="fv-line ctx">  &lt;Card</div>
+        <div class="fv-line del">−   borderRadius={8}</div>
+        <div class="fv-line add">+   borderRadius={12}</div>
+        <div class="fv-line ctx">    elevation="medium"</div>
+        <div class="fv-line del">−   accentColor="#2A6CD4"</div>
+        <div class="fv-line add">+   accentColor="#0066FF"</div>
+        <div class="fv-line ctx">    &gt;</div>
+        <div class="fv-line del">−   padding={16}</div>
+        <div class="fv-line add">+   padding={20}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ FEATURE BLOCK 3: Origin Graph ═════ -->
+<div class="feat-block">
+  <div class="feat-block-inner">
+    <div class="feat-copy reveal">
+      <span class="label label-blue">Origin Graph</span>
+      <h2 class="d3">Every surface, indexed.</h2>
+      <p class="subtitle">A queryable graph of every component, token, and relationship in your codebase. Know exactly what composes each surface — and what changes cascade.</p>
+      <ul class="feat-points">
+        <li>
+          <span class="feat-point-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="2.5" r="1.5" fill="currentColor"/><circle cx="2.5" cy="11" r="1.5" fill="currentColor"/><circle cx="11.5" cy="11" r="1.5" fill="currentColor"/><path d="M6.2 3.8L3.2 9.6M7.8 3.8l3 5.8M3.8 11h6.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>
+          284 nodes. Every component traced to its source, tokens, and parent routes.
+        </li>
+        <li>
+          <span class="feat-point-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M5.5 8.5l3-3"/><path d="M3.8 6.8L2.8 7.8A2.5 2.5 0 006.3 11l1-1"/><path d="M10.2 7.2l1-1A2.5 2.5 0 007.7 3l-1 1"/></svg></span>
+          Completion Zone uses the graph to constrain AI suggestions to your design language.
+        </li>
+        <li>
+          <span class="feat-point-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 5h11M9.5 2.5l3 2.5-3 2.5"/><path d="M12.5 9h-11M4.5 6.5L1.5 9l3 2.5"/></svg></span>
+          Agent Bridge exposes the graph to external AI tools via MCP protocol.
+        </li>
+      </ul>
+      <a href="/features/origin-graph.html" class="btn btn-primary">Explore the Graph →</a>
+    </div>
+    <div class="feat-visual feat-visual-dark reveal" style="position:relative;">
+      <div class="fv-graph-scene">
+        <!-- Nodes -->
+        <div class="fv-node root" style="top:40px;left:50%;transform:translateX(-50%);">App</div>
+        <div class="fv-node" style="top:110px;left:30px;">DashboardCard</div>
+        <div class="fv-node" style="top:110px;right:30px;">UserProfile</div>
+        <div class="fv-node" style="top:190px;left:60px;">StatsCard</div>
+        <div class="fv-node" style="top:190px;left:170px;">ProgressBar</div>
+        <div class="fv-node" style="top:190px;right:50px;">Avatar</div>
+        <div class="fv-node" style="bottom:60px;left:50%;transform:translateX(-50%);opacity:.5;">+ 278 more nodes</div>
+        <!-- Background glow -->
+        <div style="position:absolute;inset:0;background:radial-gradient(ellipse 60% 60% at 50% 40%,rgba(124,58,237,0.06),transparent);pointer-events:none;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ FEATURES GRID ════════════════ -->
+<section id="features">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="label">Everything you need</span>
+      <h2 class="d2">Five ideas that close the gap.</h2>
+      <p class="subtitle">Each feature removes a seam between design intent and production code.</p>
+    </div>
+    <div class="feat-grid stagger">
+      <div class="feat-cell">
+        <div class="feat-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1.5" y="2.5" width="11" height="9" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M5 6.5l1.8 2 1.2-1.6 1.4 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <h3>Live Artboard</h3>
+        <p>A live render of your actual application — not a mockup. Every artboard is backed by a real component tree running your real code.</p>
+      </div>
+      <div class="feat-cell">
+        <div class="feat-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="2.5" r="1.5" fill="currentColor"/><circle cx="2.5" cy="11" r="1.5" fill="currentColor"/><circle cx="11.5" cy="11" r="1.5" fill="currentColor"/><path d="M6.2 3.8L3.2 9.6M7.8 3.8l3 5.8M3.8 11h6.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></div>
+        <h3>Origin Graph</h3>
+        <p>Every artboard traces its provenance through a queryable graph. Know exactly which files, props, and tokens compose each surface.</p>
+      </div>
+      <div class="feat-cell">
+        <div class="feat-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1.5" y="4" width="6.5" height="7.5" rx="1.3" stroke="currentColor" stroke-width="1.3"/><rect x="6" y="2.5" width="6.5" height="7.5" rx="1.3" stroke="currentColor" stroke-width="1.3"/></svg></div>
+        <h3>Intent Diff</h3>
+        <p>Visual changes expressed at the component level, not the pixel level. Ship diffs that describe intent — not PNG redlines.</p>
+      </div>
+      <div class="feat-cell">
+        <div class="feat-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><path d="M7 1.5L8.1 5.4 12 6.5l-3.9 1.1L7 11.5 5.9 7.6 2 6.5l3.9-1.1z"/><circle cx="11" cy="2.5" r="1" fill="currentColor" opacity="0.5"/></svg></div>
+        <h3>Completion Zone</h3>
+        <p>Mark a region. AI fills it within your design language constraints — using your actual tokens, your actual components.</p>
+      </div>
+      <div class="feat-cell">
+        <div class="feat-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 5h11M9.5 2.5l3 2.5-3 2.5"/><path d="M12.5 9h-11M4.5 6.5L1.5 9l3 2.5"/></svg></div>
+        <h3>Agent Bridge</h3>
+        <p>Bidirectional MCP channel between your canvas and coding agents. Claude, Cursor, Copilot — they all see the canvas and the graph.</p>
+      </div>
+      <div class="feat-cell">
+        <div class="feat-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M5.5 8.5l3-3"/><path d="M3.8 6.8L2.8 7.8A2.5 2.5 0 006.3 11l1-1"/><path d="M10.2 7.2l1-1A2.5 2.5 0 007.7 3l-1 1"/></svg></div>
+        <h3>Integrations</h3>
+        <p>Slots into Linear, Slack, GitHub, Figma import, and every major AI coding tool. No migration. No lock-in.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ WORKFLOW ══════════════════════ -->
+<section id="workflow">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="label">Workflow</span>
+      <h2 class="d2">From codebase to canvas in five steps.</h2>
+    </div>
+    <div class="steps-row stagger">
+      <div class="step">
+        <div class="step-num">01</div>
+        <h3>Ingest</h3>
+        <p>Point Originmain at your repo. The Origin Graph indexes your components, tokens, and routes.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <h3>Edit</h3>
+        <p>Open any route as a live artboard. Every visual change is a real prop or style edit.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <h3>Complete</h3>
+        <p>Mark a region and let AI suggest completions constrained to your design language.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <h3>Export</h3>
+        <p>Export an Intent Diff — a machine-readable, component-level description of what changed.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">05</div>
+        <h3>Verify</h3>
+        <p>Agents apply the diff and verify rendering parity. The canvas confirms the result.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ INTEGRATIONS ══════════════════ -->
+<section id="integrations">
+  <div class="int-orb int-orb-1"></div>
+  <div class="int-orb int-orb-2"></div>
+  <div class="int-orb int-orb-3"></div>
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="label">Integrations</span>
+      <h2 class="d2">Connects to your entire stack.</h2>
+      <p class="subtitle">Slots into the tools you already use. No migration required.</p>
+    </div>
+
+    <div class="int-bento">
+
+      <!-- ── GitHub — wide ── -->
+      <div class="int-card w2 reveal"
+           style="--glow:#e6edf3;--glow-dim:rgba(230,237,243,.1);--glow-soft:rgba(230,237,243,.05);--glow-ambient:rgba(230,237,243,.03);--ico-bg:rgba(255,255,255,.07);--ico-bd:rgba(255,255,255,.12)">
+        <div class="int-ico">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="rgba(255,255,255,.85)">
+            <path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.168 6.839 9.49.5.092.682-.217.682-.482 0-.237-.009-.866-.013-1.7-2.782.604-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.942.359.31.678.921.678 1.856 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12c0-5.523-4.477-10-10-10z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="int-name">GitHub</div>
+          <div class="int-desc">PR reviews, branch tracking, and automatic code sync on every push. Full origin-graph diff computed on every merge.</div>
+        </div>
+        <div class="int-footer">
+          <span class="int-tag">Version Control</span>
+          <span class="int-status"><span class="int-dot"></span>Live</span>
+        </div>
+      </div>
+
+      <!-- ── Figma Import ── -->
+      <div class="int-card reveal"
+           style="--glow:#a259ff;--glow-dim:rgba(162,89,255,.14);--glow-soft:rgba(162,89,255,.06);--glow-ambient:rgba(162,89,255,.04);--ico-bg:rgba(162,89,255,.12);--ico-bd:rgba(162,89,255,.22)">
+        <div class="int-ico">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
+            <path d="M8 2h4v6H8a3 3 0 010-6z" fill="#F24E1E"/>
+            <path d="M12 2h4a3 3 0 010 6h-4V2z" fill="#FF7262"/>
+            <path d="M8 8h4v6H8a3 3 0 010-6z" fill="#A259FF"/>
+            <path d="M12 11a3 3 0 116 0 3 3 0 01-6 0z" fill="#1ABCFE"/>
+            <path d="M8 14h4v4a3 3 0 11-4-4z" fill="#0ACF83"/>
+          </svg>
+        </div>
+        <div>
+          <div class="int-name">Figma Import</div>
+          <div class="int-desc">Design tokens, components & layouts synced live into the graph.</div>
+        </div>
+        <div class="int-footer">
+          <span class="int-tag">Design</span>
+          <span class="int-status"><span class="int-dot"></span>Live</span>
+        </div>
+      </div>
+
+      <!-- ── Linear ── -->
+      <div class="int-card reveal"
+           style="--glow:#5e6ad2;--glow-dim:rgba(94,106,210,.14);--glow-soft:rgba(94,106,210,.06);--glow-ambient:rgba(94,106,210,.04);--ico-bg:rgba(94,106,210,.12);--ico-bd:rgba(94,106,210,.22)">
+        <div class="int-ico">
+          <!-- Linear official mark — fetched from simple-icons/simple-icons/icons/linear.svg -->
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="#5e6ad2">
+            <path d="M2.886 4.18A11.982 11.982 0 0 1 11.99 0C18.624 0 24 5.376 24 12.009c0 3.64-1.62 6.903-4.18 9.105L2.887 4.18ZM1.817 5.626l16.556 16.556c-.524.33-1.075.62-1.65.866L.951 7.277c.247-.575.537-1.126.866-1.65ZM.322 9.163l14.515 14.515c-.71.172-1.443.282-2.195.322L0 11.358a12 12 0 0 1 .322-2.195Zm-.17 4.862 9.823 9.824a12.02 12.02 0 0 1-9.824-9.824Z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="int-name">Linear</div>
+          <div class="int-desc">Issue tracking & milestone sync tied to every component change.</div>
+        </div>
+        <div class="int-footer">
+          <span class="int-tag">Project Mgmt</span>
+          <span class="int-status"><span class="int-dot"></span>Live</span>
+        </div>
+      </div>
+
+      <!-- ── Slack ── -->
+      <div class="int-card reveal"
+           style="--glow:#2eb67d;--glow-dim:rgba(46,182,125,.12);--glow-soft:rgba(46,182,125,.05);--glow-ambient:rgba(46,182,125,.04);--ico-bg:rgba(46,182,125,.1);--ico-bd:rgba(46,182,125,.18)">
+        <div class="int-ico">
+          <!-- Slack official mark — paths from gilbarbara/logos slack-icon.svg -->
+          <svg viewBox="0 0 256 256" width="20" height="20" fill="none">
+            <path d="M53.841 161.321C53.841 176.152 41.854 188.14 27.022 188.14 12.19 188.14.203 176.152.203 161.321c0-14.832 11.987-26.82 26.819-26.82h26.82v26.82zm13.41 0c0-14.832 11.987-26.82 26.819-26.82 14.832 0 26.819 11.988 26.819 26.82v67.047c0 14.832-11.987 26.82-26.819 26.82-14.832 0-26.819-11.988-26.819-26.82V161.32z" fill="#E01E5A"/>
+            <path d="M94.07 53.638C79.238 53.638 67.251 41.651 67.251 26.819 67.251 11.987 79.238 0 94.07 0c14.832 0 26.819 11.987 26.819 26.819v26.82H94.07zm0 13.613c14.832 0 26.819 11.987 26.819 26.819 0 14.832-11.987 26.819-26.819 26.819H26.819C11.987 120.889 0 108.902 0 94.07c0-14.832 11.987-26.819 26.819-26.819H94.07z" fill="#36C5F0"/>
+            <path d="M201.549 94.07c0-14.832 11.987-26.819 26.819-26.819C243.2 67.251 255.187 79.238 255.187 94.07c0 14.832-11.987 26.819-26.819 26.819h-26.819V94.07zm-13.41 0c0 14.832-11.987 26.819-26.819 26.819-14.832 0-26.819-11.987-26.819-26.819V26.819C134.501 11.987 146.488 0 161.32 0c14.832 0 26.819 11.987 26.819 26.819V94.07z" fill="#2EB67D"/>
+            <path d="M161.321 201.549c14.832 0 26.819 11.987 26.819 26.819 0 14.832-11.987 26.819-26.819 26.819-14.832 0-26.819-11.987-26.819-26.819v-26.819h26.819zm0-13.41c-14.832 0-26.819-11.987-26.819-26.819 0-14.832 11.987-26.819 26.819-26.819h67.25c14.832 0 26.819 11.987 26.819 26.819 0 14.832-11.987 26.819-26.819 26.819h-67.25z" fill="#ECB22E"/>
+          </svg>
+        </div>
+        <div>
+          <div class="int-name">Slack</div>
+          <div class="int-desc">Deploy alerts, review pings & diff summaries in your channels.</div>
+        </div>
+        <div class="int-footer">
+          <span class="int-tag">Communication</span>
+          <span class="int-status"><span class="int-dot"></span>Live</span>
+        </div>
+      </div>
+
+      <!-- ── Cursor — wide ── -->
+      <div class="int-card w2 reveal"
+           style="--glow:#d4d4d4;--glow-dim:rgba(212,212,212,.09);--glow-soft:rgba(212,212,212,.04);--glow-ambient:rgba(212,212,212,.02);--ico-bg:rgba(255,255,255,.06);--ico-bd:rgba(255,255,255,.1)">
+        <div class="int-ico">
+          <!-- Cursor official mark — fetched from simple-icons/simple-icons/icons/cursor.svg -->
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="rgba(255,255,255,.88)">
+            <path d="M11.503.131 1.891 5.678a.84.84 0 0 0-.42.726v11.188c0 .3.162.575.42.724l9.609 5.55a1 1 0 0 0 .998 0l9.61-5.55a.84.84 0 0 0 .42-.724V6.404a.84.84 0 0 0-.42-.726L12.497.131a1.01 1.01 0 0 0-.996 0M2.657 6.338h18.55c.263 0 .43.287.297.515L12.23 22.918c-.062.107-.229.064-.229-.06V12.335a.59.59 0 0 0-.295-.51l-9.11-5.257c-.109-.063-.064-.23.061-.23"/>
+          </svg>
+        </div>
+        <div>
+          <div class="int-name">Cursor</div>
+          <div class="int-desc">Origin diffs surface inline as Cursor suggestions. Accept or reject component changes without leaving your editor — zero context-switching.</div>
+        </div>
+        <div class="int-footer">
+          <span class="int-tag">AI IDE</span>
+          <span class="int-status"><span class="int-dot"></span>Live</span>
+        </div>
+      </div>
+
+      <!-- ── VS Code ── -->
+      <div class="int-card reveal"
+           style="--glow:#007acc;--glow-dim:rgba(0,122,204,.14);--glow-soft:rgba(0,122,204,.06);--glow-ambient:rgba(0,122,204,.04);--ico-bg:rgba(0,122,204,.12);--ico-bd:rgba(0,122,204,.22)">
+        <div class="int-ico">
+          <!-- VS Code official mark: folded-ribbon square — simpleicons.org/visualstudiocode -->
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="#007acc">
+            <path d="M23.15 2.587 18.21.21a1.494 1.494 0 0 0-1.705.29l-9.46 8.63-4.12-3.128a.999.999 0 0 0-1.276.057L.327 7.261A1 1 0 0 0 .326 8.74L3.899 12 .326 15.26a1 1 0 0 0 .001 1.479L1.65 17.94a.999.999 0 0 0 1.276.057l4.12-3.128 9.46 8.63a1.492 1.492 0 0 0 1.704.29l4.942-2.377A1.5 1.5 0 0 0 24 20.06V3.939a1.5 1.5 0 0 0-.85-1.352zm-5.146 14.861L10.826 12l7.178-5.448v10.896z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="int-name">VS Code</div>
+          <div class="int-desc">Extension & workspace sync, inline diff annotations.</div>
+        </div>
+        <div class="int-footer">
+          <span class="int-tag">IDE</span>
+          <span class="int-status"><span class="int-dot"></span>Live</span>
+        </div>
+      </div>
+
+      <!-- ── Claude Code ── -->
+      <div class="int-card reveal"
+           style="--glow:#f59e0b;--glow-dim:rgba(245,158,11,.13);--glow-soft:rgba(245,158,11,.05);--glow-ambient:rgba(245,158,11,.04);--ico-bg:rgba(245,158,11,.1);--ico-bd:rgba(245,158,11,.2)">
+        <div class="int-ico">
+          <!-- Claude official mark — fetched from simple-icons/simple-icons/icons/claude.svg -->
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="#f59e0b">
+            <path d="m4.7144 15.9555 4.7174-2.6471.079-.2307-.079-.1275h-.2307l-.7893-.0486-2.6956-.0729-2.3375-.0971-2.2646-.1214-.5707-.1215-.5343-.7042.0546-.3522.4797-.3218.686.0608 1.5179.1032 2.2767.1578 1.6514.0972 2.4468.255h.3886l.0546-.1579-.1336-.0971-.1032-.0972L6.973 9.8356l-2.55-1.6879-1.3356-.9714-.7225-.4918-.3643-.4614-.1578-1.0078.6557-.7225.8803.0607.2246.0607.8925.686 1.9064 1.4754 2.4893 1.8336.3643.3035.1457-.1032.0182-.0728-.164-.2733-1.3539-2.4467-1.445-2.4893-.6435-1.032-.17-.6194c-.0607-.255-.1032-.4674-.1032-.7285L6.287.1335 6.6997 0l.9957.1336.419.3642.6192 1.4147 1.0018 2.2282 1.5543 3.0296.4553.8985.2429.8318.091.255h.1579v-.1457l.1275-1.706.2368-2.0947.2307-2.6957.0789-.7589.3764-.9107.7468-.4918.5828.2793.4797.686-.0668.4433-.2853 1.8517-.5586 2.9021-.3643 1.9429h.2125l.2429-.2429.9835-1.3053 1.6514-2.0643.7286-.8196.85-.9046.5464-.4311h1.0321l.759 1.1293-.34 1.1657-1.0625 1.3478-.8804 1.1414-1.2628 1.7-.7893 1.36.0729.1093.1882-.0183 2.8535-.607 1.5421-.2794 1.8396-.3157.8318.3886.091.3946-.3278.8075-1.967.4857-2.3072.4614-3.4364.8136-.0425.0304.0486.0607 1.5482.1457.6618.0364h1.621l3.0175.2247.7892.522.4736.6376-.079.4857-1.2142.6193-1.6393-.3886-3.825-.9107-1.3113-.3279h-.1822v.1093l1.0929 1.0686 2.0035 1.8092 2.5075 2.3314.1275.5768-.3218.4554-.34-.0486-2.2039-1.6575-.85-.7468-1.9246-1.621h-.1275v.17l.4432.6496 2.3436 3.5214.1214 1.0807-.17.3521-.6071.2125-.6679-.1214-1.3721-1.9246L14.38 17.959l-1.1414-1.9428-.1397.079-.674 7.2552-.3156.3703-.7286.2793-.6071-.4614-.3218-.7468.3218-1.4753.3886-1.9246.3157-1.53.2853-1.9004.17-.6314-.0121-.0425-.1397.0182-1.4328 1.9672-2.1796 2.9446-1.7243 1.8456-.4128.164-.7164-.3704.0667-.6618.4008-.5889 2.386-3.0357 1.4389-1.882.929-1.0868-.0062-.1579h-.0546l-6.3385 4.1164-1.1293.1457-.4857-.4554.0608-.7467.2307-.2429 1.9064-1.3114Z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="int-name">Claude Code</div>
+          <div class="int-desc">AI pair programming with full graph context.</div>
+        </div>
+        <div class="int-footer">
+          <span class="int-tag">AI</span>
+          <span class="int-status"><span class="int-dot"></span>Live</span>
+        </div>
+      </div>
+
+      <!-- ── TypeScript ── -->
+      <div class="int-card reveal"
+           style="--glow:#3178c6;--glow-dim:rgba(49,120,198,.14);--glow-soft:rgba(49,120,198,.06);--glow-ambient:rgba(49,120,198,.04);--ico-bg:#3178c6;--ico-bd:rgba(49,120,198,.6)">
+        <div class="int-ico">
+          <!-- TypeScript official mark — blue bg via --ico-bg, white TS letterforms -->
+          <svg viewBox="0 0 18 18" width="18" height="18">
+            <!-- T: full-width crossbar + centered stem (left half) -->
+            <rect x="0.5" y="4.5" width="8.5" height="1.8" rx="0.5" fill="white"/>
+            <rect x="3.75" y="4.5" width="1.9" height="9.2" rx="0.5" fill="white"/>
+            <!-- S: top arc (opens right) → middle pinch → bottom arc (opens left) -->
+            <path d="M15.8 7.2c-.5-.9-1.4-1.4-2.5-1.4-1.4 0-2.3.7-2.3 1.9 0 1 .9 1.6 2.1 2 1.3.4 2.3 1.1 2.3 2.3 0 1.3-1.1 2.1-2.6 2.1-1.1 0-2-.4-2.6-1.3" stroke="white" stroke-width="1.7" stroke-linecap="round" fill="none"/>
+          </svg>
+        </div>
+        <div>
+          <div class="int-name">TypeScript</div>
+          <div class="int-desc">Type-safe component contracts and prop inference.</div>
+        </div>
+        <div class="int-footer">
+          <span class="int-tag">Language</span>
+          <span class="int-status"><span class="int-dot"></span>Live</span>
+        </div>
+      </div>
+
+      <!-- ── Next.js ── -->
+      <div class="int-card reveal"
+           style="--glow:#ffffff;--glow-dim:rgba(255,255,255,.07);--glow-soft:rgba(255,255,255,.03);--glow-ambient:rgba(255,255,255,.02);--ico-bg:rgba(255,255,255,.06);--ico-bd:rgba(255,255,255,.1)">
+        <div class="int-ico">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none">
+            <path d="M5 4v16l14-16v16" stroke="rgba(255,255,255,.88)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="int-name">Next.js</div>
+          <div class="int-desc">App Router, RSC, and server actions — fully understood.</div>
+        </div>
+        <div class="int-footer">
+          <span class="int-tag">Framework</span>
+          <span class="int-status"><span class="int-dot"></span>Live</span>
+        </div>
+      </div>
+
+      <!-- ── React ── -->
+      <div class="int-card reveal"
+           style="--glow:#61dafb;--glow-dim:rgba(97,218,251,.12);--glow-soft:rgba(97,218,251,.05);--glow-ambient:rgba(97,218,251,.04);--ico-bg:rgba(97,218,251,.08);--ico-bd:rgba(97,218,251,.15)">
+        <div class="int-ico">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none">
+            <ellipse cx="12" cy="12" rx="10" ry="4" stroke="#61dafb" stroke-width="1.3"/>
+            <ellipse cx="12" cy="12" rx="10" ry="4" stroke="#61dafb" stroke-width="1.3" transform="rotate(60 12 12)"/>
+            <ellipse cx="12" cy="12" rx="10" ry="4" stroke="#61dafb" stroke-width="1.3" transform="rotate(120 12 12)"/>
+            <circle cx="12" cy="12" r="2" fill="#61dafb"/>
+          </svg>
+        </div>
+        <div>
+          <div class="int-name">React</div>
+          <div class="int-desc">Component tree, hooks, and context — mapped to the graph.</div>
+        </div>
+        <div class="int-footer">
+          <span class="int-tag">Library</span>
+          <span class="int-status"><span class="int-dot"></span>Live</span>
+        </div>
+      </div>
+
+      <!-- ── +8 more ── -->
+      <div class="int-card int-more reveal">
+        <div class="int-more-n">+8</div>
+        <div class="int-more-l">More integrations<br>shipping soon</div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ COMPARISON ════════════════════ -->
+<section id="comparison">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="label">Differentiation</span>
+      <h2 class="d2">Not another design tool.</h2>
+      <p class="subtitle">Existing tools solve half the problem. Originmain closes the loop.</p>
+    </div>
+    <div class="cmp-grid stagger">
+      <div class="cmp-card">
+        <div class="cmp-eyebrow">vs.</div>
+        <div class="cmp-name">Figma</div>
+        <div class="cmp-hr"></div>
+        <p class="cmp-body">The best interface design tool ever made — but what you design is a fiction. No knowledge of your codebase, tokens, or component API. The handoff is manual, lossy, and perpetually stale.</p>
+        <div class="cmp-tags">
+          <span class="cmp-tag">Static mockups</span>
+          <span class="cmp-tag">Manual handoff</span>
+          <span class="cmp-tag">No code awareness</span>
+        </div>
+      </div>
+      <div class="cmp-card hero-card">
+        <div class="cmp-eyebrow">Originmain</div>
+        <div class="cmp-name">Design is live code.</div>
+        <div class="cmp-hr"></div>
+        <p class="cmp-body">Every artboard is a live render. Every edit writes code. The gap between design and production is zero — because they're the same surface, indexed by the same graph.</p>
+        <div class="cmp-tags">
+          <span class="cmp-tag">Live renders</span>
+          <span class="cmp-tag">Code diffs</span>
+          <span class="cmp-tag">AI-constrained</span>
+          <span class="cmp-tag">Graph-indexed</span>
+        </div>
+      </div>
+      <div class="cmp-card">
+        <div class="cmp-eyebrow">vs.</div>
+        <div class="cmp-name">v0 / Cursor</div>
+        <div class="cmp-hr"></div>
+        <p class="cmp-body">Exceptional at generating code from a blank slate — but they hallucinate design systems. They don't know your tokens, your component API, or what "on-brand" means for your product.</p>
+        <div class="cmp-tags">
+          <span class="cmp-tag">Generates strangers</span>
+          <span class="cmp-tag">No design system</span>
+          <span class="cmp-tag">No visual canvas</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ TESTIMONIAL ═══════════════════ -->
+<section id="testimonial">
+  <div class="testi-inner reveal">
+    <div class="testi-logo">
+      <div class="testi-logo-dot"></div>
+      <span class="testi-logo-name">Series B · 60-person team</span>
+    </div>
+    <p class="testi-quote">
+      "The ideal design tool is a canvas where any view of your application can be rendered, explored, and modified visually — with every change traced back to a diff in your actual codebase. Originmain is that tool."
+    </p>
+    <div class="testi-attr">
+      <strong>Jamie K.</strong> — Design Engineer, Growth Stage SaaS
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ PRICING ═══════════════════════ -->
+<section id="pricing">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="label">Pricing</span>
+      <h2 class="d2">Simple, honest pricing.</h2>
+      <p class="subtitle">Early access is free. All plans include the full Origin Graph and Live Artboard engine.</p>
+    </div>
+    <div class="pricing-toggle reveal">
+      <div class="toggle-pill">
+        <div class="toggle-opt active" id="toggle-monthly">Monthly</div>
+        <div class="toggle-opt" id="toggle-annual">Annual</div>
+      </div>
+      <span class="toggle-save" id="annual-save" style="display:none;">Save 20%</span>
+    </div>
+    <div class="px-grid stagger">
+      <div class="px-card">
+        <div class="px-tier">Starter</div>
+        <div class="px-price">Free</div>
+        <div class="px-period">Solo use, forever</div>
+        <div class="px-hr"></div>
+        <ul class="px-feats">
+          <li><span class="px-check">✓</span> Unlimited artboards</li>
+          <li><span class="px-check">✓</span> Origin Graph (up to 5k nodes)</li>
+          <li><span class="px-check">✓</span> Intent Diff export</li>
+          <li><span class="px-check">✓</span> 3 AI completions / day</li>
+          <li><span class="px-check">✓</span> GitHub integration</li>
+        </ul>
+        <a href="/sign-up" class="btn btn-secondary btn-full">Get started free</a>
+      </div>
+      <div class="px-card featured">
+        <div class="px-tag">Most popular</div>
+        <div class="px-tier">Team</div>
+        <div class="px-price" id="team-price">$49</div>
+        <div class="px-period" id="team-period">per seat / month · up to 10 seats</div>
+        <div class="px-hr"></div>
+        <ul class="px-feats">
+          <li><span class="px-check">✓</span> Everything in Starter</li>
+          <li><span class="px-check">✓</span> Unlimited Origin Graph nodes</li>
+          <li><span class="px-check">✓</span> Unlimited AI completions</li>
+          <li><span class="px-check">✓</span> Agent Bridge (MCP)</li>
+          <li><span class="px-check">✓</span> Linear + Slack integration</li>
+          <li><span class="px-check">✓</span> Multiplayer canvas</li>
+        </ul>
+        <a href="/sign-up" class="btn btn-blue btn-full">Get Started Free</a>
+      </div>
+      <div class="px-card">
+        <div class="px-tier">Enterprise</div>
+        <div class="px-price">Custom</div>
+        <div class="px-period">Unlimited seats</div>
+        <div class="px-hr"></div>
+        <ul class="px-feats">
+          <li><span class="px-check">✓</span> Everything in Team</li>
+          <li><span class="px-check">✓</span> SSO / SAML</li>
+          <li><span class="px-check">✓</span> On-premise deployment</li>
+          <li><span class="px-check">✓</span> SLA & dedicated support</li>
+          <li><span class="px-check">✓</span> Custom integrations</li>
+          <li><span class="px-check">✓</span> Design system audit</li>
+        </ul>
+        <a href="mailto:hello@originmain.com" class="btn btn-secondary btn-full">Talk to us</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ BOTTOM CTA ════════════════════ -->
+<section id="cta-bottom">
+  <div class="cta-inner reveal">
+    <h2 class="cta-headline">Start building<br>the right way.</h2>
+    <p class="cta-sub">Join the engineers who are done shipping pixel-perfect mockups that no one implements correctly.</p>
+    <div class="cta-actions">
+      <a href="/sign-up" class="btn btn-white btn-xl">Get Started Free</a>
+      <a href="#" class="btn btn-outline-white btn-xl">Read the docs →</a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ FOOTER ════════════════════════ -->
+<footer>
+  <div class="ft-inner">
+    <div class="ft-top">
+      <div>
+        <div class="ft-brand-logo">Origin<span>main</span></div>
+        <p class="ft-brand-tag">Where design intent becomes production code.</p>
+      </div>
+      <div class="ft-col">
+        <h4>Product</h4>
+        <ul>
+          <li><a href="/features/live-artboard.html">Live Artboard</a></li>
+          <li><a href="/features/origin-graph.html">Origin Graph</a></li>
+          <li><a href="/features/intent-diff.html">Intent Diff</a></li>
+          <li><a href="/features/completion-zone.html">Completion Zone</a></li>
+          <li><a href="/features/agent-bridge.html">Agent Bridge</a></li>
+          <li><a href="/features/integrations.html">Integrations</a></li>
+          <li><a href="#pricing">Pricing</a></li>
+        </ul>
+      </div>
+      <div class="ft-col">
+        <h4>Developers</h4>
+        <ul>
+          <li><a href="#">Documentation</a></li>
+          <li><a href="#">API Reference</a></li>
+          <li><a href="#">MCP Protocol</a></li>
+          <li><a href="#">Changelog</a></li>
+        </ul>
+      </div>
+      <div class="ft-col">
+        <h4>Company</h4>
+        <ul>
+          <li><a href="#">About</a></li>
+          <li><a href="#">Blog</a></li>
+          <li><a href="#">Careers</a></li>
+          <li><a href="#">Contact</a></li>
+        </ul>
+      </div>
+      <div class="ft-col">
+        <h4>Legal</h4>
+        <ul>
+          <li><a href="#">Privacy</a></li>
+          <li><a href="#">Terms</a></li>
+          <li><a href="#">Security</a></li>
+          <li><a href="#">Cookies</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="ft-bottom">
+      <span class="ft-copy">© 2026 Originmain, Inc. All rights reserved.</span>
+      <button class="theme-toggle" id="themeToggle">
+        <span id="themeIcon">☾</span>
+        <span id="themeLabel">Dark mode</span>
+      </button>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ── Nav scroll glass ──────────────────────────────────────
+const nav = document.getElementById('nav');
+window.addEventListener('scroll', () => {
+  nav.classList.toggle('scrolled', window.scrollY > 20);
+}, { passive: true });
+
+// ── Integration card — Fluent Reveal Effect ───────────────
+document.querySelectorAll('.int-card:not(.int-more)').forEach(card => {
+  card.addEventListener('mousemove', e => {
+    const r = card.getBoundingClientRect();
+    card.style.setProperty('--mx', ((e.clientX - r.left) / r.width  * 100) + '%');
+    card.style.setProperty('--my', ((e.clientY - r.top)  / r.height * 100) + '%');
+  });
+});
+
+// ── Nav dropdown: delay-based hover (desktop) + click toggle (mobile/touch) ──
+document.querySelectorAll('.nav-dropdown').forEach(dd => {
+  const menu = dd.querySelector('.nav-dropdown-menu');
+  let closeTimer;
+  const open  = () => { clearTimeout(closeTimer); dd.classList.add('open'); menu.classList.add('open'); };
+  const sched = () => { closeTimer = setTimeout(() => { dd.classList.remove('open'); menu.classList.remove('open'); }, 150); };
+  dd.addEventListener('mouseenter', open);
+  dd.addEventListener('mouseleave', sched);
+  menu.addEventListener('mouseenter', open);
+  menu.addEventListener('mouseleave', sched);
+  // Mobile / touch: click the trigger link to toggle instead of hover
+  dd.querySelector('a').addEventListener('click', e => {
+    if (window.matchMedia('(hover: none)').matches || window.innerWidth <= 1024) {
+      e.preventDefault();
+      const isOpen = menu.classList.toggle('open');
+      dd.classList.toggle('open', isOpen);
+    }
+  });
+});
+
+// ── Mobile product sub-accordion ─────────────────────────
+const mobProductToggle = document.getElementById('mob-product-toggle');
+const navMobileSub     = document.getElementById('nav-mobile-sub');
+const mobDdCaret       = document.getElementById('mob-dd-caret');
+if (mobProductToggle && navMobileSub) {
+  mobProductToggle.addEventListener('click', e => {
+    e.preventDefault();
+    const isOpen = navMobileSub.classList.toggle('open');
+    if (mobDdCaret) mobDdCaret.style.transform = isOpen ? 'rotate(180deg)' : '';
+  });
+}
+
+// ── Mobile hamburger ──────────────────────────────────────
+const burger     = document.getElementById('nav-burger');
+const mobileMenu = document.getElementById('nav-mobile');
+
+function toggleMenu(force) {
+  const open = force !== undefined ? force : !burger.classList.contains('open');
+  burger.classList.toggle('open', open);
+  burger.setAttribute('aria-expanded', String(open));
+  mobileMenu.classList.toggle('open', open);
+  mobileMenu.setAttribute('aria-hidden', String(!open));
+  document.body.style.overflow = open ? 'hidden' : '';
+}
+
+burger.addEventListener('click', () => toggleMenu());
+
+// Close on any link click inside the drawer — but NOT the sub-menu accordion toggle
+mobileMenu.querySelectorAll('a:not(#mob-product-toggle)').forEach(a =>
+  a.addEventListener('click', () => toggleMenu(false))
+);
+
+// Close on outside tap
+document.addEventListener('click', e => {
+  if (mobileMenu.classList.contains('open') && !nav.contains(e.target)) {
+    toggleMenu(false);
+  }
+});
+
+// Close on Escape key
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && mobileMenu.classList.contains('open')) toggleMenu(false);
+});
+
+// ── Scroll reveal ─────────────────────────────────────────
+const revealEls = document.querySelectorAll('.reveal, .stagger');
+const revealAll = () => revealEls.forEach(el => el.classList.add('in'));
+
+if ('IntersectionObserver' in window) {
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+    });
+  }, { threshold: 0.06, rootMargin: '0px 0px -40px 0px' });
+  revealEls.forEach(el => io.observe(el));
+} else { revealAll(); }
+setTimeout(revealAll, 800);
+
+// ── Pricing toggle ────────────────────────────────────────
+const monthlyBtn = document.getElementById('toggle-monthly');
+const annualBtn  = document.getElementById('toggle-annual');
+const annualSave = document.getElementById('annual-save');
+const teamPrice  = document.getElementById('team-price');
+const teamPeriod = document.getElementById('team-period');
+
+monthlyBtn.addEventListener('click', () => {
+  monthlyBtn.classList.add('active');
+  annualBtn.classList.remove('active');
+  annualSave.style.display = 'none';
+  teamPrice.textContent  = '$49';
+  teamPeriod.textContent = 'per seat / month · up to 10 seats';
+});
+annualBtn.addEventListener('click', () => {
+  annualBtn.classList.add('active');
+  monthlyBtn.classList.remove('active');
+  annualSave.style.display = 'inline-flex';
+  teamPrice.textContent  = '$39';
+  teamPeriod.textContent = 'per seat / month · billed annually';
+});
+
+// ── Theme ─────────────────────────────────────────────────
+function safeLS(op, key, val) {
+  try { return op === 'get' ? localStorage.getItem(key) : localStorage.setItem(key, val); } catch(e) {}
+}
+
+// Read from either the app Zustand key (set by the React app) or the landing-page key.
+// Zustand stores { state: { mode: "dark" } } under 'originmain:theme'.
+function readStoredTheme() {
+  try {
+    const zustand = localStorage.getItem('originmain:theme');
+    if (zustand) {
+      const parsed = JSON.parse(zustand);
+      if (parsed?.state?.mode) return parsed.state.mode;
+    }
+  } catch(e) {}
+  return safeLS('get', 'om-theme') || 'light';
+}
+
+// Write to both keys so switching on the landing page carries through to the app.
+function writeTheme(t) {
+  safeLS('set', 'om-theme', t);
+  try {
+    localStorage.setItem('originmain:theme', JSON.stringify({ state: { mode: t }, version: 0 }));
+  } catch(e) {}
+}
+
+const root = document.documentElement;
+let theme = readStoredTheme();
+
+const themeBtn   = document.getElementById('themeToggle');
+const themeIcon  = document.getElementById('themeIcon');
+const themeLabel = document.getElementById('themeLabel');
+const navThemeBtn  = document.getElementById('navThemeBtn');
+const navThemeIcon = document.getElementById('navThemeIcon');
+const mobThemeBtn  = document.getElementById('mobThemeBtn');
+const mobThemeIcon = document.getElementById('mobThemeIcon');
+
+function applyTheme(t) {
+  theme = t;
+  root.setAttribute('data-theme', t);
+  writeTheme(t);
+  const isDark = t === 'dark';
+  // Footer toggle
+  if (themeIcon)  themeIcon.textContent  = isDark ? '☀' : '☾';
+  if (themeLabel) themeLabel.textContent = isDark ? 'Light mode' : 'Dark mode';
+  // Nav toggle (desktop)
+  if (navThemeIcon) navThemeIcon.textContent = isDark ? '☀' : '☾';
+  // Nav toggle (mobile drawer)
+  if (mobThemeIcon) mobThemeIcon.textContent = isDark ? '☀' : '☾';
+}
+
+applyTheme(theme);
+
+if (themeBtn)    themeBtn.addEventListener('click',   () => applyTheme(theme === 'light' ? 'dark' : 'light'));
+if (navThemeBtn) navThemeBtn.addEventListener('click', () => applyTheme(theme === 'light' ? 'dark' : 'light'));
+if (mobThemeBtn) mobThemeBtn.addEventListener('click', () => applyTheme(theme === 'light' ? 'dark' : 'light'));
+
+// ── Feat cell reveal highlight (Fluent reveal effect) ─────
+document.querySelectorAll('.feat-cell').forEach(cell => {
+  cell.addEventListener('mousemove', e => {
+    const rect = cell.getBoundingClientRect();
+    cell.style.setProperty('--mx', ((e.clientX - rect.left) / rect.width * 100) + '%');
+    cell.style.setProperty('--my', ((e.clientY - rect.top) / rect.height * 100) + '%');
+  });
+});
+</script>
+</body>
+</html>
