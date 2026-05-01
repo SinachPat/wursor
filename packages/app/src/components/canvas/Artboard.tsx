@@ -358,6 +358,9 @@ export function Artboard({ id, label, x, y, width, height, renderUrl, route, onR
               {...(localFiberRoot !== undefined ? { fiberRoot: localFiberRoot } : {})}
               width={width}
               height={height}
+              onSelectionChange={(sel) => {
+                handleComponentSelected(sel?.nodeId ?? '');
+              }}
             />
           </>
         ) : (

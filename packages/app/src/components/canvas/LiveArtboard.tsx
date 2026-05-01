@@ -157,6 +157,7 @@ export function LiveArtboard({
     if (!isReadyRef.current) return;
     if (selectedComponentId) {
       sendMessage('SELECT_COMPONENT', { nodeId: selectedComponentId });
+      sendMessage('REQUEST_ELEMENT_STYLES', { nodeId: selectedComponentId });
     } else {
       sendMessage('DESELECT');
     }

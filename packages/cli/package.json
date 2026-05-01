@@ -1,6 +1,6 @@
 {
   "name": "@originmain/cli",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "private": false,
   "description": "Originmain CLI — reverse proxy for live React component inspection.",
   "type": "module",

@@ -215,6 +215,16 @@ export function buildProxyFiberHookScript(): string {
     return node;
   }
 
+  // Walk a fiber subtree to find the nearest host DOM node (div, span, etc.).
+  // Composite components have stateNode = null or class instance; host elements
+  // have stateNode = actual DOM element with a .style property.
+  function findDomElement(fiber) {
+    if (!fiber) return null;
+    var sn = fiber.stateNode;
+    if (sn && typeof sn.style !== 'undefined') return sn;
+    return findDomElement(fiber.child);
+  }
+
   // Collect all NAMED descendants of fiber.child into out[], transparently
   // flattening unnamed intermediates (Fragments, Providers, wrappers).
   function collectChildren(fiber, parentId, out) {
@@ -391,6 +401,47 @@ export function buildProxyFiberHookScript(): string {
       case 'DESELECT':
         selectedNodeId = null;
         removeHighlight();
+        break;
+      case 'REQUEST_ELEMENT_STYLES':
+        if (typeof msg.nodeId === 'string') {
+          var rInfo = nodeMap[msg.nodeId];
+          if (rInfo) {
+            var rEl = findDomElement(rInfo.fiber);
+            if (rEl) {
+              var cs = window.getComputedStyle(rEl);
+              var styleProps = [
+                'width','height','background-color','color','font-size',
+                'font-family','font-weight','line-height','letter-spacing','text-align',
+                'display','flex-direction','gap','align-items','justify-content',
+                'padding-top','padding-right','padding-bottom','padding-left',
+                'margin-top','margin-right','margin-bottom','margin-left',
+                'border-radius','border-width','border-color','border-style',
+                'opacity','box-shadow','overflow','position',
+              ];
+              var styles = {};
+              styleProps.forEach(function(p) { styles[p] = cs.getPropertyValue(p); });
+              post({ type: 'ELEMENT_STYLES', nodeId: msg.nodeId, styles: styles });
+            }
+          }
+        }
+        break;
+      case 'PATCH_ELEMENT_STYLE':
+        if (typeof msg.nodeId === 'string' && typeof msg.property === 'string') {
+          var pInfo = nodeMap[msg.nodeId];
+          if (pInfo) {
+            var pEl = findDomElement(pInfo.fiber);
+            if (pEl) pEl.style.setProperty(msg.property, String(msg.value || ''));
+          }
+        }
+        break;
+      case 'REMOVE_ELEMENT':
+        if (typeof msg.nodeId === 'string') {
+          var dInfo = nodeMap[msg.nodeId];
+          if (dInfo) {
+            var dEl = findDomElement(dInfo.fiber);
+            if (dEl) dEl.style.setProperty('display', 'none');
+          }
+        }
         break;
     }
   });
