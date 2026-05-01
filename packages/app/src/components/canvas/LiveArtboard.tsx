@@ -29,8 +29,8 @@ export interface LiveArtboardProps {
   onComponentSelected?: (nodeId: string) => void;
   /** Called when the iframe responds with computed CSS properties for a selected element. */
   onComponentStylesUpdate?: (nodeId: string, styles: Record<string, string>) => void;
-  /** Forwards a CSS property patch from the Design tab into the iframe. */
-  patchElementStyle?: (nodeId: string, property: string, value: string) => void;
+  /** Called when the iframe discovers routes in the running app. */
+  onRoutesDiscovered?: (routes: Array<{ path: string; label: string }>) => void;
   style?: React.CSSProperties;
 }
 
@@ -47,6 +47,7 @@ export function LiveArtboard({
   onFiberTreeUpdate,
   onComponentSelected,
   onComponentStylesUpdate,
+  onRoutesDiscovered,
   style,
 }: LiveArtboardProps) {
   const iframeRef  = useRef<HTMLIFrameElement>(null);
@@ -107,12 +108,15 @@ export function LiveArtboard({
         case 'ELEMENT_STYLES':
           onComponentStylesUpdate?.(msg.nodeId, msg.styles);
           break;
+        case 'ROUTES_DISCOVERED':
+          onRoutesDiscovered?.(msg.routes);
+          break;
       }
     }
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [id, designTokens, selectedComponentId, sendMessage, onReady, onFiberTreeUpdate, onComponentSelected, onComponentStylesUpdate]);
+  }, [id, designTokens, selectedComponentId, sendMessage, onReady, onFiberTreeUpdate, onComponentSelected, onComponentStylesUpdate, onRoutesDiscovered]);
 
   // ── Push updated design tokens whenever they change ───────────────────────
   useEffect(() => {
@@ -125,6 +129,8 @@ export function LiveArtboard({
   // this artboard and forwards them to the iframe immediately.
   const styleEditEvent = useCanvas((s) => s.styleEditEvent);
   const clearStyleEdit = useCanvas((s) => s.clearStyleEdit);
+  const removeElementEvent = useCanvas((s) => s.removeElementEvent);
+  const clearRemoveElement = useCanvas((s) => s.clearRemoveElement);
 
   useEffect(() => {
     if (styleEditEvent?.artboardId === id && isReadyRef.current) {
@@ -136,6 +142,13 @@ export function LiveArtboard({
       clearStyleEdit();
     }
   }, [id, styleEditEvent, sendMessage, clearStyleEdit]);
+
+  useEffect(() => {
+    if (removeElementEvent?.artboardId === id && isReadyRef.current) {
+      sendMessage('REMOVE_ELEMENT', { nodeId: removeElementEvent.nodeId });
+      clearRemoveElement();
+    }
+  }, [id, removeElementEvent, sendMessage, clearRemoveElement]);
 
   // ── Sync selection changes into the iframe ────────────────────────────────
   // Sends SELECT_COMPONENT on every selectedComponentId change so the blue

@@ -22,6 +22,59 @@ export function Canvas() {
   const lastPos    = useRef({ x: 0, y: 0 });
   const spaceDown  = useRef(false);
 
+  // ── Route discovery: auto-create screen grid ──────────────────────────────
+  // When a live artboard discovers routes we don't have artboards for yet,
+  // this creates them in a horizontal row to the right of all existing frames.
+  const pendingRouteCreation = useRef(false);
+
+  const handleRoutesDiscovered = useCallback(
+    (sourceArtboardId: string, routes: Array<{ path: string; label: string }>) => {
+      if (!workspaceId || pendingRouteCreation.current) return;
+      const source = artboards.find((ab) => ab.id === sourceArtboardId);
+      if (!source?.renderUrl) return;
+
+      // Find routes we don't already have an artboard for
+      const existingRoutes = new Set(artboards.map((ab) => ab.route ?? '/'));
+      const newRoutes = routes.filter((r) => !existingRoutes.has(r.path));
+      if (newRoutes.length === 0) return;
+
+      pendingRouteCreation.current = true;
+
+      // Position new artboards in a row to the right of all existing frames
+      const GAP = 80;
+      const rightEdge = artboards.reduce(
+        (max, ab) => Math.max(max, ab.x + ab.width),
+        source.x + source.width,
+      );
+
+      const creations = newRoutes.map((r, i) => ({
+        workspace_id: workspaceId,
+        project_id: projectId ?? null,
+        name: r.label,
+        origin_id: null,
+        parent_artboard_id: null,
+        metadata_jsonb: {
+          x: rightEdge + GAP + i * (source.width + GAP),
+          y: source.y,
+          width: source.width,
+          height: source.height,
+          renderUrl: source.renderUrl,
+          route: r.path,
+        },
+      }));
+
+      Promise.all(creations.map((c) => createArtboardMutation(c)))
+        .then(() => {
+          queryClient.invalidateQueries({
+            queryKey: ['artboards', workspaceId, projectId ?? undefined],
+          });
+        })
+        .catch(console.error)
+        .finally(() => { pendingRouteCreation.current = false; });
+    },
+    [artboards, workspaceId, projectId, queryClient],
+  );
+
   // Zone tool: drag to draw a completion zone
   const zoneStart   = useRef<{ x: number; y: number } | null>(null);
   const [zonePreview, setZonePreview] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
@@ -197,7 +250,7 @@ export function Canvas() {
         }}
       >
         {artboards.map((ab) => (
-          <Artboard key={ab.id} {...ab} />
+          <Artboard key={ab.id} {...ab} onRoutesDiscovered={handleRoutesDiscovered} />
         ))}
 
         {/* Zone tool: live drag preview rectangle */}

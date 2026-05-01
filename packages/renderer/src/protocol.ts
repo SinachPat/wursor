@@ -33,7 +33,9 @@ export type HostMessage =
   | { type: 'REQUEST_ELEMENT_STYLES'; nodeId: string }
   /** Apply a single CSS property override directly to the component's DOM element.
    *  Non-destructive — sets inline style only; source files are unchanged. */
-  | { type: 'PATCH_ELEMENT_STYLE'; nodeId: string; property: string; value: string };
+  | { type: 'PATCH_ELEMENT_STYLE'; nodeId: string; property: string; value: string }
+  /** Hide a component's DOM element (sets display:none). Non-destructive. */
+  | { type: 'REMOVE_ELEMENT'; nodeId: string };
 
 export interface HostEnvelope {
   source: typeof HOST_SOURCE;
@@ -50,7 +52,10 @@ export type RendererMessage =
   | { type: 'COMPONENT_DESELECTED' }
   | { type: 'ERROR'; message: string }
   /** Response to REQUEST_ELEMENT_STYLES — computed CSS properties for the node. */
-  | { type: 'ELEMENT_STYLES'; nodeId: string; styles: Record<string, string> };
+  | { type: 'ELEMENT_STYLES'; nodeId: string; styles: Record<string, string> }
+  /** All discoverable routes found in the running app — sent once after READY
+   *  and again after each SPA navigation. */
+  | { type: 'ROUTES_DISCOVERED'; routes: Array<{ path: string; label: string }> };
 
 export interface RendererEnvelope {
   source: typeof RENDERER_SOURCE;

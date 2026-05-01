@@ -147,67 +147,378 @@ export function Inspector() {
   );
 }
 
-/* ── Design tab ───────────────────────────────────────────── */
+/* ── Design tab ─────────────────────────────────────────────── */
 
-// Groups of CSS properties shown in the Design panel, ordered as in Figma.
-const DESIGN_SECTIONS: Array<{
-  label: string;
-  props: Array<{ key: string; label: string; type: 'color' | 'text' | 'number' }>;
-}> = [
-  {
-    label: 'Typography',
-    props: [
-      { key: 'font-family',    label: 'Family',   type: 'text'   },
-      { key: 'font-size',      label: 'Size',     type: 'text'   },
-      { key: 'font-weight',    label: 'Weight',   type: 'text'   },
-      { key: 'line-height',    label: 'Line H.',  type: 'text'   },
-      { key: 'letter-spacing', label: 'Tracking', type: 'text'   },
-      { key: 'color',          label: 'Color',    type: 'color'  },
-      { key: 'text-align',     label: 'Align',    type: 'text'   },
-      { key: 'text-transform', label: 'Transform',type: 'text'   },
-    ],
-  },
-  {
-    label: 'Layout',
-    props: [
-      { key: 'display',         label: 'Display',  type: 'text'   },
-      { key: 'width',           label: 'Width',    type: 'text'   },
-      { key: 'height',          label: 'Height',   type: 'text'   },
-      { key: 'padding-top',     label: 'Pad↑',     type: 'text'   },
-      { key: 'padding-bottom',  label: 'Pad↓',     type: 'text'   },
-      { key: 'padding-left',    label: 'Pad←',     type: 'text'   },
-      { key: 'padding-right',   label: 'Pad→',     type: 'text'   },
-      { key: 'margin-top',      label: 'Mar↑',     type: 'text'   },
-      { key: 'margin-bottom',   label: 'Mar↓',     type: 'text'   },
-      { key: 'gap',             label: 'Gap',      type: 'text'   },
-      { key: 'flex-direction',  label: 'Direction',type: 'text'   },
-      { key: 'align-items',     label: 'Align',    type: 'text'   },
-      { key: 'justify-content', label: 'Justify',  type: 'text'   },
-    ],
-  },
-  {
-    label: 'Visual',
-    props: [
-      { key: 'background-color', label: 'Fill',    type: 'color'  },
-      { key: 'border-radius',    label: 'Radius',  type: 'text'   },
-      { key: 'opacity',          label: 'Opacity', type: 'number' },
-      { key: 'border-width',     label: 'Border W',type: 'text'   },
-      { key: 'border-color',     label: 'Border C',type: 'color'  },
-      { key: 'border-style',     label: 'Border S',type: 'text'   },
-      { key: 'box-shadow',       label: 'Shadow',  type: 'text'   },
-    ],
-  },
-];
+/** Strip the numeric portion from a CSS value: "320px" → "320", "1.5" → "1.5" */
+function parseCssNum(val: string | undefined): string {
+  if (!val) return '';
+  const m = val.match(/^(-?[\d.]+)/);
+  return m?.[1] ?? '';
+}
 
-/** Converts a computed rgb()/rgba() string into a hex-like color for the picker. */
+/** Extract the unit suffix: "320px" → "px", "1.5" → "", "14pt" → "pt" */
+function parseCssUnit(val: string | undefined): string {
+  if (!val) return 'px';
+  const m = val.match(/^-?[\d.]+(.*)$/);
+  return m?.[1]?.trim() ?? '';
+}
+
+/** rgb()/rgba() → #RRGGBB */
 function rgbToHex(rgb: string): string {
   const m = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
   if (!m) return '#000000';
-  const r = parseInt(m[1] ?? '0').toString(16).padStart(2, '0');
-  const g = parseInt(m[2] ?? '0').toString(16).padStart(2, '0');
-  const b = parseInt(m[3] ?? '0').toString(16).padStart(2, '0');
-  return `#${r}${g}${b}`;
+  return '#' + [m[1], m[2], m[3]]
+    .map(n => parseInt(n ?? '0').toString(16).padStart(2, '0'))
+    .join('');
 }
+
+/** rgba(..., 0.8) → "80"  (percent string, no %) */
+function rgbaAlpha(val: string): string {
+  const m = val.match(/rgba?\(\d+,\s*\d+,\s*\d+(?:,\s*([\d.]+))?\)/);
+  if (!m) return '100';
+  const a = m[1] !== undefined ? parseFloat(m[1]) : 1;
+  return String(Math.round(a * 100));
+}
+
+/** Is the CSS color transparent / none? */
+function isTransparent(val: string | undefined): boolean {
+  if (!val) return true;
+  return val === 'transparent' || val === 'rgba(0, 0, 0, 0)';
+}
+
+// ── Compact numeric stepper input ────────────────────────────────
+
+function NumInput({
+  value,
+  propKey,
+  onPatch,
+  inputWidth = 60,
+}: {
+  value: string;
+  propKey: string;
+  onPatch: (prop: string, val: string) => void;
+  inputWidth?: number;
+}) {
+  const T = useCanvasTheme();
+  const unit = parseCssUnit(value);
+  const numStr = parseCssNum(value);
+  const [draft, setDraft] = useState(numStr);
+  const prevRef = useRef(value);
+
+  if (prevRef.current !== value) {
+    prevRef.current = value;
+    setDraft(parseCssNum(value));
+  }
+
+  const commit = (v: string) => {
+    const n = parseFloat(v);
+    if (!isNaN(n)) onPatch(propKey, `${n}${unit}`);
+  };
+
+  return (
+    <input
+      value={draft}
+      onChange={e => setDraft(e.target.value)}
+      onBlur={() => commit(draft)}
+      onKeyDown={e => {
+        if (e.key === 'Enter') { commit(draft); e.currentTarget.blur(); }
+        if (e.key === 'Escape') setDraft(parseCssNum(value));
+        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          const n = parseFloat(draft) || 0;
+          const step = e.shiftKey ? 10 : 1;
+          const next = e.key === 'ArrowUp' ? n + step : n - step;
+          setDraft(String(next));
+          onPatch(propKey, `${next}${unit}`);
+        }
+        e.stopPropagation();
+      }}
+      style={{
+        fontFamily: "'JetBrains Mono', monospace",
+        fontSize: '0.5875rem',
+        background: T.bgDeep,
+        border: `1px solid ${T.border}`,
+        borderRadius: 4,
+        color: T.fg,
+        padding: '3px 6px',
+        width: inputWidth,
+        outline: 'none',
+        textAlign: 'right',
+        boxSizing: 'border-box',
+      }}
+    />
+  );
+}
+
+// ── Plain text input (e.g. font-family, box-shadow) ────────────────
+
+function TextInput({
+  value,
+  propKey,
+  onPatch,
+  fullWidth,
+}: {
+  value: string;
+  propKey: string;
+  onPatch: (prop: string, val: string) => void;
+  fullWidth?: boolean;
+}) {
+  const T = useCanvasTheme();
+  const [draft, setDraft] = useState(value);
+  const prevRef = useRef(value);
+  if (prevRef.current !== value) { prevRef.current = value; setDraft(value); }
+
+  return (
+    <input
+      value={draft}
+      onChange={e => { setDraft(e.target.value); onPatch(propKey, e.target.value); }}
+      onBlur={() => onPatch(propKey, draft)}
+      onKeyDown={e => {
+        if (e.key === 'Enter') { onPatch(propKey, draft); e.currentTarget.blur(); }
+        if (e.key === 'Escape') { setDraft(value); onPatch(propKey, value); }
+        e.stopPropagation();
+      }}
+      style={{
+        fontFamily: "'JetBrains Mono', monospace",
+        fontSize: '0.5875rem',
+        background: T.bgDeep,
+        border: `1px solid ${T.border}`,
+        borderRadius: 4,
+        color: T.fg,
+        padding: '3px 6px',
+        width: fullWidth ? '100%' : undefined,
+        outline: 'none',
+        boxSizing: 'border-box',
+      }}
+    />
+  );
+}
+
+// ── Color swatch + hex input ──────────────────────────────────────
+
+function ColorInput({
+  value,
+  propKey,
+  onPatch,
+}: {
+  value: string;
+  propKey: string;
+  onPatch: (prop: string, val: string) => void;
+}) {
+  const T = useCanvasTheme();
+  const colorRef = useRef<HTMLInputElement>(null);
+  const hex = value.startsWith('rgb') ? rgbToHex(value) : (value.startsWith('#') ? value : '#000000');
+  const [hexDraft, setHexDraft] = useState(hex.replace('#', ''));
+
+  const prevRef = useRef(value);
+  if (prevRef.current !== value) {
+    prevRef.current = value;
+    setHexDraft((value.startsWith('rgb') ? rgbToHex(value) : value).replace('#', ''));
+  }
+
+  const commitHex = (v: string) => {
+    const cleaned = v.startsWith('#') ? v : `#${v}`;
+    onPatch(propKey, cleaned);
+  };
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 5, flex: 1 }}>
+      {/* Colour swatch — click to open native color picker */}
+      <div
+        title="Pick colour"
+        style={{
+          width: 20, height: 20, borderRadius: 3, flexShrink: 0,
+          background: hex,
+          border: '1px solid rgba(255,255,255,0.15)',
+          cursor: 'pointer',
+          position: 'relative',
+          overflow: 'hidden',
+        }}
+        onClick={() => colorRef.current?.click()}
+      >
+        <input
+          ref={colorRef}
+          type="color"
+          value={hex}
+          onChange={e => onPatch(propKey, e.target.value)}
+          style={{
+            position: 'absolute', inset: 0, opacity: 0,
+            cursor: 'pointer', width: '100%', height: '100%',
+          }}
+        />
+      </div>
+      {/* Hex text */}
+      <input
+        value={hexDraft.toUpperCase()}
+        maxLength={6}
+        onChange={e => {
+          const v = e.target.value.replace(/[^0-9a-fA-F]/g, '');
+          setHexDraft(v);
+          if (v.length === 3 || v.length === 6) commitHex(v);
+        }}
+        onBlur={() => commitHex(hexDraft)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') commitHex(hexDraft);
+          e.stopPropagation();
+        }}
+        style={{
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: '0.5875rem',
+          background: T.bgDeep,
+          border: `1px solid ${T.border}`,
+          borderRadius: 4,
+          color: T.fg,
+          padding: '3px 6px',
+          width: 60,
+          outline: 'none',
+        }}
+      />
+    </div>
+  );
+}
+
+// ── Native select styled with design tokens ───────────────────────
+
+function CssSelect({
+  value,
+  propKey,
+  options,
+  onPatch,
+}: {
+  value: string;
+  propKey: string;
+  options: Array<{ val: string; label: string }>;
+  onPatch: (prop: string, val: string) => void;
+}) {
+  const T = useCanvasTheme();
+  return (
+    <select
+      value={value}
+      onChange={e => onPatch(propKey, e.target.value)}
+      style={{
+        fontFamily: "'JetBrains Mono', monospace",
+        fontSize: '0.5875rem',
+        background: T.bgDeep,
+        border: `1px solid ${T.border}`,
+        borderRadius: 4,
+        color: T.fg,
+        padding: '3px 5px',
+        cursor: 'pointer',
+        flex: 1,
+        outline: 'none',
+      }}
+    >
+      {options.map(o => (
+        <option key={o.val} value={o.val}>{o.label}</option>
+      ))}
+    </select>
+  );
+}
+
+// ── Toggle group for text-align ───────────────────────────────────
+
+function TextAlignToggle({ value, onPatch }: { value: string; onPatch: (v: string) => void }) {
+  const T = useCanvasTheme();
+  const opts = [
+    { val: 'left',    icon: '⬤  ◻ ◻ ◻' },
+    { val: 'center',  icon: '◻ ⬤  ⬤  ◻' },
+    { val: 'right',   icon: '◻ ◻ ◻  ⬤' },
+    { val: 'justify', icon: '≡' },
+  ] as const;
+  const labels: Record<string, string> = { left: 'L', center: 'C', right: 'R', justify: 'J' };
+  return (
+    <div style={{ display: 'flex', gap: 2, marginLeft: 'auto' }}>
+      {opts.map(o => (
+        <button
+          key={o.val}
+          title={o.val}
+          onClick={() => onPatch(o.val)}
+          style={{
+            width: 22, height: 22,
+            background: o.val === value ? T.accent : T.bgDeep,
+            border: `1px solid ${o.val === value ? T.accent : T.border}`,
+            borderRadius: 3, cursor: 'pointer',
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: '0.5625rem',
+            color: o.val === value ? '#fff' : T.fgMuted,
+          }}
+        >
+          {labels[o.val]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ── Toggle group for flex-direction ──────────────────────────────
+
+function FlexDirToggle({ value, onPatch }: { value: string; onPatch: (v: string) => void }) {
+  const T = useCanvasTheme();
+  const opts = [
+    { val: 'row', icon: '→' },
+    { val: 'column', icon: '↓' },
+    { val: 'row-reverse', icon: '←' },
+    { val: 'column-reverse', icon: '↑' },
+  ] as const;
+  return (
+    <div style={{ display: 'flex', gap: 2 }}>
+      {opts.map(o => (
+        <button
+          key={o.val}
+          title={o.val}
+          onClick={() => onPatch(o.val)}
+          style={{
+            width: 22, height: 22,
+            background: o.val === value ? T.accent : T.bgDeep,
+            border: `1px solid ${o.val === value ? T.accent : T.border}`,
+            borderRadius: 3, cursor: 'pointer', fontSize: '0.625rem',
+            color: o.val === value ? '#fff' : T.fgMuted,
+          }}
+        >
+          {o.icon}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ── Sub-section label ─────────────────────────────────────────────
+
+function DesignSectionLabel({ children }: { children: React.ReactNode }) {
+  const T = useCanvasTheme();
+  return (
+    <div style={{
+      fontFamily: "'JetBrains Mono', monospace",
+      fontSize: '0.5rem',
+      fontWeight: 500,
+      letterSpacing: '0.1em',
+      textTransform: 'uppercase',
+      color: T.label,
+      marginBottom: 7,
+    }}>
+      {children}
+    </div>
+  );
+}
+
+// ── Label above a field ───────────────────────────────────────────
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  const T = useCanvasTheme();
+  return (
+    <span style={{
+      fontFamily: "'JetBrains Mono', monospace",
+      fontSize: '0.5rem',
+      color: T.dim,
+      letterSpacing: '0.04em',
+      userSelect: 'none',
+    }}>
+      {children}
+    </span>
+  );
+}
+
+// ── Main Design Tab ───────────────────────────────────────────────
 
 function DesignTab({
   artboardId,
@@ -223,11 +534,11 @@ function DesignTab({
 
   if (!artboardId) {
     return (
-      <Section label="Design">
+      <div style={{ padding: '32px 16px', textAlign: 'center' }}>
         <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.625rem', color: T.dim }}>
           Select an artboard
         </span>
-      </Section>
+      </div>
     );
   }
 
@@ -239,7 +550,7 @@ function DesignTab({
           <circle cx="14" cy="14" r="4" stroke="white" strokeWidth="1.4"/>
         </svg>
         <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.5625rem', color: T.dim, letterSpacing: '0.04em', lineHeight: 1.6 }}>
-          Click a component in the<br/>artboard to inspect & edit
+          Click a component in the<br/>artboard to inspect &amp; edit
         </span>
       </div>
     );
@@ -247,156 +558,253 @@ function DesignTab({
 
   if (!styles) {
     return (
-      <Section label="Design">
+      <div style={{ padding: '24px 16px', textAlign: 'center' }}>
         <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.625rem', color: T.dim }}>
           Fetching styles…
         </span>
-      </Section>
+      </div>
     );
   }
 
-  const patch = (property: string, value: string) => {
+  const patch = (prop: string, val: string) => {
     if (!artboardId || !componentId) return;
-    patchStyleEdit(artboardId, componentId, property, value);
+    patchStyleEdit(artboardId, componentId, prop, val);
   };
+
+  const s = styles;
+  const hasFill       = !isTransparent(s['background-color']);
+  const hasTextColor  = !!s['color'] && !isTransparent(s['color']);
+  const hasTypography = !!(s['font-size'] || s['font-family']);
+  const isFlexLayout  = s['display'] === 'flex' || s['display'] === 'inline-flex';
+  const hasBorder     = !!(s['border-width'] && s['border-width'] !== '0px');
 
   return (
     <>
-      {DESIGN_SECTIONS.map((section) => {
-        // Only render sections that have at least one property present
-        const populated = section.props.filter((p) => styles[p.key]);
-        if (populated.length === 0) return null;
-        return (
-          <div key={section.label}>
-            <Section label={section.label}>
-              {populated.map((p) => (
-                <DesignRow
-                  key={p.key}
-                  label={p.label}
-                  propKey={p.key}
-                  value={styles[p.key] ?? ''}
-                  type={p.type}
-                  onPatch={patch}
-                />
-              ))}
-            </Section>
-            <HSep />
+      {/* ── Dimensions ────────────────────────────────────── */}
+      <div style={{ padding: '10px 14px 8px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 10px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <FieldLabel>W</FieldLabel>
+            <NumInput value={s['width'] ?? '0px'} propKey="width" onPatch={patch} inputWidth={88} />
           </div>
-        );
-      })}
-    </>
-  );
-}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <FieldLabel>H</FieldLabel>
+            <NumInput value={s['height'] ?? '0px'} propKey="height" onPatch={patch} inputWidth={88} />
+          </div>
+        </div>
+      </div>
+      <HSep />
 
-function DesignRow({
-  label,
-  propKey,
-  value,
-  type,
-  onPatch,
-}: {
-  label: string;
-  propKey: string;
-  value: string;
-  type: 'color' | 'text' | 'number';
-  onPatch: (property: string, value: string) => void;
-}) {
-  const T = useCanvasTheme();
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
+      {/* ── Fill ─────────────────────────────────────────── */}
+      {hasFill && (
+        <>
+          <div style={{ padding: '8px 14px' }}>
+            <DesignSectionLabel>Fill</DesignSectionLabel>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <ColorInput value={s['background-color'] ?? ''} propKey="background-color" onPatch={patch} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
+                <FieldLabel>A%</FieldLabel>
+                <NumInput
+                  value={rgbaAlpha(s['background-color'] ?? '') + '%'}
+                  propKey="_bgAlpha"
+                  onPatch={(_, v) => {
+                    const pct = parseFloat(v.replace('%', ''));
+                    if (!isNaN(pct)) patch('opacity', String(Math.min(1, Math.max(0, pct / 100))));
+                  }}
+                  inputWidth={44}
+                />
+              </div>
+            </div>
+          </div>
+          <HSep />
+        </>
+      )}
 
-  // Keep draft in sync when the incoming value changes (e.g. component re-selected)
-  const prevValue = useRef(value);
-  if (prevValue.current !== value) {
-    prevValue.current = value;
-    setDraft(value);
-  }
+      {/* ── Text colour ───────────────────────────────────── */}
+      {hasTextColor && (
+        <>
+          <div style={{ padding: '8px 14px' }}>
+            <DesignSectionLabel>Text Color</DesignSectionLabel>
+            <ColorInput value={s['color'] ?? ''} propKey="color" onPatch={patch} />
+          </div>
+          <HSep />
+        </>
+      )}
 
-  const commit = () => {
-    setEditing(false);
-    if (draft.trim() !== value) onPatch(propKey, draft.trim());
-  };
+      {/* ── Typography ────────────────────────────────────── */}
+      {hasTypography && (
+        <>
+          <div style={{ padding: '8px 14px' }}>
+            <DesignSectionLabel>Typography</DesignSectionLabel>
 
-  // Color swatch for color-type props
-  const hexColor = type === 'color' ? rgbToHex(value) : null;
+            {s['font-family'] && (
+              <div style={{ marginBottom: 6 }}>
+                <TextInput value={s['font-family']} propKey="font-family" onPatch={patch} fullWidth />
+              </div>
+            )}
 
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 6 }}>
-      <span style={{
-        fontFamily: "'JetBrains Mono', monospace",
-        fontSize: '0.5625rem',
-        color: T.key,
-        flexShrink: 0,
-        width: 56,
-        letterSpacing: '-0.01em',
-      }}>
-        {label}
-      </span>
+            {/* Size / Weight / Line-height */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 4, marginBottom: 6 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <FieldLabel>Size</FieldLabel>
+                <NumInput value={s['font-size'] ?? '14px'} propKey="font-size" onPatch={patch} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <FieldLabel>Weight</FieldLabel>
+                <NumInput value={s['font-weight'] ?? '400'} propKey="font-weight" onPatch={patch} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <FieldLabel>Line H</FieldLabel>
+                <NumInput value={s['line-height'] ?? 'normal'} propKey="line-height" onPatch={patch} />
+              </div>
+            </div>
 
-      {editing ? (
-        <div style={{ flex: 1, display: 'flex', gap: 3 }}>
-          <input
-            autoFocus
-            value={draft}
-            onChange={e => {
-              setDraft(e.target.value);
-              // Live preview on every keystroke
-              onPatch(propKey, e.target.value);
-            }}
-            onBlur={commit}
-            onKeyDown={e => {
-              if (e.key === 'Enter') commit();
-              if (e.key === 'Escape') { setEditing(false); setDraft(value); onPatch(propKey, value); }
-              e.stopPropagation();
-            }}
-            style={{
-              flex: 1, minWidth: 0,
-              fontFamily: "'JetBrains Mono', monospace",
-              fontSize: '0.5625rem',
-              background: T.bgDeep,
-              border: `1px solid ${T.accent}`,
-              borderRadius: 4,
-              padding: '2px 6px',
-              color: T.fg,
-              outline: 'none',
-            }}
+            {/* Letter-spacing + text-align toggles */}
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <FieldLabel>Track</FieldLabel>
+                <NumInput value={s['letter-spacing'] ?? '0px'} propKey="letter-spacing" onPatch={patch} inputWidth={52} />
+              </div>
+              <TextAlignToggle
+                value={s['text-align'] ?? 'left'}
+                onPatch={(v) => patch('text-align', v)}
+              />
+            </div>
+          </div>
+          <HSep />
+        </>
+      )}
+
+      {/* ── Layout ────────────────────────────────────────── */}
+      <div style={{ padding: '8px 14px' }}>
+        <DesignSectionLabel>Layout</DesignSectionLabel>
+
+        {/* Display */}
+        <div style={{ display: 'flex', gap: 4, marginBottom: 6, alignItems: 'center' }}>
+          <FieldLabel>Display</FieldLabel>
+          <CssSelect
+            value={s['display'] ?? 'block'}
+            propKey="display"
+            options={[
+              { val: 'block',        label: 'block'        },
+              { val: 'flex',         label: 'flex'         },
+              { val: 'inline-flex',  label: 'inline-flex'  },
+              { val: 'grid',         label: 'grid'         },
+              { val: 'inline-block', label: 'inline-block' },
+              { val: 'inline',       label: 'inline'       },
+              { val: 'none',         label: 'none'         },
+            ]}
+            onPatch={patch}
           />
         </div>
-      ) : (
-        <div
-          onClick={() => { setEditing(true); setDraft(value); }}
-          style={{
-            flex: 1, display: 'flex', alignItems: 'center', gap: 4,
-            cursor: 'text',
-            padding: '2px 4px',
-            borderRadius: 4,
-            border: '1px solid transparent',
-            transition: 'border-color 0.1s',
-          }}
-          onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = T.border; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'transparent'; }}
-        >
-          {hexColor && (
-            <span style={{
-              width: 10, height: 10, borderRadius: 2, flexShrink: 0,
-              background: hexColor,
-              border: '1px solid rgba(255,255,255,0.15)',
-            }} />
-          )}
-          <span style={{
-            fontFamily: "'JetBrains Mono', monospace",
-            fontSize: '0.5625rem',
-            color: T.fgMuted,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            letterSpacing: '-0.01em',
-          }}>
-            {value}
-          </span>
+
+        {/* Flex controls */}
+        {isFlexLayout && (
+          <>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 6, alignItems: 'flex-end' }}>
+              <FlexDirToggle
+                value={s['flex-direction'] ?? 'row'}
+                onPatch={(v) => patch('flex-direction', v)}
+              />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <FieldLabel>Gap</FieldLabel>
+                <NumInput value={s['gap'] ?? '0px'} propKey="gap" onPatch={patch} inputWidth={48} />
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, marginBottom: 6 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <FieldLabel>Align</FieldLabel>
+                <CssSelect
+                  value={s['align-items'] ?? 'stretch'}
+                  propKey="align-items"
+                  options={[
+                    { val: 'flex-start', label: 'start'    },
+                    { val: 'center',     label: 'center'   },
+                    { val: 'flex-end',   label: 'end'      },
+                    { val: 'stretch',    label: 'stretch'  },
+                    { val: 'baseline',   label: 'baseline' },
+                  ]}
+                  onPatch={patch}
+                />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <FieldLabel>Justify</FieldLabel>
+                <CssSelect
+                  value={s['justify-content'] ?? 'flex-start'}
+                  propKey="justify-content"
+                  options={[
+                    { val: 'flex-start',    label: 'start'   },
+                    { val: 'center',        label: 'center'  },
+                    { val: 'flex-end',      label: 'end'     },
+                    { val: 'space-between', label: 'between' },
+                    { val: 'space-around',  label: 'around'  },
+                    { val: 'space-evenly',  label: 'evenly'  },
+                  ]}
+                  onPatch={patch}
+                />
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Padding — 4-corner grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 4 }}>
+          {[
+            { label: '↑', prop: 'padding-top'    },
+            { label: '→', prop: 'padding-right'  },
+            { label: '↓', prop: 'padding-bottom' },
+            { label: '←', prop: 'padding-left'   },
+          ].map(({ label, prop }) => (
+            <div key={prop} style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center' }}>
+              <FieldLabel>{label}</FieldLabel>
+              <NumInput value={s[prop] ?? '0px'} propKey={prop} onPatch={patch} inputWidth={38} />
+            </div>
+          ))}
         </div>
-      )}
-    </div>
+      </div>
+      <HSep />
+
+      {/* ── Appearance ────────────────────────────────────── */}
+      <div style={{ padding: '8px 14px 10px' }}>
+        <DesignSectionLabel>Appearance</DesignSectionLabel>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 10px', marginBottom: 6 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <FieldLabel>Radius</FieldLabel>
+            <NumInput value={s['border-radius'] ?? '0px'} propKey="border-radius" onPatch={patch} inputWidth={88} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <FieldLabel>Opacity</FieldLabel>
+            <NumInput value={s['opacity'] ?? '1'} propKey="opacity" onPatch={patch} inputWidth={88} />
+          </div>
+        </div>
+
+        {/* Border — only show if there's a visible border */}
+        {hasBorder && (
+          <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end' }}>
+            <div style={{ flex: 1 }}>
+              <FieldLabel>Border Color</FieldLabel>
+              <div style={{ marginTop: 2 }}>
+                <ColorInput value={s['border-color'] ?? '#000000'} propKey="border-color" onPatch={patch} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <FieldLabel>Width</FieldLabel>
+              <NumInput value={s['border-width'] ?? '0px'} propKey="border-width" onPatch={patch} inputWidth={44} />
+            </div>
+          </div>
+        )}
+
+        {/* Box shadow — if present */}
+        {s['box-shadow'] && s['box-shadow'] !== 'none' && (
+          <div style={{ marginTop: 6 }}>
+            <FieldLabel>Shadow</FieldLabel>
+            <div style={{ marginTop: 2 }}>
+              <TextInput value={s['box-shadow']} propKey="box-shadow" onPatch={patch} fullWidth />
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 

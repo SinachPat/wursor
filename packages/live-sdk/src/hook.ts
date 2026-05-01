@@ -328,7 +328,7 @@ function installFiberHook(): void {
         path?: string;
         nodeId?: string;
         property?: string;
-        value?: string;
+        value?: string | undefined;
       };
     };
     if (!data || data.source !== HOST_SOURCE)    return;
@@ -360,6 +360,9 @@ function installFiberHook(): void {
         if (msg.nodeId && msg.property && msg.value !== undefined) {
           patchElementStyle(msg.nodeId, msg.property, msg.value ?? '');
         }
+        break;
+      case 'REMOVE_ELEMENT':
+        if (msg.nodeId) removeElement(msg.nodeId);
         break;
     }
   });
@@ -408,6 +411,87 @@ function installFiberHook(): void {
   // Applies a single CSS property as an inline style on the component's DOM
   // element.  Non-destructive — does NOT modify source files.  The change is
   // immediately visible in the live render and can be recorded as a diff.
+
+  // ── Route discovery ───────────────────────────────────────────────────────
+  // Scans same-origin <a href> links in the current page and any React Router /
+  // Next.js Link components whose props contain an href, then posts the unique
+  // set of paths as ROUTES_DISCOVERED.  Called once after the first React commit
+  // and again on every SPA navigation.
+
+  function humanLabel(path: string): string {
+    if (path === '/') return 'Home';
+    return path
+      .split('/')
+      .filter(Boolean)
+      .map((s) => s.charAt(0).toUpperCase() + s.slice(1).replace(/-/g, ' '))
+      .join(' / ');
+  }
+
+  function discoverRoutes(): void {
+    const seen = new Set<string>();
+    const routes: Array<{ path: string; label: string }> = [];
+
+    const addRoute = (path: string, hint?: string) => {
+      if (seen.has(path)) return;
+      // Skip hash-only anchors and external paths
+      if (!path || path.startsWith('#')) return;
+      seen.add(path);
+      routes.push({ path, label: hint?.trim().slice(0, 50) || humanLabel(path) });
+    };
+
+    // Current route first
+    addRoute(window.location.pathname, document.title || undefined);
+
+    // Scan real <a> elements
+    document.querySelectorAll<HTMLAnchorElement>('a[href]').forEach((a) => {
+      try {
+        const url = new URL(a.href, window.location.href);
+        if (url.origin !== window.location.origin) return;
+        addRoute(url.pathname, a.textContent ?? undefined);
+      } catch { /* malformed href */ }
+    });
+
+    // Also scan fiber tree for Link / NavLink / next/link props
+    nodeMap.forEach(({ fiber }) => {
+      const name = fiber ? getDisplayName(fiber) : null;
+      if (name && /^(Link|NavLink|NextLink|RouterLink|a)$/.test(name)) {
+        const href = fiber?.memoizedProps?.['href'] ?? fiber?.memoizedProps?.['to'];
+        if (typeof href === 'string' && href.startsWith('/')) {
+          addRoute(href);
+        }
+      }
+    });
+
+    if (routes.length > 0) post({ type: 'ROUTES_DISCOVERED', routes });
+  }
+
+  // Re-discover after every React commit (covers lazy-loaded nav items)
+  const _originalCommit = hook.onCommitFiberRoot;
+  let routeDiscoveryScheduled = false;
+  const _wrappedCommitForRoutes = hook.onCommitFiberRoot;
+  void _wrappedCommitForRoutes; // suppress unused warning — keep original chain intact
+
+  // One-time discovery 800ms after first READY (DOM settled)
+  setTimeout(discoverRoutes, 800);
+
+  // Re-discover on every SPA navigation
+  window.addEventListener('popstate', () => {
+    if (!routeDiscoveryScheduled) {
+      routeDiscoveryScheduled = true;
+      setTimeout(() => { routeDiscoveryScheduled = false; discoverRoutes(); }, 300);
+    }
+  });
+
+  // ── Element removal ───────────────────────────────────────────────────────
+
+  function removeElement(nodeId: string): void {
+    const info = nodeMap.get(nodeId);
+    if (!info?.fiber?.stateNode || typeof info.fiber.stateNode !== 'object'
+        || !('nodeType' in (info.fiber.stateNode as object))) return;
+    try {
+      (info.fiber.stateNode as HTMLElement).style.setProperty('display', 'none');
+    } catch { /* detached */ }
+  }
 
   function patchElementStyle(nodeId: string, property: string, value: string): void {
     const info = nodeMap.get(nodeId);

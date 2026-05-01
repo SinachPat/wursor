@@ -19,6 +19,8 @@ interface ArtboardProps {
   renderUrl?: string;
   /** Route path appended to renderUrl so each artboard can show a different screen. */
   route?: string;
+  /** Called when the live app reports discoverable routes — Canvas handles creation. */
+  onRoutesDiscovered?: (sourceId: string, routes: Array<{ path: string; label: string }>) => void;
 }
 
 /** Builds the iframe src from a base URL + optional route path.
@@ -38,7 +40,7 @@ const DIFF_STATUS_BADGE: Record<string, { color: string; bg: string; label: stri
   REJECTED: { color: '#FF8080', bg: 'rgba(255,128,128,0.15)', label: 'blocked' },
 };
 
-export function Artboard({ id, label, x, y, width, height, renderUrl, route }: ArtboardProps) {
+export function Artboard({ id, label, x, y, width, height, renderUrl, route, onRoutesDiscovered }: ArtboardProps) {
   const {
     selectedArtboardId, selectArtboard, workspaceId, projectId,
     setArtboardLive, setFiberRoot, selectComponent, setComponentStyles,
@@ -349,6 +351,7 @@ export function Artboard({ id, label, x, y, width, height, renderUrl, route }: A
               onFiberTreeUpdate={handleFiberUpdate}
               onComponentSelected={handleComponentSelected}
               onComponentStylesUpdate={handleComponentStylesUpdate}
+              onRoutesDiscovered={(routes) => onRoutesDiscovered?.(id, routes)}
             />
             <SelectionOverlay
               artboardId={id}

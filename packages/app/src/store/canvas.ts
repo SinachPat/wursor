@@ -42,6 +42,11 @@ interface CanvasStore {
   styleEditEvent: { artboardId: string; nodeId: string; property: string; value: string } | null;
   patchStyleEdit: (artboardId: string, nodeId: string, property: string, value: string) => void;
   clearStyleEdit: () => void;
+
+  // ── Element removal mailbox ─────────────────────────────────────────────────
+  removeElementEvent: { artboardId: string; nodeId: string } | null;
+  dispatchRemoveElement: (artboardId: string, nodeId: string) => void;
+  clearRemoveElement: () => void;
 }
 
 export const useCanvas = create<CanvasStore>((set) => ({
@@ -80,4 +85,9 @@ export const useCanvas = create<CanvasStore>((set) => ({
   patchStyleEdit: (artboardId, nodeId, property, value) =>
     set({ styleEditEvent: { artboardId, nodeId, property, value } }),
   clearStyleEdit: () => set({ styleEditEvent: null }),
+
+  removeElementEvent: null,
+  dispatchRemoveElement: (artboardId, nodeId) =>
+    set({ removeElementEvent: { artboardId, nodeId } }),
+  clearRemoveElement: () => set({ removeElementEvent: null }),
 }));

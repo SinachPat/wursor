@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useHistory } from '@/store/history';
+import { useCanvas } from '@/store/canvas';
 import type { FiberNode, DOMRectLike } from '@originmain/renderer';
 import type { PropChange } from '@originmain/diff-engine';
 
@@ -35,6 +36,7 @@ export function SelectionOverlay({
   const [selected, setSelected] = useState<SelectionState | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const pushEdit = useHistory(s => s.pushEdit);
+  const { dispatchRemoveElement } = useCanvas();
 
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -80,8 +82,13 @@ export function SelectionOverlay({
         setSelected(null);
         onSelectionChange?.(null);
       }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selected) {
+        dispatchRemoveElement(artboardId, selected.nodeId);
+        setSelected(null);
+        onSelectionChange?.(null);
+      }
     },
-    [onSelectionChange]
+    [onSelectionChange, selected, artboardId, dispatchRemoveElement]
   );
 
   return (
@@ -98,10 +105,11 @@ export function SelectionOverlay({
         width,
         height,
         zIndex: 5,
-        cursor: 'crosshair',
+        cursor: 'default',
+        outline: 'none',
       }}
     >
-      {hoveredId && fiberRoot && (
+      {hoveredId && hoveredId !== selected?.nodeId && fiberRoot && (
         <HoverHighlight fiberRoot={fiberRoot} nodeId={hoveredId} />
       )}
 
@@ -109,6 +117,7 @@ export function SelectionOverlay({
         <SelectionHandles
           artboardId={artboardId}
           selection={selected}
+          onSelectionChange={(s) => { setSelected(s); onSelectionChange?.(s); }}
           onResizeCommit={(changes) => {
             pushEdit(artboardId, {
               componentId: selected.nodeId,
@@ -137,8 +146,9 @@ function HoverHighlight({ fiberRoot, nodeId }: { fiberRoot: FiberNode; nodeId: s
         top: y,
         width,
         height,
-        border: '1px solid rgba(51,133,255,0.4)',
+        border: '1.5px solid rgba(51,133,255,0.5)',
         borderRadius: 2,
+        background: 'rgba(51,133,255,0.04)',
         pointerEvents: 'none',
       }}
     />
@@ -150,22 +160,26 @@ function HoverHighlight({ fiberRoot, nodeId }: { fiberRoot: FiberNode; nodeId: s
 interface SelectionHandlesProps {
   artboardId: string;
   selection: SelectionState;
+  onSelectionChange: (s: SelectionState | null) => void;
   onResizeCommit: (changes: PropChange[]) => void;
 }
 
-function SelectionHandles({ selection, onResizeCommit }: SelectionHandlesProps) {
-  const { rect, nodeName } = selection;
+function SelectionHandles({ artboardId, selection, onSelectionChange, onResizeCommit }: SelectionHandlesProps) {
+  const { rect, nodeName, nodeId } = selection;
   const startRect = useRef<DOMRectLike | null>(null);
-  // liveRectRef tracks the running rect without stale-closure issues.
-  // liveRect is the React state for rendering only.
   const liveRectRef = useRef<DOMRectLike>(rect);
   const [liveRect, setLiveRect] = useState(rect);
-  // onResizeCommitRef ensures onMouseUp always calls the latest callback even if
-  // the parent re-renders between mousedown and mouseup.
   const onResizeCommitRef = useRef(onResizeCommit);
   useEffect(() => { onResizeCommitRef.current = onResizeCommit; });
 
-  // Track registered drag listeners so we can clean them up on unmount.
+  const { patchStyleEdit, dispatchRemoveElement } = useCanvas();
+
+  // Sync rect when selection changes to a different element
+  useEffect(() => {
+    liveRectRef.current = rect;
+    setLiveRect(rect);
+  }, [rect]);
+
   const dragListenersRef = useRef<{
     move: (e: MouseEvent) => void;
     up: (e: MouseEvent) => void;
@@ -186,7 +200,6 @@ function SelectionHandles({ selection, onResizeCommit }: SelectionHandlesProps) 
       (e: React.MouseEvent) => {
         e.stopPropagation();
         e.preventDefault();
-        // Capture the rect at drag-start from the ref (always current).
         startRect.current = { ...liveRectRef.current };
         const startX = e.clientX;
         const startY = e.clientY;
@@ -195,11 +208,13 @@ function SelectionHandles({ selection, onResizeCommit }: SelectionHandlesProps) 
           if (!startRect.current) return;
           const dx = ev.clientX - startX;
           const dy = ev.clientY - startY;
-          // Always apply delta from the START rect, not the previous frame's rect.
-          // Applying to prev causes exponential drift over the course of a drag.
           const next = adjustRect(startRect.current, corner, dx, dy);
           liveRectRef.current = next;
           setLiveRect(next);
+
+          // Live patch into iframe for instant visual feedback
+          patchStyleEdit(artboardId, nodeId, 'width',  `${Math.round(next.width)}px`);
+          patchStyleEdit(artboardId, nodeId, 'height', `${Math.round(next.height)}px`);
         };
 
         const onMouseUp = () => {
@@ -208,26 +223,15 @@ function SelectionHandles({ selection, onResizeCommit }: SelectionHandlesProps) 
           dragListenersRef.current = null;
 
           if (!startRect.current) return;
-          // Read final dimensions from the ref — not from the stale liveRect closure.
-          const widthChange = liveRectRef.current.width - startRect.current.width;
+          const widthChange  = liveRectRef.current.width  - startRect.current.width;
           const heightChange = liveRectRef.current.height - startRect.current.height;
 
           const changes: PropChange[] = [];
           if (Math.abs(widthChange) > 0.5) {
-            changes.push({
-              key: 'width',
-              before: startRect.current.width,
-              after: liveRectRef.current.width,
-              changeType: 'modified',
-            });
+            changes.push({ key: 'width',  before: startRect.current.width,  after: liveRectRef.current.width,  changeType: 'modified' });
           }
           if (Math.abs(heightChange) > 0.5) {
-            changes.push({
-              key: 'height',
-              before: startRect.current.height,
-              after: liveRectRef.current.height,
-              changeType: 'modified',
-            });
+            changes.push({ key: 'height', before: startRect.current.height, after: liveRectRef.current.height, changeType: 'modified' });
           }
           if (changes.length > 0) onResizeCommitRef.current(changes);
           startRect.current = null;
@@ -237,11 +241,19 @@ function SelectionHandles({ selection, onResizeCommit }: SelectionHandlesProps) 
         window.addEventListener('mousemove', onMouseMove);
         window.addEventListener('mouseup', onMouseUp);
       },
-    [] // No reactive deps — all values read from refs
+    [artboardId, nodeId, patchStyleEdit]
   );
 
   const { x, y, width, height } = liveRect;
-  const HANDLE = 8;
+  const H = 8; // handle size
+
+  // Edge midpoints for the 4 side handles
+  const edgeHandles: Array<{ id: string; left: number; top: number; cursor: string }> = [
+    { id: 'top',    left: x + width / 2 - H / 2, top: y - H / 2,          cursor: 'ns-resize'   },
+    { id: 'right',  left: x + width - H / 2,      top: y + height / 2 - H / 2, cursor: 'ew-resize' },
+    { id: 'bottom', left: x + width / 2 - H / 2,  top: y + height - H / 2, cursor: 'ns-resize'  },
+    { id: 'left',   left: x - H / 2,              top: y + height / 2 - H / 2, cursor: 'ew-resize' },
+  ];
 
   return (
     <>
@@ -258,25 +270,67 @@ function SelectionHandles({ selection, onResizeCommit }: SelectionHandlesProps) 
           pointerEvents: 'none',
         }}
       />
-      {/* Label */}
+
+      {/* Label + action bar */}
       <div
         style={{
           position: 'absolute',
           left: x,
-          top: y - 20,
+          top: Math.max(0, y - 28),
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          pointerEvents: 'auto',
+          userSelect: 'none',
+        }}
+      >
+        <span style={{
           fontFamily: "'JetBrains Mono', ui-monospace, monospace",
           fontSize: 10,
           color: '#3385FF',
-          pointerEvents: 'none',
           whiteSpace: 'nowrap',
-        }}
-      >
-        {nodeName}
+          letterSpacing: '-0.01em',
+        }}>
+          {nodeName}
+        </span>
+        <span style={{
+          fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+          fontSize: 9,
+          color: 'rgba(51,133,255,0.55)',
+          whiteSpace: 'nowrap',
+        }}>
+          {Math.round(width)} × {Math.round(height)}
+        </span>
+
+        {/* Delete button */}
+        <button
+          title="Delete element (⌫)"
+          onClick={(e) => {
+            e.stopPropagation();
+            dispatchRemoveElement(artboardId, nodeId);
+            onSelectionChange(null);
+          }}
+          style={{
+            background: 'rgba(255,70,70,0.15)',
+            border: '1px solid rgba(255,70,70,0.35)',
+            borderRadius: 4,
+            color: '#FF6060',
+            fontSize: 9,
+            padding: '1px 5px',
+            cursor: 'pointer',
+            fontFamily: "'JetBrains Mono', monospace",
+            letterSpacing: '0.03em',
+            lineHeight: 1.6,
+          }}
+        >
+          ✕ delete
+        </button>
       </div>
-      {/* Corner handles */}
+
+      {/* Corner resize handles */}
       {(['tl', 'tr', 'bl', 'br'] as const).map(corner => {
-        const cx = corner.includes('l') ? x - HANDLE / 2 : x + width - HANDLE / 2;
-        const cy = corner.includes('t') ? y - HANDLE / 2 : y + height - HANDLE / 2;
+        const cx = corner.includes('l') ? x - H / 2 : x + width - H / 2;
+        const cy = corner.includes('t') ? y - H / 2 : y + height - H / 2;
         return (
           <div
             key={corner}
@@ -285,8 +339,8 @@ function SelectionHandles({ selection, onResizeCommit }: SelectionHandlesProps) 
               position: 'absolute',
               left: cx,
               top: cy,
-              width: HANDLE,
-              height: HANDLE,
+              width: H,
+              height: H,
               background: '#fff',
               border: '2px solid #3385FF',
               borderRadius: 2,
@@ -296,6 +350,25 @@ function SelectionHandles({ selection, onResizeCommit }: SelectionHandlesProps) 
           />
         );
       })}
+
+      {/* Edge handles */}
+      {edgeHandles.map((eh) => (
+        <div
+          key={eh.id}
+          style={{
+            position: 'absolute',
+            left: eh.left,
+            top: eh.top,
+            width: H,
+            height: H,
+            background: '#fff',
+            border: '2px solid #3385FF',
+            borderRadius: 1,
+            cursor: eh.cursor,
+            zIndex: 9,
+          }}
+        />
+      ))}
     </>
   );
 }
@@ -329,9 +402,9 @@ function adjustRect(
   dy: number
 ): DOMRectLike {
   let { x, y, width, height } = rect;
-  if (corner.includes('l')) { x += dx; width = Math.max(8, width - dx); }
-  else { width = Math.max(8, width + dx); }
+  if (corner.includes('l')) { x += dx; width  = Math.max(8, width  - dx); }
+  else                       {           width  = Math.max(8, width  + dx); }
   if (corner.includes('t')) { y += dy; height = Math.max(8, height - dy); }
-  else { height = Math.max(8, height + dy); }
+  else                       {           height = Math.max(8, height + dy); }
   return { x, y, width, height };
 }
