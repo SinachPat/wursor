@@ -216,13 +216,16 @@ export function buildProxyFiberHookScript(): string {
   }
 
   // Walk a fiber subtree to find the nearest host DOM node (div, span, etc.).
-  // Composite components have stateNode = null or class instance; host elements
-  // have stateNode = actual DOM element with a .style property.
+  // Traverses both .child and .sibling so that components whose first child
+  // branch is a non-DOM composite (e.g. a Context.Provider sibling to a div)
+  // are handled correctly.
   function findDomElement(fiber) {
     if (!fiber) return null;
     var sn = fiber.stateNode;
     if (sn && typeof sn.style !== 'undefined') return sn;
-    return findDomElement(fiber.child);
+    var fromChild = findDomElement(fiber.child);
+    if (fromChild) return fromChild;
+    return findDomElement(fiber.sibling);
   }
 
   // Collect all NAMED descendants of fiber.child into out[], transparently
@@ -439,7 +442,16 @@ export function buildProxyFiberHookScript(): string {
           var dInfo = nodeMap[msg.nodeId];
           if (dInfo) {
             var dEl = findDomElement(dInfo.fiber);
-            if (dEl) dEl.style.setProperty('display', 'none');
+            if (dEl) {
+              dEl.style.setProperty('display', 'none');
+              // Clear the selection so the highlight ring doesn't linger over
+              // the now-invisible element on the next React commit.
+              if (selectedNodeId === msg.nodeId) {
+                selectedNodeId = null;
+                removeHighlight();
+                post({ type: 'COMPONENT_DESELECTED' });
+              }
+            }
           }
         }
         break;
@@ -465,8 +477,59 @@ export function buildProxyFiberHookScript(): string {
     } catch (e) { /* navigation not available in this context */ }
   }
 
+  // ── Route discovery ───────────────────────────────────────────────────────
+  // Scans <a href> links and the fiber nodeMap for same-origin routes, then
+  // posts ROUTES_DISCOVERED so the host canvas can auto-create artboards for
+  // every page. Called once 800 ms after READY (giving React time to paint)
+  // and again on every SPA popstate so navigation is reflected in the canvas.
+  function humanLabel(path) {
+    var seg = path.replace(/\/+$/, '').split('/').filter(function(s) { return s.length > 0; });
+    if (seg.length === 0) return 'Home';
+    var last = seg[seg.length - 1];
+    return last.replace(/[-_]/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+  }
+
+  function discoverRoutes() {
+    var seen = {};
+    var routes = [];
+
+    function addRoute(path, hint) {
+      if (!path || seen[path]) return;
+      if (path.charAt(0) === '#') return;
+      seen[path] = true;
+      var label = (hint && typeof hint === 'string' && hint.trim().slice(0, 50)) || humanLabel(path);
+      routes.push({ path: path, label: label });
+    }
+
+    addRoute(window.location.pathname, document.title || undefined);
+
+    var anchors = document.querySelectorAll('a[href]');
+    for (var i = 0; i < anchors.length; i++) {
+      try {
+        var url = new URL(anchors[i].href, window.location.href);
+        if (url.origin !== window.location.origin) continue;
+        addRoute(url.pathname, anchors[i].textContent || undefined);
+      } catch (e) { /* skip malformed hrefs */ }
+    }
+
+    Object.keys(nodeMap).forEach(function(nid) {
+      var entry = nodeMap[nid];
+      var fiber = entry && entry.fiber;
+      var name = fiber ? getDisplayName(fiber) : null;
+      if (name && /^(Link|NavLink|NextLink|RouterLink|a)$/.test(name)) {
+        var props = fiber.memoizedProps;
+        var href = props && (props.href || props.to);
+        if (typeof href === 'string' && href.charAt(0) === '/') addRoute(href);
+      }
+    });
+
+    if (routes.length > 0) post({ type: 'ROUTES_DISCOVERED', routes: routes });
+  }
+
   // ── Ready signal ──────────────────────────────────────────────────────────
   post({ type: 'READY' });
+  setTimeout(discoverRoutes, 800);
+  window.addEventListener('popstate', function() { setTimeout(discoverRoutes, 100); });
 })();`;
 }
 

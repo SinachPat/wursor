@@ -36,12 +36,14 @@ interface CanvasStore {
   selectedComponentStyles: Record<string, string> | null;
   setComponentStyles: (styles: Record<string, string> | null) => void;
 
-  // ── Style edit mailbox ──────────────────────────────────────────────────────
-  // The Design tab drops a patch here; the owning LiveArtboard picks it up,
-  // forwards it to the iframe, then clears it.
-  styleEditEvent: { artboardId: string; nodeId: string; property: string; value: string } | null;
+  // ── Style edit queue ────────────────────────────────────────────────────────
+  // The Design tab and resize handles push patches here; each owning
+  // LiveArtboard drains entries addressed to it, then removes them.
+  // A queue (not a single slot) is required because resize sends width + height
+  // in the same synchronous event — a single slot would silently drop the first.
+  styleEditQueue: Array<{ artboardId: string; nodeId: string; property: string; value: string }>;
   patchStyleEdit: (artboardId: string, nodeId: string, property: string, value: string) => void;
-  clearStyleEdit: () => void;
+  clearStyleEdits: (artboardId: string) => void;
 
   // ── Element removal mailbox ─────────────────────────────────────────────────
   removeElementEvent: { artboardId: string; nodeId: string } | null;
@@ -81,10 +83,11 @@ export const useCanvas = create<CanvasStore>((set) => ({
   selectedComponentStyles: null,
   setComponentStyles: (styles) => set({ selectedComponentStyles: styles }),
 
-  styleEditEvent: null,
+  styleEditQueue: [],
   patchStyleEdit: (artboardId, nodeId, property, value) =>
-    set({ styleEditEvent: { artboardId, nodeId, property, value } }),
-  clearStyleEdit: () => set({ styleEditEvent: null }),
+    set((s) => ({ styleEditQueue: [...s.styleEditQueue, { artboardId, nodeId, property, value }] })),
+  clearStyleEdits: (artboardId) =>
+    set((s) => ({ styleEditQueue: s.styleEditQueue.filter((e) => e.artboardId !== artboardId) })),
 
   removeElementEvent: null,
   dispatchRemoveElement: (artboardId, nodeId) =>

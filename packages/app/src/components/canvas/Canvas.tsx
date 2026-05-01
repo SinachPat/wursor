@@ -288,81 +288,157 @@ export function Canvas() {
 
       {/* Empty canvas onboarding — shown only when the project has no artboards yet */}
       {artboards.length === 0 && (
-        <div style={{
-          position: 'absolute', inset: 0, display: 'flex',
-          alignItems: 'center', justifyContent: 'center',
-          pointerEvents: 'none', zIndex: 3,
-        }}>
+        <UrlOnboardingOverlay
+          workspaceId={workspaceId}
+          projectId={projectId}
+          queryClient={queryClient}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ── URL onboarding overlay ───────────────────────────────── */
+// Shown when the canvas has no artboards. Lets the user paste their CLI proxy
+// URL to auto-create the first artboard; route discovery will then fire and
+// populate the remaining pages automatically.
+function UrlOnboardingOverlay({
+  workspaceId,
+  projectId,
+  queryClient,
+}: {
+  workspaceId: string | null;
+  projectId: string | null;
+  queryClient: ReturnType<typeof useQueryClient>;
+}) {
+  const [url, setUrl] = useState('');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [errorMsg, setErrorMsg] = useState('');
+
+  const handleConnect = useCallback(async () => {
+    if (!workspaceId) return;
+    const trimmed = url.trim();
+    try {
+      const parsed = new URL(trimmed);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw new Error('bad protocol');
+    } catch {
+      setErrorMsg('Enter a valid http:// or https:// URL');
+      return;
+    }
+    setStatus('loading');
+    setErrorMsg('');
+    try {
+      await createArtboardMutation({
+        workspace_id: workspaceId,
+        project_id: projectId ?? null,
+        name: 'Home',
+        origin_id: null,
+        parent_artboard_id: null,
+        metadata_jsonb: { x: 100, y: 100, width: 1280, height: 800, renderUrl: trimmed, route: '/' },
+      });
+      queryClient.invalidateQueries({ queryKey: ['artboards', workspaceId, projectId ?? undefined] });
+    } catch (e) {
+      console.error('[Canvas] Failed to create artboard', e);
+      setStatus('error');
+      setErrorMsg('Failed to create artboard — try again');
+    }
+  }, [url, workspaceId, projectId, queryClient]);
+
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, display: 'flex',
+      alignItems: 'center', justifyContent: 'center',
+      pointerEvents: 'none', zIndex: 3,
+    }}>
+      <div
+        style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20,
+          maxWidth: 360, pointerEvents: 'auto',
+        }}
+        onMouseDown={e => e.stopPropagation()}
+      >
+        {/* Icon */}
+        <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+          <rect x="3" y="3" width="15" height="15" rx="3" stroke="rgba(255,255,255,0.5)" strokeWidth="1.3" strokeDasharray="3.5 2"/>
+          <rect x="22" y="3" width="15" height="15" rx="3" stroke="rgba(255,255,255,0.5)" strokeWidth="1.3" strokeDasharray="3.5 2"/>
+          <rect x="3" y="22" width="15" height="15" rx="3" stroke="rgba(255,255,255,0.5)" strokeWidth="1.3" strokeDasharray="3.5 2"/>
+          <rect x="22" y="22" width="15" height="15" rx="3" stroke="rgba(255,255,255,0.5)" strokeWidth="1.3" strokeDasharray="3.5 2"/>
+        </svg>
+
+        <div style={{ textAlign: 'center' }}>
           <div style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20,
-            opacity: 0.55, maxWidth: 320,
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: '0.65rem', color: 'rgba(255,255,255,0.7)',
+            letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4,
           }}>
-            {/* Icon */}
-            <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-              <rect x="3" y="3" width="15" height="15" rx="3" stroke="rgba(255,255,255,0.5)" strokeWidth="1.3" strokeDasharray="3.5 2"/>
-              <rect x="22" y="3" width="15" height="15" rx="3" stroke="rgba(255,255,255,0.5)" strokeWidth="1.3" strokeDasharray="3.5 2"/>
-              <rect x="3" y="22" width="15" height="15" rx="3" stroke="rgba(255,255,255,0.5)" strokeWidth="1.3" strokeDasharray="3.5 2"/>
-              <rect x="22" y="22" width="15" height="15" rx="3" stroke="rgba(255,255,255,0.5)" strokeWidth="1.3" strokeDasharray="3.5 2"/>
-            </svg>
-
-            <div style={{ textAlign: 'center' }}>
-              <div style={{
-                fontFamily: "'JetBrains Mono', monospace",
-                fontSize: '0.65rem', color: 'rgba(255,255,255,0.7)',
-                letterSpacing: '0.1em', textTransform: 'uppercase',
-                marginBottom: 4,
-              }}>
-                Get started
-              </div>
-              <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '0.7rem', color: 'rgba(255,255,255,0.35)', lineHeight: 1.5 }}>
-                Live render your running app into design frames
-              </div>
-            </div>
-
-            {/* Steps */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, width: '100%' }}>
-              {[
-                { n: '1', text: 'Press A and click the canvas to place a screen' },
-                { n: '2', text: 'Start the CLI proxy pointing at your dev server', code: 'npx @originmain/cli dev --target http://localhost:3000' },
-                { n: '3', text: "Paste the proxy URL into the screen's Connect field" },
-              ].map(({ n, text, code }) => (
-                <div key={n} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                  <div style={{
-                    width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
-                    border: '1px solid rgba(51,133,255,0.5)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontFamily: "'JetBrains Mono', monospace",
-                    fontSize: '0.5rem', color: 'rgba(51,133,255,0.9)',
-                    fontWeight: 600,
-                  }}>
-                    {n}
-                  </div>
-                  <div>
-                    <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '0.6875rem', color: 'rgba(255,255,255,0.55)', lineHeight: 1.45 }}>
-                      {text}
-                    </div>
-                    {code && (
-                      <div style={{
-                        marginTop: 5,
-                        padding: '4px 8px',
-                        background: 'rgba(51,133,255,0.1)',
-                        border: '1px solid rgba(51,133,255,0.2)',
-                        borderRadius: 5,
-                        fontFamily: "'JetBrains Mono', monospace",
-                        fontSize: '0.5625rem',
-                        color: 'rgba(51,133,255,0.85)',
-                        letterSpacing: '-0.01em',
-                      }}>
-                        {code}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+            Connect your app
+          </div>
+          <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '0.7rem', color: 'rgba(255,255,255,0.35)', lineHeight: 1.5 }}>
+            Paste the CLI proxy URL — all your app&apos;s pages will be auto-rendered as artboards
           </div>
         </div>
-      )}
+
+        {/* CLI hint */}
+        <div style={{
+          width: '100%', padding: '6px 10px',
+          background: 'rgba(51,133,255,0.08)', border: '1px solid rgba(51,133,255,0.18)',
+          borderRadius: 6, fontFamily: "'JetBrains Mono', monospace",
+          fontSize: '0.5625rem', color: 'rgba(51,133,255,0.75)', letterSpacing: '-0.01em',
+        }}>
+          npx @originmain/cli dev --target http://localhost:3000
+        </div>
+
+        {/* URL input */}
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <input
+              type="url"
+              value={url}
+              onChange={e => { setUrl(e.target.value); setErrorMsg(''); }}
+              onKeyDown={e => { if (e.key === 'Enter') void handleConnect(); e.stopPropagation(); }}
+              placeholder="http://localhost:4170"
+              style={{
+                flex: 1, background: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6,
+                padding: '8px 10px', fontSize: '0.75rem',
+                color: 'rgba(255,255,255,0.85)',
+                fontFamily: "'JetBrains Mono', monospace",
+                outline: 'none', letterSpacing: '-0.01em',
+              }}
+              onFocus={e => (e.currentTarget.style.borderColor = '#3385FF')}
+              onBlur={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)')}
+            />
+            <button
+              onClick={() => void handleConnect()}
+              disabled={status === 'loading' || !url.trim()}
+              style={{
+                padding: '8px 14px', borderRadius: 6,
+                background: !url.trim() ? 'rgba(51,133,255,0.3)' : '#3385FF',
+                border: 'none', color: '#fff', fontSize: '0.75rem', fontWeight: 600,
+                cursor: status === 'loading' || !url.trim() ? 'not-allowed' : 'pointer',
+                fontFamily: "'Inter', sans-serif",
+                opacity: status === 'loading' ? 0.7 : 1, whiteSpace: 'nowrap',
+              }}
+            >
+              {status === 'loading' ? 'Connecting…' : 'Connect →'}
+            </button>
+          </div>
+          {errorMsg && (
+            <p style={{ margin: 0, fontSize: '0.625rem', color: '#FF8080', fontFamily: "'Inter', sans-serif" }}>
+              {errorMsg}
+            </p>
+          )}
+        </div>
+
+        <div style={{
+          fontFamily: "'Inter', sans-serif", fontSize: '0.625rem',
+          color: 'rgba(255,255,255,0.2)', lineHeight: 1.5, textAlign: 'center',
+        }}>
+          Or press{' '}
+          <kbd style={{ fontFamily: "'JetBrains Mono', monospace", padding: '1px 4px', background: 'rgba(255,255,255,0.08)', borderRadius: 3 }}>A</kbd>
+          {' '}and click the canvas to place a screen manually
+        </div>
+      </div>
     </div>
   );
 }

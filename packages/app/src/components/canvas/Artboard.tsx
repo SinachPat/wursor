@@ -68,17 +68,24 @@ export function Artboard({ id, label, x, y, width, height, renderUrl, route, onR
       setComponentStyles(null);
       return;
     }
-    if (!localFiberRoot) return;
+    // If the fiber tree hasn't arrived yet, still commit the selection so
+    // REQUEST_ELEMENT_STYLES fires — just pass null for the fiber data.
+    if (!localFiberRoot) {
+      selectComponent(nodeId, null);
+      return;
+    }
     const node = findFiberNode(localFiberRoot, nodeId);
     selectComponent(nodeId, node ?? null);
   }, [localFiberRoot, selectComponent, setComponentStyles]);
 
-  const handleComponentStylesUpdate = useCallback((_nodeId: string, styles: Record<string, string>) => {
-    // Only update styles if this artboard is the one currently selected
-    if (selectedArtboardId === id) {
+  const handleComponentStylesUpdate = useCallback((nodeId: string, styles: Record<string, string>) => {
+    // Guard against stale responses arriving after the user has already clicked
+    // a different component — only apply if artboard and node both still match.
+    const { selectedComponentId: currentId, selectedArtboardId: currentArtboard } = useCanvas.getState();
+    if (currentArtboard === id && currentId === nodeId) {
       setComponentStyles(styles);
     }
-  }, [id, selectedArtboardId, setComponentStyles]);
+  }, [id, setComponentStyles]);
 
   // ── Drag to reposition ─────────────────────────────────────────────────────
   const isDragging    = useRef(false);
@@ -359,6 +366,7 @@ export function Artboard({ id, label, x, y, width, height, renderUrl, route, onR
               width={width}
               height={height}
               onSelectionChange={(sel) => {
+                if (sel) selectArtboard(id);
                 handleComponentSelected(sel?.nodeId ?? '');
               }}
             />

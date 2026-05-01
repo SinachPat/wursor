@@ -53,12 +53,17 @@ export function LiveArtboard({
   const iframeRef  = useRef<HTMLIFrameElement>(null);
   // Track whether the iframe has sent READY so we don't send messages too early.
   const isReadyRef = useRef(false);
+  // After READY fires the nodeMap inside the iframe is still empty — we can't
+  // request styles until after the first FIBER_TREE_UPDATE (which populates it).
+  // This ref holds the nodeId to re-request styles for after that first commit.
+  const pendingStylesFetchRef = useRef<string | null>(null);
 
   // Reset ready state whenever src changes.  Without this, isReadyRef stays
   // true from the previous page, causing design-token / selection effects to
   // fire against a half-loaded iframe between navigation and the new READY.
   useEffect(() => {
     isReadyRef.current = false;
+    pendingStylesFetchRef.current = null;
   }, [src]);
 
   // ── Send a typed message to the iframe ───────────────────────────────────
@@ -87,19 +92,26 @@ export function LiveArtboard({
           isReadyRef.current = true;
           // Push current design tokens into the iframe immediately.
           if (designTokens) sendMessage('SET_DESIGN_TOKENS', { tokens: designTokens });
-          // Restore any active selection that existed before the iframe loaded.
+          // Restore the highlight ring for any active selection.
+          // We cannot send REQUEST_ELEMENT_STYLES here — nodeMap is empty until
+          // the first React commit fires FIBER_TREE_UPDATE. Defer it via ref.
           if (selectedComponentId) {
             sendMessage('SELECT_COMPONENT', { nodeId: selectedComponentId });
+            pendingStylesFetchRef.current = selectedComponentId;
           }
           onReady?.();
           break;
         case 'FIBER_TREE_UPDATE':
           onFiberTreeUpdate?.(msg.root);
+          // If READY deferred a style fetch (nodeMap was empty at that point),
+          // the first commit has now populated nodeMap — request styles now.
+          if (pendingStylesFetchRef.current) {
+            sendMessage('REQUEST_ELEMENT_STYLES', { nodeId: pendingStylesFetchRef.current });
+            pendingStylesFetchRef.current = null;
+          }
           break;
         case 'COMPONENT_SELECTED':
           onComponentSelected?.(msg.nodeId);
-          // Request computed styles so the Design tab can populate immediately.
-          sendMessage('REQUEST_ELEMENT_STYLES', { nodeId: msg.nodeId });
           break;
         case 'COMPONENT_DESELECTED':
           // Renderer clicked empty space — clear the host-side selection.
@@ -124,24 +136,23 @@ export function LiveArtboard({
     sendMessage('SET_DESIGN_TOKENS', { tokens: designTokens });
   }, [designTokens, sendMessage]);
 
-  // ── Style edit mailbox ─────────────────────────────────────────────────────
-  // Watches the Zustand mailbox for PATCH_ELEMENT_STYLE events addressed to
-  // this artboard and forwards them to the iframe immediately.
-  const styleEditEvent = useCanvas((s) => s.styleEditEvent);
-  const clearStyleEdit = useCanvas((s) => s.clearStyleEdit);
+  // ── Style edit queue ───────────────────────────────────────────────────────
+  // Drains all PATCH_ELEMENT_STYLE events addressed to this artboard and
+  // forwards them to the iframe. Uses a queue (not a single slot) so that
+  // simultaneous width + height patches from resize are both delivered.
+  const styleEditQueue = useCanvas((s) => s.styleEditQueue);
+  const clearStyleEdits = useCanvas((s) => s.clearStyleEdits);
   const removeElementEvent = useCanvas((s) => s.removeElementEvent);
   const clearRemoveElement = useCanvas((s) => s.clearRemoveElement);
 
   useEffect(() => {
-    if (styleEditEvent?.artboardId === id && isReadyRef.current) {
-      sendMessage('PATCH_ELEMENT_STYLE', {
-        nodeId: styleEditEvent.nodeId,
-        property: styleEditEvent.property,
-        value: styleEditEvent.value,
-      });
-      clearStyleEdit();
+    const mine = styleEditQueue.filter((e) => e.artboardId === id);
+    if (mine.length === 0 || !isReadyRef.current) return;
+    for (const e of mine) {
+      sendMessage('PATCH_ELEMENT_STYLE', { nodeId: e.nodeId, property: e.property, value: e.value });
     }
-  }, [id, styleEditEvent, sendMessage, clearStyleEdit]);
+    clearStyleEdits(id);
+  }, [id, styleEditQueue, sendMessage, clearStyleEdits]);
 
   useEffect(() => {
     if (removeElementEvent?.artboardId === id && isReadyRef.current) {
