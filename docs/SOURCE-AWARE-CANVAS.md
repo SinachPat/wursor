@@ -192,7 +192,7 @@ Three entry points, all result in a `createArtboard()` dispatch:
 3. **Duplicate** — right-click any artboard → Duplicate. Creates a copy at a different device size (opens device preset picker).
 
 **Auto-arrange (default layout):**
-New artboards snap to a horizontal row with `gap: 200px`. When a row exceeds 3 artboards or total width > 6000px, a new row begins below. The vertical gap between rows is 240px. The Y position of a new row is `maxHeightInPreviousRow + 240px` (using the tallest artboard in the completed row as the row height). The layout algorithm runs on `createArtboard()` only — it computes a suggested `(x, y)` position and assigns it. The user can drag the artboard away from that position at any time; subsequent auto-arrange calls do not move manually-positioned artboards (a `manuallyPositioned: boolean` flag on each artboard record prevents re-calculation). The flag is set to `true` on `pointerup` at the end of a successful artboard drag (when the user has moved the artboard at least 4px from its pre-drag position). It is never set by the auto-arrange algorithm's own writes to `canvas_x`/`canvas_y`.
+New artboards snap to a horizontal row with `gap: 200px`. When a row exceeds 3 artboards or total width > 6000px, a new row begins below. The vertical gap between rows is 240px. The Y position of a new row is `previousRowStartY + maxHeightInPreviousRow + 240px` (using the tallest artboard in the completed row as the row height — accumulated across all previous rows, not just the last one). The layout algorithm runs on `createArtboard()` only — it computes a suggested `(x, y)` position and assigns it. The user can drag the artboard away from that position at any time; subsequent auto-arrange calls do not move manually-positioned artboards (a `manuallyPositioned: boolean` flag on each artboard record prevents re-calculation). The flag is set to `true` on `pointerup` at the end of a successful artboard drag (when the user has moved the artboard at least **10 world-space pixels** from its pre-drag position — convert screen delta to world delta by dividing by `canvasTransform.scale` before comparing). It is never set by the auto-arrange algorithm's own writes to `canvas_x`/`canvas_y`.
 
 **"Re-arrange all"** button in the Artboard Navigator context menu resets all positions to the auto-grid (after a confirmation prompt, since it discards freeform layout).
 
@@ -304,14 +304,15 @@ The viewport cull is triggered by pan and zoom events and runs on a 100ms deboun
 1. When an artboard transitions from **Active** → **Near/Far**, the canvas sends `{ type: 'CAPTURE_THUMBNAIL' }` to that artboard's iframe
 2. The fiber hook / DOM inspector inside the iframe receives this message, runs `html2canvas(document.body)` (the `html2canvas` library is injected by the CLI proxy alongside the fiber hook), and posts the result back:
    `post({ type: 'THUMBNAIL_READY', dataUrl: canvas.toDataURL('image/jpeg', 0.6) })`
-3. The canvas receives `THUMBNAIL_READY`, stores the data URL in `artboardFrames[id].thumbnailDataUrl` in Zustand, and uses it to display the placeholder
-4. `thumbnail_url` in Supabase stores this data URL (or a Supabase Storage URL if the image is uploaded — see §3.8)
+3. The canvas receives `THUMBNAIL_READY`, stores the data URL in `artboardFrames[id].thumbnailDataUrl` in Zustand for immediate display as a placeholder
+4. The canvas uploads the data URL as a JPEG to Supabase Storage (`artboard-thumbnails/{workspaceId}/{artboardId}.jpg`) and stores the resulting public Storage URL in `thumbnail_url`. **Data URIs are never written to the database** — only the Supabase Storage URL is persisted (see §3.8). If the upload fails, `thumbnail_url` remains null and the Zustand in-memory data URL continues to serve as the placeholder for the current session.
 
 **Required additions:**
 - `CAPTURE_THUMBNAIL` added as a valid host message type in `protocol.ts`
 - `THUMBNAIL_READY` added as a valid renderer message type in `protocol.ts`
 - `html2canvas` is bundled inside the CLI package and injected as an inline script (not a CDN URL — CDN dependency would break offline use and introduce a supply-chain risk). The CLI bundles `html2canvas` during its own build step. If `html2canvas` fails (returns a blank canvas, throws, or times out after 3s), the iframe sends `{ type: 'THUMBNAIL_READY', dataUrl: null }` and the canvas displays a "thumbnail unavailable" placeholder with the artboard label instead. Performance note: html2canvas adds ~250KB to the injected script per artboard tab — it is only injected once per page load and only when the CLI is running in dev mode.
 - Handler added to `dom-inspector.ts` for `CAPTURE_THUMBNAIL`
+- **html2canvas injection note:** The script is injected once per page load by the CLI proxy (alongside the fiber hook) — not repeatedly per artboard. Since each artboard is a separate iframe/page load, each page gets one injection. The ~250KB cost is per page load, not per artboard-on-screen. The CLI proxy injects `html2canvas` as a separate `<script>` tag (not inlined into the fiber hook bundle) so it can be served with a cache-control header and reused by the browser's disk cache across artboard navigations.
 
 ### 3.7 Artboard Navigator Panel (Left Sidebar)
 
@@ -360,7 +361,7 @@ Canvas transform (pan/zoom) is **session-only** — stored in Zustand + localSto
 | `packages/app/src/lib/artboard-iframe-map.ts` | NEW — module-level `Map<string, HTMLIFrameElement>` singleton; imported by `ArtboardFrame` and canvas dispatch logic |
 | `packages/app/src/components/canvas/CanvasViewport.tsx` | NEW — pan/zoom world container, wheel+drag handlers, viewport culling |
 | `packages/app/src/components/canvas/ArtboardFrame.tsx` | NEW — single artboard wrapper: label, handles, device outline, iframe |
-| `packages/app/src/components/canvas/IsolationFrame.tsx` | NEW — isolation artboard type; props override panel integration |
+| `packages/app/src/components/canvas/IsolationFrame.tsx` | NEW (stub in Phase 0) — renders a placeholder frame with label "Isolation artboard — requires CLI indexer (Phase 3)". Becomes functional in Phase 3 when the CLI serves `/__om_isolation__` pages and the indexer is running. The `ArtboardFrame` renders `<IsolationFrame>` only when `artboard.type === 'isolation'`; the creation UI for isolation artboards is disabled in the Artboard Navigator until `indexerStatus === 'ready'`. |
 | `packages/app/src/components/canvas/Canvas.tsx` | Replace single-iframe layout with `<CanvasViewport>` containing `<ArtboardFrame>` list |
 | `packages/app/src/components/navigator/ArtboardNavigator.tsx` | Add "Routes" tab, thumbnails, create-from-route action |
 | `packages/app/src/components/chrome/AppChrome.tsx` | Add device preset picker to top toolbar for selected artboard |
@@ -443,8 +444,8 @@ The panel is driven by `selectedComponentStyles` (computed CSS) and `selectedCom
 
 | Input | CSS property | Notes |
 |---|---|---|
-| X | `left` (absolute) or layout offset | Read-only display value when `position: static` — computed as `offsetLeft` / `offsetTop` relative to the nearest positioned ancestor (the artboard root). Does not shift on scroll. Shows a tooltip: "Set position: absolute to edit." Editable when `position: absolute` or `fixed`, writing to the `left` / `top` CSS property. |
-| Y | `top` (absolute) or layout offset | Read-only display value when `position: static` — computed as `offsetLeft` / `offsetTop` relative to the nearest positioned ancestor (the artboard root). Does not shift on scroll. Shows a tooltip: "Set position: absolute to edit." Editable when `position: absolute` or `fixed`, writing to the `left` / `top` CSS property. |
+| X | `left` (absolute) or layout offset | Read-only display value when `position: static` — computed by calling `el.getBoundingClientRect()` and subtracting the artboard iframe's root element `getBoundingClientRect()` (this gives a stable position relative to the artboard frame, not affected by scroll). Note: do NOT use `offsetLeft`/`offsetTop` — these are relative to `offsetParent` which may skip positioned ancestors and does not account for CSS transforms. Shows a tooltip: "Set position: absolute to edit." Editable when `position: absolute` or `fixed`, writing to the `left` / `top` CSS property. |
+| Y | `top` (absolute) or layout offset | Read-only display value when `position: static` — same `getBoundingClientRect()` approach as X above. Shows a tooltip: "Set position: absolute to edit." Editable when `position: absolute` or `fixed`, writing to the `left` / `top` CSS property. |
 | W | `width` | Accepts px, %, rem |
 | H | `height` | Accepts px, %, rem |
 | Lock aspect ratio | — | Derived: W/H ratio locked on resize |
@@ -655,6 +656,8 @@ interface ComponentEntry {
   isDefaultExport: boolean;
   props: PropEntry[];
   tokensUsed: string[];         // CSS custom properties found in file: ["--color-primary"]
+  cssImports: string[];         // relative paths of CSS/SCSS/module files imported by this component (e.g. ["./Card.module.css"])
+                                // Required by §6.4: when a CSS file changes, the indexer re-scans any component whose cssImports includes it
   lastIndexed: number;          // Date.now()
 }
 
@@ -662,7 +665,7 @@ interface PropEntry {
   name: string;
   type: string;                 // "string | undefined"
   optional: boolean;
-  // Note: default values out of scope for Phase 3 — Phase 5+
+  // Note: default prop values require expression evaluation — out of scope for Phase 3. Deferred to post-Phase 7.
 }
 ```
 
@@ -671,7 +674,7 @@ interface PropEntry {
 Use TypeScript's compiler API (`ts.createSourceFile()`) — parse only, no type-checking.
 
 **What to extract per file:**
-1. All named and default exported functions/arrow functions starting with a capital letter. Note: functions exported with capital letters that are not React components (e.g., `GetUserById`, `FormatCurrency`) will appear in the index. The indexer uses a secondary heuristic to filter them: a function is treated as a component only if its return type or return statement contains JSX (detected by scanning the function body for `<` followed by a capital letter or known HTML tag). Functions with no JSX in the body are excluded from the component index.
+1. All named and default exported functions/arrow functions starting with a capital letter. Note: functions exported with capital letters that are not React components (e.g., `GetUserById`, `FormatCurrency`) will appear in the index. The indexer uses the TypeScript AST to filter them: walk the function body using `ts.forEachChild` and check for `ts.SyntaxKind.JsxElement`, `ts.SyntaxKind.JsxSelfClosingElement`, or `ts.SyntaxKind.JsxFragment` nodes. A function is treated as a component only if its body contains at least one JSX node. Do NOT use raw string scanning (e.g., looking for `<` followed by a capital letter) — this produces false positives in JSDoc comments, string literals, and generics like `Array<Card>`.
 2. Their first parameter's type annotation (the `Props` type)
 3. All string literals matching `/var\(--[-\w]+\)/g` in JSX attributes and template literals. The character class `[-\w]` covers lowercase, uppercase, digits, underscores, and hyphens — the full valid set for CSS custom property names after `--`.
 
@@ -681,7 +684,7 @@ Use TypeScript's compiler API (`ts.createSourceFile()`) — parse only, no type-
 - `node_modules` (skip entirely)
 - Files > 500KB (skip with a warning log)
 
-**Parse-only limitation for imported types:** `ts.createSourceFile()` parses the AST but does not resolve type aliases or imports. A component typed as `(props: CardProps) => ...` where `CardProps` is imported will yield a single `PropEntry { name: "props", type: "CardProps", optional: false }` rather than expanded individual prop names. The Props tab shows this as an opaque type badge with a note: "Type `CardProps` — expand by running the indexer with `--full-types` (Phase 5+)." Full type expansion via TypeScript's program API is deferred to Phase 5.
+**Parse-only limitation for imported types:** `ts.createSourceFile()` parses the AST but does not resolve type aliases or imports. A component typed as `(props: CardProps) => ...` where `CardProps` is imported will yield a single `PropEntry { name: "props", type: "CardProps", optional: false }` rather than expanded individual prop names. The Props tab shows this as an opaque type badge with a note: "Type `CardProps` — full type expansion available post-Phase 7." Full type expansion via TypeScript's program API is deferred to post-Phase 7 (requires a full `ts.createProgram()` with type checker — significantly more expensive than parse-only).
 
 ### 6.3 Local HTTP API
 
@@ -692,9 +695,27 @@ GET  /components               → ComponentEntry[]    all indexed components
 GET  /components?name=Card     → ComponentEntry[]    fuzzy-matched by name
 GET  /components?file=src/…    → ComponentEntry[]    all exports from a file
 GET  /file?path=src/…          → { content: string, lines: number }   ← NEW
-GET  /health                   → { status, indexed, lastScan, projectRoot }
+GET  /health                   → { status, indexed, lastScan, projectRoot, projectMeta }
 POST /reindex                  → triggers full rescan
 ```
+
+**`GET /health` response shape:**
+```ts
+{
+  status: 'ready' | 'indexing' | 'error';
+  indexed: number;           // number of components in the index
+  lastScan: number;          // Date.now() of last full scan
+  projectRoot: string;       // absolute path
+  projectMeta: {             // detected at startup — used by client-side diff generator
+    framework: 'next' | 'vite' | 'remix' | 'generic';
+    tailwind: boolean;       // true if tailwind.config.* exists in projectRoot
+    cssModules: boolean;     // true if any *.module.css found in project
+    styledComponents: boolean; // true if 'styled-components' or '@emotion' in package.json
+  };
+}
+```
+
+**Why `projectMeta` matters:** The diff generator (`packages/app/src/lib/diff-generator.ts`) runs entirely in the browser and has no direct filesystem access. It must know the project's CSS strategy to choose the right search strategy — especially for Tailwind (where a CSS change means a class swap, not a property edit). The canvas fetches `GET /health` once per CLI session and stores `projectMeta` in Zustand (`canvasStore.projectMeta`). The diff generator reads it from there. The `tailwind` flag triggers the "Tailwind detected — diff is approximate" annotation (§7.3) without the diff generator needing any filesystem access.
 
 **Security on `GET /file`:**
 - Validate the `path` parameter is within the project root: resolve to absolute path first using `path.resolve(projectRoot, requestedPath)`, then verify `absolute === projectRoot || absolute.startsWith(projectRoot + path.sep)`. The `+ path.sep` suffix prevents path prefix confusion (e.g., `/home/user/app-secrets` starting with `/home/user/app`).
@@ -734,7 +755,7 @@ originmain dev --target http://localhost:3000 [--port 4170] [--index-port 4171] 
 | File | Change |
 |---|---|
 | `packages/cli/src/indexer.ts` | NEW — AST walker, component map, file watcher |
-| `packages/cli/src/index-server.ts` | NEW — HTTP API on port 4171, `GET /file` endpoint |
+| `packages/cli/src/index-server.ts` | NEW — HTTP API on port 4171, `GET /file` endpoint, `GET /health` with `projectMeta` (Tailwind, cssModules, styledComponents detection — run once at startup in `detect-framework.ts`) |
 | `packages/cli/src/isolation-server.ts` | NEW — serves `/__om_isolation__` wrapper pages (Vite: inline HTML; Next.js: writes temporary `src/app/__om_isolation__/page.tsx` to the user's project) |
 | `packages/cli/src/detect-framework.ts` | NEW — canonical framework detection logic; imported by all CLI modules |
 | `packages/cli/src/cli.ts` | Add `--index-port` / `--no-index` / isolation handler |
@@ -832,20 +853,26 @@ interface IntentChange {
 }
 
 interface DiffHunk {
-  startLine: number;
+  startLine: number;         // 1-indexed "before" pane start line
+  afterLine: number;         // 1-indexed "after" pane start line (renamed from afterStartLine for consistency with annotations usage below)
   lines: DiffLine[];
+  confidence: 'exact' | 'approximate';  // copied from the matching IntentChange
+  tokenKey?: string;         // copied from the matching IntentChange (Phase 6)
 }
 
 interface DiffLine {
   type: 'context' | 'added' | 'removed';
   content: string;
   lineNumber: number;
-  // Character/word-level inline change ranges — passed to FileDiff options.inlineChanges: 'character'
+  // Character/word-level inline change ranges — used internally by diff-generator.ts for building
+  // the patchedContent string; NOT passed to @pierre/diffs (which computes its own char diffs via lineDiffType: 'char')
   inlineChanges?: Array<{ start: number; end: number; type: 'added' | 'removed' }>;
 }
 ```
 
-**Line number convention:** `DiffHunk.startLine` and `DiffLine.lineNumber` are **1-indexed** (line 1 is the first line of the file), matching standard editor conventions and the `DiffLineAnnotation.line` field accepted by `@pierre/diffs`.
+**Line number convention:** `DiffHunk.startLine`, `DiffHunk.afterLine`, and `DiffLine.lineNumber` are **1-indexed** (line 1 is the first line of the file), matching standard editor conventions and the `DiffLineAnnotation.line` field accepted by `@pierre/diffs`.
+
+> **✓ Package verified:** `@pierre/diffs@1.1.20` confirmed on npm. All APIs in §7.4 verified against the distributed TypeScript types. Note: several prop names in the document's initial draft were wrong (`diff`→`fileDiff`, `layout`→`diffStyle`, `inlineChanges`→`lineDiffType`, `'background'`→`'bars'`, `'stacked'`→`'unified'`, `TokenPayload`→`DiffTokenEventBaseProps`, `annotations` inside options→`lineAnnotations` top-level prop, `side: 'before'/'after'`→`'deletions'/'additions'`) — all corrected in §7.4. The revised code in §7.4 is accurate against the package.
 
 ### 7.3 Client-side Diff Generation
 
@@ -891,30 +918,50 @@ Peer dependencies: React ≥ 18.3.1 or 19.x, `shiki ^3.0.0`.
 **Imports:**
 
 ```ts
-// React components
+// React components (verified against @pierre/diffs@1.1.20 dist/react/index.d.ts)
 import { FileDiff, MultiFileDiff, Virtualizer } from '@pierre/diffs/react';
+import type { DiffLineAnnotation, DiffTokenEventBaseProps, FileDiffMetadata } from '@pierre/diffs/react';
 
-// Core utilities (accept/reject API, theming)
+// Core utilities — all verified to exist in the package
 import {
-  diffAcceptRejectHunk,
+  diffAcceptRejectHunk,    // (diff: FileDiffMetadata, hunkIndex: number, options: 'accept' | 'reject' | 'both') => FileDiffMetadata
   resolveTheme,
   registerCustomCSSVariableTheme,
+  processFile,             // (unifiedDiffString: string) => FileDiffMetadata | undefined
 } from '@pierre/diffs';
 ```
 
 `@pierre/diffs` manages a Shadow DOM internally for CSS isolation — this is completely transparent to React consumers. `FileDiff` is a standard React component with no extra setup.
 
+**Building a `FileDiffMetadata` from content strings:**
+The `CodeTab` does not directly pass `originalContent`/`patchedContent` to `<FileDiff>`. Instead, `diff-generator.ts` generates a standard unified diff string (using the `diff` npm package's `createTwoFilesPatch(filename, filename, original, patched)`) and calls `processFile(unifiedDiffString)` to produce a `FileDiffMetadata` object. That object is then passed to `<FileDiff fileDiff={...}>`. This is the correct data flow:
+
+```ts
+// In diff-generator.ts
+import { createTwoFilesPatch } from 'diff';
+import { processFile } from '@pierre/diffs';
+
+export function buildFileDiffMetadata(
+  filename: string,
+  original: string,
+  patched: string
+): FileDiffMetadata | undefined {
+  const unifiedDiff = createTwoFilesPatch(filename, filename, original, patched, '', '');
+  return processFile(unifiedDiff);
+}
+```
+
 #### Layout
 
 The Code tab renders a **split view** (side-by-side) by default — left pane shows the original, right pane shows the patched version. A toggle in the tab header switches to **stacked (unified) view** for narrower panels. The choice is persisted to localStorage per-user.
 
-The `layout` prop on `FileDiff` controls this directly:
+The `diffStyle` option on `FileDiff` controls this (verified option name and values):
 
 ```tsx
 <FileDiff
-  diff={diff}
+  fileDiff={fileDiff}
   options={{
-    layout: splitMode ? 'split' : 'stacked',  // 'split' | 'stacked'
+    diffStyle: splitMode ? 'split' : 'unified',  // 'split' | 'unified' (NOT 'stacked')
   }}
 />
 ```
@@ -938,18 +985,18 @@ The `layout` prop on `FileDiff` controls this directly:
 
 #### Character/word-level highlighting
 
-`@pierre/diffs` renders inline change ranges within each modified line via `options.inlineChanges`. Set this to `'character'` for the finest granularity — for a change from `'8px'` to `'12px'`, only those characters are highlighted rather than the whole line. This is the most important improvement over a naive line-diff: users instantly see exactly what value changed without scanning an entire line.
+`@pierre/diffs` renders inline change ranges via `options.lineDiffType` (verified option name and values). Set to `'char'` for character-level granularity — for a change from `'8px'` to `'12px'`, only those characters are highlighted rather than the whole line.
 
 ```tsx
 <FileDiff
-  diff={diff}
+  fileDiff={fileDiff}
   options={{
-    inlineChanges: 'character',  // 'character' | 'word' | 'disabled'
+    lineDiffType: 'char',  // 'char' | 'word' | 'word-alt' | 'none'  ← verified from LineDiffTypes
   }}
 />
 ```
 
-The `inlineChanges` field on each `DiffLine` (see §7.2) carries the pre-computed character ranges passed through to `FileDiff`. The library uses these to render sub-line highlights in its Shadow DOM.
+The library computes inline char/word diffs internally — you do not pre-compute character ranges. The `inlineChanges` field in `DiffLine` (§7.2) is an internal tracking field for the `DiffHunk`/`DiffLine` types used in `IntentMessage`; it is NOT passed to `@pierre/diffs`. The library handles sub-line highlighting itself when `lineDiffType: 'char'` is set.
 
 #### Per-change Accept / Reject
 
@@ -957,24 +1004,34 @@ The `inlineChanges` field on each `DiffLine` (see §7.2) carries the pre-compute
 
 ```ts
 import { diffAcceptRejectHunk } from '@pierre/diffs';
+import type { FileDiffMetadata } from '@pierre/diffs';
 
 // In CodeTab.tsx state:
-const [diff, setDiff] = useState<Diff>(initialDiff);
+const [fileDiff, setFileDiff] = useState<FileDiffMetadata>(initialFileDiff);
+// Track rejected hunk indices separately (HunkData has no .rejected property)
+const [rejectedHunks, setRejectedHunks] = useState<Set<number>>(new Set());
 
-// Accept hunk at index i:
-setDiff(prev => diffAcceptRejectHunk(prev, i, 'accept'));
+// Accept hunk at index i (updates the rendered diff):
+setFileDiff(prev => diffAcceptRejectHunk(prev, i, 'accept'));
+setRejectedHunks(prev => { const next = new Set(prev); next.delete(i); return next; });
 
 // Reject hunk at index i:
-setDiff(prev => diffAcceptRejectHunk(prev, i, 'reject'));
+setFileDiff(prev => diffAcceptRejectHunk(prev, i, 'reject'));
+setRejectedHunks(prev => new Set([...prev, i]));
 ```
 
-**Signatures:**
+**Verified signature:**
 ```ts
 function diffAcceptRejectHunk(
-  diff: Diff,
+  diff: FileDiffMetadata,
   hunkIndex: number,
-  action: 'accept' | 'reject'
-): Diff;
+  options: 'accept' | 'reject' | 'both'  // 'both' accepts both sides of a merge conflict
+): FileDiffMetadata;
+```
+
+**`allRejected` check:** Since `HunkData` has no `.rejected` property, track rejected indices in a separate `Set<number>`:
+```ts
+const allRejected = fileDiff.hunks.length > 0 && rejectedHunks.size === fileDiff.hunks.length;
 ```
 
 Semantic behaviour wired in `CodeTab.tsx`:
@@ -985,41 +1042,64 @@ Semantic behaviour wired in `CodeTab.tsx`:
 
 #### Inline annotations
 
-`@pierre/diffs` injects annotations adjacent to diff lines via `options.annotations`. Each annotation is a `DiffLineAnnotation` object:
+`@pierre/diffs` injects annotations via the **`lineAnnotations` prop** (top-level on `<FileDiff>`, not inside `options`). The type is generic — you define your own metadata type and provide a `renderAnnotation` callback to render it.
 
+**Verified `DiffLineAnnotation` type:**
 ```ts
-interface DiffLineAnnotation {
-  line: number;            // 1-based line number
-  side: 'before' | 'after'; // which pane the annotation appears in
-  message: string;         // text to display
-  type?: 'info' | 'warning' | 'error';
+// From @pierre/diffs types.d.ts — the type is generic
+type DiffLineAnnotation<T = undefined> = {
+  side: 'deletions' | 'additions';  // NOT 'before'/'after' — these are the real values
+  lineNumber: number;               // 1-based
+} & (T extends undefined ? { metadata?: undefined } : { metadata: T });
+```
+
+**Define your annotation metadata shape:**
+```ts
+// In CodeTab.tsx — your own metadata type passed as the generic
+interface HunkAnnotation {
+  message: string;
+  kind: 'warning' | 'info';
 }
 ```
 
-**Usage in `CodeTab.tsx`:**
+**Build and render annotations:**
 ```tsx
-const annotations: DiffLineAnnotation[] = codeDiff.hunks.flatMap(hunk => {
-  const results: DiffLineAnnotation[] = [];
+const annotations: DiffLineAnnotation<HunkAnnotation>[] = codeDiff.hunks.flatMap(hunk => {
+  const results: DiffLineAnnotation<HunkAnnotation>[] = [];
   if (hunk.confidence === 'approximate') {
     results.push({
-      line: hunk.afterLine,
-      side: 'after',
-      message: '⚠ Approximate — agent will verify this location before applying',
-      type: 'warning',
+      lineNumber: hunk.afterLine,
+      side: 'additions',               // ← 'additions', not 'after'
+      metadata: {
+        message: '⚠ Approximate — agent will verify this location before applying',
+        kind: 'warning',
+      },
     });
   }
   if (hunk.tokenKey) {
     results.push({
-      line: hunk.afterLine,
-      side: 'after',
-      message: `✦ Token: ${hunk.tokenKey} — exact match from design language`,
-      type: 'info',
+      lineNumber: hunk.afterLine,
+      side: 'additions',
+      metadata: {
+        message: `✦ Token: ${hunk.tokenKey} — exact match from design language`,
+        kind: 'info',
+      },
     });
   }
   return results;
 });
 
-<FileDiff diff={diff} options={{ annotations }} />
+// lineAnnotations is a top-level prop, NOT inside options:
+<FileDiff
+  fileDiff={fileDiff}
+  lineAnnotations={annotations}
+  renderAnnotation={(annotation) => (
+    <div className={`hunk-annotation hunk-annotation--${annotation.metadata.kind}`}>
+      {annotation.metadata.message}
+    </div>
+  )}
+  options={{ diffStyle: layout, lineDiffType: 'char' }}
+/>
 ```
 
 Rendered output for an approximate hunk:
@@ -1038,34 +1118,49 @@ For a token-mapped hunk (Phase 6):
 
 #### Token hover callbacks
 
-`@pierre/diffs` fires `onTokenEnter`, `onTokenLeave`, and `onTokenClick` on *syntax* tokens as identified by the Shiki highlighter (keywords, string literals, numbers, etc.). Each callback receives a `TokenPayload`:
+`@pierre/diffs` fires `onTokenEnter`, `onTokenLeave`, and `onTokenClick` on *syntax* tokens as identified by the Shiki highlighter. These are options (in `FileDiffOptions` via `InteractionManagerBaseOptions`) — they go inside the `options` prop. Each callback receives the token props PLUS the DOM event as a second argument.
 
+**Verified `DiffTokenEventBaseProps` type** (from `@pierre/diffs` types — used for diff mode):
 ```ts
-interface TokenPayload {
-  text: string;           // the raw token text
-  line: number;           // 1-based line number
-  column: number;         // 0-based character offset
-  side: 'before' | 'after';
-  element: Element;       // the DOM element inside the Shadow DOM (for positioning)
+// From types.d.ts
+interface TokenEventBase {
+  type: 'token';
+  lineNumber: number;       // 1-based
+  lineCharStart: number;    // 0-based char start offset (NOT 'column')
+  lineCharEnd: number;      // 0-based char end offset
+  tokenText: string;        // the raw token text (NOT 'text')
+  tokenElement: HTMLElement;// the DOM element for positioning (NOT 'element')
+}
+interface DiffTokenEventBaseProps extends TokenEventBase {
+  side: 'deletions' | 'additions';  // NOT 'before'/'after'
 }
 ```
 
 ```tsx
 <FileDiff
-  diff={diff}
+  fileDiff={fileDiff}
   options={{
-    onTokenEnter: (payload) => showTokenPopover(payload),
-    onTokenLeave: () => hideTokenPopover(),
-    onTokenClick: (payload) => pinTokenPopover(payload),
+    onTokenEnter: (props: DiffTokenEventBaseProps, event: PointerEvent) => showTokenPopover(props),
+    onTokenLeave: (props: DiffTokenEventBaseProps, event: PointerEvent) => hideTokenPopover(),
+    onTokenClick: (props: DiffTokenEventBaseProps, event: MouseEvent) => pinTokenPopover(props),
   }}
 />
 ```
 
+**Field name mapping** (document → real API):
+| Document used | Actual field | Note |
+|---|---|---|
+| `payload.text` | `props.tokenText` | renamed |
+| `payload.column` | `props.lineCharStart` / `props.lineCharEnd` | two fields |
+| `payload.element` | `props.tokenElement` | renamed |
+| `payload.side === 'before'` | `props.side === 'deletions'` | renamed |
+| `payload.side === 'after'` | `props.side === 'additions'` | renamed |
+
 **Custom range detection required for CSS value semantics:** `onTokenEnter` fires on every Shiki syntax token, not specifically CSS property values. To attach design token metadata, `CodeTab.tsx` must intercept `onTokenEnter` and apply additional logic:
 
-1. Run a regex over the `payload.text` to detect CSS value patterns: color functions (`rgb(…)`, `hsl(…)`, hex), pixel/rem values, `var(--token-name)` references.
-2. Call `resolveValueToToken(payload.text, designLanguage)` (from `@originmain/design-language`) to check for matches.
-3. If a match is found, show a popover positioned relative to `payload.element` (use `getBoundingClientRect()` on it — it is a real DOM node).
+1. Run a regex over the `props.tokenText` to detect CSS value patterns: color functions (`rgb(…)`, `hsl(…)`, hex), pixel/rem values, `var(--token-name)` references.
+2. Call `resolveValueToToken(props.tokenText, undefined, designLanguage)` (from `@originmain/design-language`) to check for matches.
+3. If a match is found, show a popover positioned relative to `props.tokenElement` (use `getBoundingClientRect()` on it — it is a real DOM node inside the Shadow DOM, but `getBoundingClientRect()` works cross-boundary).
 4. Popover content when `designLanguage` is loaded (Phase 6):
    - Token match → token name, group, raw value, color swatch for color tokens
    - Near-miss → "Not in design language. Nearest: `--radius-md` (8px)"
@@ -1075,13 +1170,13 @@ This is additional logic in `CodeTab.tsx` — `@pierre/diffs` fires the event, t
 
 #### Visual style options
 
-Use **full-width background colors** (not `+`/`–` symbols) via `options.diffIndicators: 'background'`. This fills the entire line with a red/green tint, giving a clean aesthetic consistent with the rest of the canvas UI and avoiding terminal-style gutter symbols:
+Use **bar-style indicators** (colored background bars, not `+`/`–` symbols) via `options.diffIndicators: 'bars'`. The real values are `'classic' | 'bars' | 'none'` (verified — `'background'` does not exist):
 
 ```tsx
 <FileDiff
-  diff={diff}
+  fileDiff={fileDiff}
   options={{
-    diffIndicators: 'background',  // 'background' | 'gutter' | 'both' | 'none'
+    diffIndicators: 'bars',  // 'classic' (shows +/- symbols) | 'bars' (background bars) | 'none'
   }}
 />
 ```
@@ -1109,7 +1204,7 @@ Then pass the theme name to `FileDiff`:
 
 ```tsx
 <FileDiff
-  diff={diff}
+  fileDiff={fileDiff}
   options={{
     theme: theme === 'dark' ? 'originmain-dark' : 'github-light',
   }}
@@ -1126,7 +1221,7 @@ For files exceeding ~500 lines, wrap `FileDiff` in `Virtualizer` to avoid render
 import { FileDiff, Virtualizer } from '@pierre/diffs/react';
 
 <Virtualizer>
-  <FileDiff diff={diff} options={options} />
+  <FileDiff fileDiff={fileDiff} options={options} />  {/* 'fileDiff' prop, not 'diff' */}
 </Virtualizer>
 ```
 
@@ -1134,47 +1229,61 @@ import { FileDiff, Virtualizer } from '@pierre/diffs/react';
 
 #### Full `CodeTab.tsx` component sketch
 
+All prop names and types below are verified against `@pierre/diffs@1.1.20`:
+
 ```tsx
 import { useState, useMemo } from 'react';
 import { FileDiff, Virtualizer } from '@pierre/diffs/react';
-import { diffAcceptRejectHunk } from '@pierre/diffs';
-import type { DiffLineAnnotation, TokenPayload } from '@pierre/diffs';
+import { diffAcceptRejectHunk, processFile } from '@pierre/diffs';
+import type { DiffLineAnnotation, DiffTokenEventBaseProps, FileDiffMetadata } from '@pierre/diffs';
 
-export function CodeTab({ codeDiff, artboardId }: CodeTabProps) {
-  const [diff, setDiff] = useState(codeDiff.fileDiff);
-  const [layout, setLayout] = useState<'split' | 'stacked'>(() =>
-    (localStorage.getItem('diffLayout') as 'split' | 'stacked') ?? 'split'
+// CodeTabProps receives the resolved codeDiff from IntentMessage.codeDiff,
+// plus a pre-built FileDiffMetadata built by diff-generator.ts via processFile().
+// IntentMessage.codeDiff does NOT have a `fileDiff` field — diff-generator.ts builds
+// the FileDiffMetadata separately from originalContent/patchedContent and
+// passes it into CodeTab alongside the raw codeDiff.
+interface HunkAnnotation { message: string; kind: 'warning' | 'info'; }
+
+export function CodeTab({ codeDiff, fileDiff: initialFileDiff, artboardId }: CodeTabProps) {
+  const [fileDiff, setFileDiff] = useState<FileDiffMetadata>(initialFileDiff);  // FileDiffMetadata, not 'Diff'
+  const [rejectedHunks, setRejectedHunks] = useState<Set<number>>(new Set());   // track rejections separately
+  const [layout, setLayout] = useState<'split' | 'unified'>(() =>              // 'unified' not 'stacked'
+    (localStorage.getItem('diffLayout') as 'split' | 'unified') ?? 'split'
   );
   const [popover, setPopover] = useState<TokenPopoverState | null>(null);
   const { designLanguage } = useCanvas();
 
-  const annotations = useMemo<DiffLineAnnotation[]>(() =>
-    codeDiff.hunks.flatMap(hunk => buildAnnotations(hunk)),
+  const annotations = useMemo<DiffLineAnnotation<HunkAnnotation>[]>(() =>
+    codeDiff.hunks.flatMap(hunk => buildAnnotations(hunk)),  // hunk has .confidence and .tokenKey
     [codeDiff.hunks]
   );
 
-  const allRejected = diff.hunks.every(h => h.rejected);
+  // HunkData has no .rejected property — use the separate rejectedHunks Set
+  const allRejected = fileDiff.hunks.length > 0 && rejectedHunks.size === fileDiff.hunks.length;
 
   function handleAccept(i: number) {
-    setDiff(prev => diffAcceptRejectHunk(prev, i, 'accept'));
+    setFileDiff(prev => diffAcceptRejectHunk(prev, i, 'accept'));
+    setRejectedHunks(prev => { const next = new Set(prev); next.delete(i); return next; });
   }
   function handleReject(i: number) {
-    setDiff(prev => diffAcceptRejectHunk(prev, i, 'reject'));
+    setFileDiff(prev => diffAcceptRejectHunk(prev, i, 'reject'));
+    setRejectedHunks(prev => new Set([...prev, i]));
   }
 
-  function handleTokenEnter(payload: TokenPayload) {
+  function handleTokenEnter(props: DiffTokenEventBaseProps) {
     if (!designLanguage) return;
-    const match = resolveValueToToken(payload.text, designLanguage);
-    if (match) setPopover({ payload, match });
+    // resolveValueToToken's `type` is optional — auto-detects from value when omitted
+    const match = resolveValueToToken(props.tokenText, undefined, designLanguage);  // .tokenText not .text
+    if (match) setPopover({ props, match });
   }
 
   return (
     <div className="code-tab">
       <CodeTabHeader
-        filePath={codeDiff.filePath}
+        filePath={codeDiff.file}
         layout={layout}
         onLayoutToggle={() => {
-          const next = layout === 'split' ? 'stacked' : 'split';
+          const next = layout === 'split' ? 'unified' : 'split';  // 'unified' not 'stacked'
           setLayout(next);
           localStorage.setItem('diffLayout', next);
         }}
@@ -1182,15 +1291,20 @@ export function CodeTab({ codeDiff, artboardId }: CodeTabProps) {
 
       <Virtualizer>
         <FileDiff
-          diff={diff}
+          fileDiff={fileDiff}                              {/* 'fileDiff' not 'diff' */}
+          lineAnnotations={annotations}                   {/* top-level prop, NOT inside options */}
+          renderAnnotation={(a) => (                      {/* custom renderer — library has no built-in message display */}
+            <div className={`hunk-anno hunk-anno--${a.metadata.kind}`}>{a.metadata.message}</div>
+          )}
           options={{
-            layout,
-            inlineChanges: 'character',
-            diffIndicators: 'background',
-            annotations,
-            onTokenEnter: handleTokenEnter,
+            diffStyle: layout,                            {/* 'diffStyle' not 'layout' */}
+            lineDiffType: 'char',                         {/* 'lineDiffType'+'char' not 'inlineChanges'+'character' */}
+            diffIndicators: 'bars',                       {/* 'bars' not 'background' */}
+            onTokenEnter: handleTokenEnter,               {/* inside options (InteractionManagerBaseOptions) */}
             onTokenLeave: () => setPopover(null),
-            onTokenClick: (p) => setPopover(prev => prev?.payload === p ? null : { payload: p, match: resolveValueToToken(p.text, designLanguage) }),
+            onTokenClick: (p: DiffTokenEventBaseProps) =>
+              setPopover(prev => prev?.props === p ? null
+                : { props: p, match: resolveValueToToken(p.tokenText, undefined, designLanguage) }),
           }}
         />
       </Virtualizer>
@@ -1198,7 +1312,7 @@ export function CodeTab({ codeDiff, artboardId }: CodeTabProps) {
       {/* Per-hunk accept/reject controls rendered outside FileDiff, positioned by line */}
       <HunkControls
         hunks={codeDiff.hunks}
-        diff={diff}
+        rejectedHunks={rejectedHunks}
         onAccept={handleAccept}
         onReject={handleReject}
       />
@@ -1207,8 +1321,8 @@ export function CodeTab({ codeDiff, artboardId }: CodeTabProps) {
 
       <CodeTabFooter
         allRejected={allRejected}
-        onSend={() => sendToAgent(diff, codeDiff, artboardId)}
-        onDiscardAll={() => setDiff(codeDiff.fileDiff)}
+        onSend={() => sendToAgent(fileDiff, codeDiff, rejectedHunks, artboardId)}
+        onDiscardAll={() => { setFileDiff(initialFileDiff); setRejectedHunks(new Set()); }}
       />
     </div>
   );
@@ -1230,15 +1344,43 @@ Builds the full `IntentMessage`:
 
 **Undo queue:** `styleEditQueue` in Zustand maintains a stack. `Cmd+Z` pops the last item, sends `PATCH_ELEMENT_STYLE` with the `from` value to restore the DOM preview, and clears the Code tab.
 
+**Intent status subscription:** After `push_intent` succeeds, the canvas must subscribe to real-time status updates for that intent so it can transition "Sent ✓ — waiting for agent" → "✓ Applied". The canvas opens a Supabase Realtime subscription scoped to the new `intentId`:
+
+```ts
+// Called in CodeTab.tsx after a successful POST to /api/intent
+function subscribeToIntentStatus(intentId: string, onUpdate: (status: string) => void) {
+  const channel = supabase
+    .channel(`intent_status_${intentId}`)
+    .on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'intent_diffs',
+      filter: `id=eq.${intentId}`,
+    }, (payload) => {
+      onUpdate(payload.new.status);  // 'IMPLEMENTED' | 'BLOCKED'
+    })
+    .subscribe();
+  return () => channel.unsubscribe();  // return cleanup fn
+}
+```
+
+The `CodeTabFooter` shows:
+- `status === 'EXPORTED'`: spinner + "Waiting for agent…"
+- `status === 'IMPLEMENTED'`: green "✓ Applied" badge
+- `status === 'BLOCKED'`: red "⚠ Agent could not apply" + reason from `payload.blocked_reason` (add `blocked_reason text` column to `intent_diffs` — the agent calls `update_diff_status` with `status: 'BLOCKED', reason: '...'`)
+
+Add `blocked_reason text` to the `intent_diffs` migration. Add `subscribeToIntentStatus` and a `blocked_reason` column to `§8.4a`.
+
 ### 7.5 Files to Create / Change
 
 | File | Change |
 |---|---|
 | `packages/app/src/lib/diff-generator.ts` | NEW — client-side diff logic (CSS, prop, Tailwind strategies) |
 | `packages/app/src/components/inspector/CodeTab.tsx` | NEW — diff viewer, edit mode, Send to Agent button |
-| `packages/app/src/store/canvas.ts` | Add `undoStyleEdit()` action; add `intentStatus` map |
+| `packages/app/src/store/canvas.ts` | Add `undoStyleEdit()` action; add `intentStatus` map; add `projectMeta: ProjectMeta \| null` (populated by `GET /health` on CLI connection); add `indexerStatus: 'offline' \| 'indexing' \| 'ready'` |
 | `packages/app/src/app/api/intent/route.ts` | NEW — POST endpoint for `push_intent` (proxies to Agent Bridge) |
-| `packages/app/package.json` | Add `"@pierre/diffs": "^1.1.20"` and `"shiki": "^3.0.0"` |
+| `packages/app/src/lib/diff-generator.ts` | Reads `canvasStore.projectMeta.tailwind` to set confidence and annotation on Tailwind projects; reads `projectMeta.cssModules` to prioritize `.module.css` search strategy |
+| `packages/app/package.json` | Add `"@pierre/diffs": "^1.1.20"`, `"shiki": "^3.0.0"`, and `"diff": "^5.2.0"` (for `createTwoFilesPatch()` in diff-generator.ts — package verified on npm ✓) |
 
 ---
 
@@ -1256,9 +1398,16 @@ Builds the full `IntentMessage`:
     intentId: z.string().uuid(),
     component: z.object({
       name: z.string(),
-      definitionFile: z.string().optional(),
+      nodeId: z.string(),                    // fiber path ID — used for diff correlation
+      callSite: z.string().optional(),       // "src/app/dashboard/page.tsx:34"
+      definitionFile: z.string().optional(), // "src/components/DashboardCard.tsx"
       definitionLine: z.number().optional(),
-      callSite: z.string().optional(),
+      props: z.record(z.unknown()),          // current runtime props — helps agent understand context
+      propsSchema: z.array(z.object({        // from AST indexer — optional (indexer may not be running)
+        name: z.string(),
+        type: z.string(),
+        optional: z.boolean(),
+      })).optional(),
     }),
     changes: z.array(z.object({
       type: z.enum(['style', 'prop', 'layout', 'remove']),
@@ -1322,11 +1471,13 @@ originmain dev starts
   → proxy on :4170
   → indexer on :4171
   → POST {AGENT_BRIDGE_URL}/register-indexer
-    { workspaceToken, indexerUrl: "http://localhost:4171", ttl: 60 }
+    { workspaceToken, indexerUrl: "http://localhost:4171", ttl: 300 }
   → Agent Bridge stores { indexerUrl, expiresAt: now + ttl } per workspace session
   → resolve_component and file-fetch proxy to indexerUrl
-  → CLI sends a heartbeat POST every 30s to refresh the TTL
-  → Agent Bridge removes the registration if no heartbeat for > 90s
+  → CLI sends a heartbeat POST every 120s to refresh the TTL
+  → Agent Bridge removes the registration if no heartbeat for > 360s (3× heartbeat interval)
+  // TTL is 300s (5min) with 120s heartbeat — gives 3× margin for brief network hiccups
+  // and survives a 2–3 minute machine sleep without deregistering
 ```
 
 **Agent Bridge URL:** The CLI reads `ORIGINMAIN_BRIDGE_URL` from environment (set in the workspace's `.env.local` or `~/.originmain/config.json` written by the CLI's `originmain login` command). Default for self-hosted: `http://localhost:4172`.
@@ -1356,10 +1507,11 @@ Claude Code sessions receive this immediately after `push_intent` is called.
 CREATE TABLE intent_diffs (
   id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   workspace_id uuid REFERENCES workspaces(id) NOT NULL,
-  artboard_id  uuid REFERENCES artboards(id),
+  artboard_id  uuid REFERENCES artboards(id) ON DELETE SET NULL,  -- SET NULL (not CASCADE): preserve diff history after artboard deletion (see §3.3)
   payload      jsonb NOT NULL,   -- the full IntentMessage JSON
   status       text NOT NULL DEFAULT 'DRAFT',
   -- DiffStatus enum: 'DRAFT' | 'EXPORTED' | 'IMPLEMENTED' | 'BLOCKED'
+  blocked_reason text,           -- populated by agent via update_diff_status when status = 'BLOCKED'
   created_at   timestamptz DEFAULT now(),
   updated_at   timestamptz DEFAULT now()
 );
@@ -1376,7 +1528,8 @@ CREATE TABLE intent_diffs (
 | `packages/agent-bridge/src/tools.ts` | Add `push_intent`, `resolve_component` |
 | `packages/agent-bridge/src/protocol.ts` | Add `IntentMessage`, `IntentChange`, `INTENT_RECEIVED` |
 | `packages/agent-bridge/src/index.ts` | Handle `/register-indexer`, store per-workspace indexer URL |
-| `packages/agent-bridge/src/adapters/claude-code.ts` | Document new tools in `CLAUDE.md` section — **must explicitly instruct**: "After successfully applying an intent diff, call `update_diff_status` with the `intentId` from the `INTENT_RECEIVED` message and status `IMPLEMENTED`. If the diff could not be applied, call with status `BLOCKED` and include a reason." |
+| `packages/agent-bridge/src/adapters/claude-code.ts` | Document new tools in `CLAUDE.md` section — **must explicitly instruct**: "After successfully applying an intent diff, call `update_diff_status` with the `intentId` from the `INTENT_RECEIVED` message and status `IMPLEMENTED`. If the diff could not be applied, call with status `BLOCKED` and include a `reason` string describing why (e.g. 'Component not found in file', 'File is read-only', 'Diff conflicts with current file state')." |
+| `packages/agent-bridge/src/tools.ts` | Update `update_diff_status` input schema to accept optional `reason: z.string()` (written to `intent_diffs.blocked_reason` when status is `'BLOCKED'`). |
 | `packages/app/src/app/api/agent-bridge/route.ts` | Wire `push_intent` and `resolve_component` |
 | `packages/cli/src/commands/login.ts` | NEW — OAuth flow; on success writes `{ workspaceToken, workspaceId, bridgeUrl }` to `~/.originmain/config.json` |
 | `packages/cli/src/cli.ts` | Register `originmain login` subcommand |
@@ -1503,7 +1656,7 @@ interface TokenMatch {
 
 function resolveValueToToken(
   value: string,
-  type: TokenType,
+  type: TokenType | undefined,  // optional — auto-detects from value when omitted (used in hover callbacks where type is unknown)
   tokens: DesignToken[]
 ): TokenMatch | null
 ```
@@ -1517,7 +1670,7 @@ function resolveValueToToken(
 4. If `value` is already `var(--color-primary)`, extract the key and do a direct lookup
 
 **Spacing / sizing / borderRadius / borderWidth / lineHeight:**
-1. Parse the numeric value and unit from both the input and the token. Normalize rem to px using the actual root font size, not a hardcoded 16px. The root font size is sent from the iframe to the canvas in the `READY` message as `rootFontSizePx: number` (add this field to the `READY` message in `dom-inspector.ts` — read it as `parseFloat(getComputedStyle(document.documentElement).fontSize)`). The canvas stores it per-artboard in Zustand and passes it to the token resolver.
+1. Parse the numeric value and unit from both the input and the token. Normalize rem to px using the actual root font size, not a hardcoded 16px. The root font size is sent from the iframe to the canvas in the `READY` message as `rootFontSizePx: number` (add this field to the `READY` message in **`fiber-hook.ts`** — read it as `parseFloat(getComputedStyle(document.documentElement).fontSize)`). The Phase 6 files table in §9.14 correctly lists this change under `fiber-hook.ts`. The canvas stores it per-artboard in Zustand and passes it to the token resolver.
 2. Exact match: same number, same normalized unit
 3. Near match: within 1px (rounding from rem)
 4. No match: any other value
@@ -1773,15 +1926,13 @@ This tells the agent: "instead of writing `border-radius: 12px`, write `border-r
 | `packages/design-language/src/resolver.ts` | NEW — `resolveValueToToken()`, color distance, unit normalization |
 | `packages/design-language/src/validator.ts` | NEW — alias resolution, circular reference detection |
 | `packages/design-language/src/index.ts` | Export all above |
-| Note: `DesignInput.tsx` (raw CSS input, no token awareness) is built in Phase 2. It is upgraded to `TokenAwareInput.tsx` in Phase 6 when the token resolver is available. Phase 2 does not build TokenAwareInput. |
+| Note: `DesignInput.tsx` (raw CSS input, no token awareness) is built in Phase 2 (§5.12). Phase 6 builds `TokenAwareInput.tsx` as a wrapper around `DesignInput` that adds the token chip, picker, and deviation indicator. Phase 2 does not build `TokenAwareInput`. |
 | `packages/app/src/components/inspector/TokenPicker.tsx` | NEW — token picker popover |
 | `packages/app/src/app/settings/design-language/page.tsx` | NEW — upload UI, validation flow, version history |
 | `packages/app/src/app/api/design-language/route.ts` | NEW — GET (load) / POST (save) |
 | `packages/app/src/app/api/design-language/fetch/route.ts` | NEW — server-side proxy for URL fetch; validates HTTPS + non-private IP |
-| `packages/app/src/store/canvas.ts` | Add `designLanguage: DesignToken[] \| null`, `loadDesignLanguage()` |
-| `packages/app/src/store/canvas.ts` | Subscribe to Supabase realtime for design language changes |
+| `packages/app/src/store/canvas.ts` | Add `designLanguage: DesignToken[] \| null`, `loadDesignLanguage()`, `artboardRootFontSize: Record<string, number>`; subscribe to Supabase Realtime for design language INSERT and UPDATE events |
 | Database | Migration: `create-design-languages.sql` |
-| Note: `DesignInput.tsx` (no token awareness) is built in Phase 2 (§5.12). Phase 6 builds `TokenAwareInput.tsx` as a wrapper around `DesignInput` that adds the token chip, picker, and deviation indicator. |
 
 ---
 
@@ -1845,6 +1996,9 @@ User's dev server     CLI Proxy      CLI Indexer    Originmain Canvas (browser)
       │                   │                │                   │         reads file
       │                   │                │                   │         applies diff
       │                   │                │                   │         saves file
+      // NOTE: Claude Code → indexer path above goes THROUGH the Agent Bridge
+      // (Agent Bridge proxies GET /components → registered indexerUrl per §8.3).
+      // Claude Code never has direct network access to localhost:4171 on the user's machine.
       │  hot reload       │                │                   │
       │◄──────────────────│                │                   │
       │                   │  FIBER_TREE_UPDATE (post-edit)     │
@@ -1904,7 +2058,7 @@ Once the agent edits a file and hot-reload fires, the DOM preview change is "rea
 Figma's Variables API can export the design language directly. A "Sync from Figma" button would call the Figma API and import variables in DTCG format. This is Phase 8+.
 
 ### Q5: Component prop defaults in AST indexer
-Extracting default prop values requires evaluating expressions. Deferred to Phase 5+; Phase 3 extracts names and types only.
+Extracting default prop values requires evaluating expressions (e.g., `const { color = 'blue' } = props`). Deferred to post-Phase 7; Phase 3 extracts names and types only. Note: "Phase 5" in this document refers to the Agent Bridge enhancements — not a type-expansion phase.
 
 ---
 
