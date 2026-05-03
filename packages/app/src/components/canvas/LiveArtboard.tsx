@@ -27,8 +27,9 @@ export interface LiveArtboardProps {
   onReady?: () => void;
   onFiberTreeUpdate?: (root: FiberNode) => void;
   onComponentSelected?: (nodeId: string) => void;
-  /** Called when the iframe responds with computed CSS properties for a selected element. */
-  onComponentStylesUpdate?: (nodeId: string, styles: Record<string, string>) => void;
+  /** Called when the iframe responds with computed CSS properties for a selected element.
+   *  Also carries structural flags from the ELEMENT_STYLES message. */
+  onComponentStylesUpdate?: (nodeId: string, styles: Record<string, string>, hasDirectText: boolean, hasParagraphChildren: boolean) => void;
   /** Called when the iframe discovers routes in the running app. */
   onRoutesDiscovered?: (routes: Array<{ path: string; label: string }>) => void;
   /** Called when READY fires but no React commits arrive within 4 s — signals a
@@ -140,7 +141,7 @@ export function LiveArtboard({
           onComponentSelected?.('');
           break;
         case 'ELEMENT_STYLES':
-          onComponentStylesUpdate?.(msg.nodeId, msg.styles);
+          onComponentStylesUpdate?.(msg.nodeId, msg.styles, msg.hasDirectText, msg.hasParagraphChildren);
           break;
         case 'ROUTES_DISCOVERED':
           onRoutesDiscovered?.(msg.routes);
@@ -164,6 +165,8 @@ export function LiveArtboard({
   // simultaneous width + height patches from resize are both delivered.
   const styleEditQueue = useCanvas((s) => s.styleEditQueue);
   const clearStyleEdits = useCanvas((s) => s.clearStyleEdits);
+  const childrenStyleEditQueue = useCanvas((s) => s.childrenStyleEditQueue);
+  const clearChildrenStyleEdits = useCanvas((s) => s.clearChildrenStyleEdits);
   const removeElementEvent = useCanvas((s) => s.removeElementEvent);
   const clearRemoveElement = useCanvas((s) => s.clearRemoveElement);
 
@@ -175,6 +178,16 @@ export function LiveArtboard({
     }
     clearStyleEdits(id);
   }, [id, styleEditQueue, sendMessage, clearStyleEdits]);
+
+  // ── Children style edit queue (PATCH_CHILDREN_STYLE — paragraph spacing etc.) ──
+  useEffect(() => {
+    const mine = childrenStyleEditQueue.filter((e) => e.artboardId === id);
+    if (mine.length === 0 || !isReadyRef.current) return;
+    for (const e of mine) {
+      sendMessage('PATCH_CHILDREN_STYLE', { parentNodeId: e.parentNodeId, selector: e.selector, property: e.property, value: e.value });
+    }
+    clearChildrenStyleEdits(id);
+  }, [id, childrenStyleEditQueue, sendMessage, clearChildrenStyleEdits]);
 
   useEffect(() => {
     if (removeElementEvent?.artboardId === id && isReadyRef.current) {

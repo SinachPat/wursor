@@ -138,6 +138,22 @@ export function buildProxyFiberHookScript(): string {
   var selectedNodeId = null;        // currently highlighted component
   var highlightEl    = null;        // the blue-ring DOM overlay element
 
+  // ── Style override persistence (H-7 fix) ─────────────────────────────────
+  // Inline styles set by PATCH_ELEMENT_STYLE are wiped by React on the next
+  // reconciliation of the patched component. To make patches survive, we
+  // mirror them into an external stylesheet keyed by a data-om-id attribute
+  // that we re-tag onto the DOM on every commit.
+  //
+  //   styleOverrides[nodeId][property]                        = value
+  //   childrenStyleOverrides[parentId][selector][property]    = value
+  //
+  // After each commit we (a) rewrite data-om-id on every nodeMap element so
+  // the selectors still match, and (b) rebuild the <style> sheet text.
+  // Cascade wins over component styles because every rule is !important.
+  var styleOverrides         = {};   // nodeId -> { property -> value }
+  var childrenStyleOverrides = {};   // parentNodeId -> { selector -> { property -> value } }
+  var overrideStyleEl        = null; // the <style id="__om_overrides__"> element
+
   // ── postMessage helper ────────────────────────────────────────────────────
   function post(msg) {
     try {
@@ -172,6 +188,10 @@ export function buildProxyFiberHookScript(): string {
       fiberMap = new WeakMap();
 
       var tree = serializeFiber(root.current, '');
+      // H-7 fix: re-tag DOM with data-om-id and reapply the override sheet
+      // BEFORE telling the host the tree updated, so the visual is consistent
+      // by the time the host repaints its inspector.
+      reapplyOverrides();
       post({ type: 'FIBER_TREE_UPDATE', root: tree });
       // Re-sync the highlight ring after each React commit (layout may shift).
       if (selectedNodeId) updateHighlight();
@@ -183,12 +203,19 @@ export function buildProxyFiberHookScript(): string {
   // ── Fiber serialization (stable path-based IDs) ───────────────────────────
   // ID format: "ComponentName:siblingIndex/ChildName:siblingIndex/..."
   //
+  // siblingIndex is the position among VISIBLE (named) siblings at the same
+  // flattened level — NOT fiber.index. Using fiber.index caused H-2: two
+  // same-named components living under different transparent wrappers
+  // (Fragment, Context.Provider, React.memo) both had fiber.index === 0
+  // relative to their own React parent, so when collectChildren flattened
+  // them into the same visible level they collided to the same nodeId.
+  //
   // IMPORTANT: unnamed fibers (Fragment, Context.Provider, React.memo wrappers)
   // are transparent — their children are collected directly into their parent's
   // children array. Returning only the first named child (the old approach)
   // caused entire subtrees to vanish from the tree.
 
-  function serializeFiber(fiber, parentId) {
+  function serializeFiber(fiber, parentId, siblingIndex) {
     if (!fiber) return null;
     var name = getDisplayName(fiber);
     if (!name) {
@@ -202,10 +229,26 @@ export function buildProxyFiberHookScript(): string {
       return { id: '__root__', name: '__root__', props: {}, children: children };
     }
 
-    var nodeId = (parentId ? parentId + '/' : '') + name + ':' + String(fiber.index);
+    var nodeId = (parentId ? parentId + '/' : '') + name + ':' + String(siblingIndex || 0);
     var rect   = getDomRect(fiber);
     var node   = { id: nodeId, name: name, props: serializeProps(fiber.memoizedProps), children: [] };
     if (rect) node.domRect = rect;
+
+    // ── _debugSource extraction (Phase 1) ────────────────────────────────────
+    // _debugSource is set by React's dev build on every fiber created from JSX.
+    // It points to the JSX call site (the file that wrote <ComponentName />),
+    // NOT the definition file. Only present when __DEV__ === true.
+    // We only read it for function/class components (typeof fiber.type === 'function')
+    // to avoid bogus call-site data on host elements (div, span, etc.).
+    try {
+      if (fiber._debugSource && typeof fiber.type === 'function') {
+        var ds = fiber._debugSource;
+        if (ds.fileName && typeof ds.lineNumber === 'number') {
+          node.callSite = { fileName: ds.fileName, lineNumber: ds.lineNumber };
+          if (typeof ds.columnNumber === 'number') node.callSite.columnNumber = ds.columnNumber;
+        }
+      }
+    } catch (e) { /* _debugSource access can throw in some SSR contexts */ }
 
     // Register in both maps for O(1) lookup.
     nodeMap[nodeId] = { domRect: rect || null, fiber: fiber };
@@ -230,18 +273,28 @@ export function buildProxyFiberHookScript(): string {
 
   // Collect all NAMED descendants of fiber.child into out[], transparently
   // flattening unnamed intermediates (Fragments, Providers, wrappers).
-  function collectChildren(fiber, parentId, out) {
+  //
+  // The sibling counter (counterRef.n) is per-VISIBLE-LEVEL, so it survives
+  // the recursion into transparent wrappers — that's how H-2 (nodeId
+  // collision across same-named siblings under different wrappers) is
+  // prevented. Pass the same counterRef to recursive calls.
+  function collectChildren(fiber, parentId, out, counterRef) {
+    if (!counterRef) counterRef = { n: 0 };
     var child = fiber.child;
     while (child) {
       var name = getDisplayName(child);
       if (name) {
-        var serialized = serializeFiber(child, parentId);
-        if (serialized) out.push(serialized);
+        var serialized = serializeFiber(child, parentId, counterRef.n);
+        if (serialized) {
+          out.push(serialized);
+          counterRef.n += 1;
+        }
       } else {
         // Unnamed (Fragment / Context / Provider / forwardRef wrapper etc.):
-        // flatten its children directly into our level — they share parentId.
+        // flatten its children directly into our level — they share parentId
+        // AND the visible sibling counter, so a Fragment never resets indices.
         fiberMap.set(child, null); // mark as non-selectable
-        collectChildren(child, parentId, out);
+        collectChildren(child, parentId, out, counterRef);
       }
       child = child.sibling;
     }
@@ -265,6 +318,142 @@ export function buildProxyFiberHookScript(): string {
       }
     } catch (e) { /* stateNode has no layout (Context, Memo, etc.) */ }
     return null;
+  }
+
+  // ── Style override sheet (H-7 fix) ───────────────────────────────────────
+  // CSS attribute selector values are quoted, so "/" and ":" inside the
+  // nodeId need no escaping. We do escape backslash and double-quote
+  // defensively in case future ID schemes introduce them.
+  function escapeAttrValue(s) {
+    return String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  }
+
+  // CSS property names from the inspector are already lowercase kebab-case.
+  // Block anything that isn't a CSS-safe identifier so a malicious patch
+  // payload can't inject rule terminators or other declarations.
+  function isSafeCssProp(p) {
+    return typeof p === 'string' && /^-?[a-z][a-z0-9-]*$/.test(p);
+  }
+
+  // Block stylesheet-breaking characters in the value: braces, semicolons,
+  // angle brackets, backslashes, line breaks, and CSS comment markers. Inline
+  // setProperty (used for the immediate paint) is already safe — this is
+  // strictly to keep the override stylesheet text well-formed.
+  function isSafeCssValue(v) {
+    if (typeof v !== 'string' || v.length > 500) return false;
+    if (/[{};<>\\\n\r]/.test(v)) return false;
+    if (v.indexOf('/*') !== -1 || v.indexOf('*/') !== -1) return false;
+    return true;
+  }
+
+  function ensureOverrideStyleEl() {
+    if (overrideStyleEl && overrideStyleEl.parentNode) return overrideStyleEl;
+    var el = document.getElementById('__om_overrides__');
+    if (!el) {
+      el = document.createElement('style');
+      el.id = '__om_overrides__';
+      el.setAttribute('data-originmain', 'overrides');
+      // Append to <head> so it lives past component remounts.
+      (document.head || document.documentElement).appendChild(el);
+    }
+    overrideStyleEl = el;
+    return el;
+  }
+
+  function tagDomWithIds() {
+    for (var id in nodeMap) {
+      if (!Object.prototype.hasOwnProperty.call(nodeMap, id)) continue;
+      var info = nodeMap[id];
+      if (!info) continue;
+      var el = findDomElement(info.fiber);
+      if (el && typeof el.setAttribute === 'function') {
+        // Idempotent: only write if the attribute is missing or stale.
+        if (el.getAttribute('data-om-id') !== id) el.setAttribute('data-om-id', id);
+      }
+    }
+  }
+
+  function buildOverrideCss() {
+    var parts = [];
+    for (var id in styleOverrides) {
+      if (!Object.prototype.hasOwnProperty.call(styleOverrides, id)) continue;
+      var props = styleOverrides[id];
+      var decls = [];
+      for (var p in props) {
+        if (!Object.prototype.hasOwnProperty.call(props, p)) continue;
+        if (!isSafeCssProp(p) || !isSafeCssValue(props[p])) continue;
+        decls.push(p + ':' + props[p] + ' !important');
+      }
+      if (decls.length) {
+        parts.push('[data-om-id="' + escapeAttrValue(id) + '"]{' + decls.join(';') + '}');
+      }
+    }
+    for (var pid in childrenStyleOverrides) {
+      if (!Object.prototype.hasOwnProperty.call(childrenStyleOverrides, pid)) continue;
+      var bySel = childrenStyleOverrides[pid];
+      for (var sel in bySel) {
+        if (!Object.prototype.hasOwnProperty.call(bySel, sel)) continue;
+        if (!/^[a-z][a-z0-9-]*$/i.test(sel)) continue;
+        var cprops = bySel[sel];
+        var cdecls = [];
+        for (var cp in cprops) {
+          if (!Object.prototype.hasOwnProperty.call(cprops, cp)) continue;
+          if (!isSafeCssProp(cp) || !isSafeCssValue(cprops[cp])) continue;
+          cdecls.push(cp + ':' + cprops[cp] + ' !important');
+        }
+        if (cdecls.length) {
+          parts.push(
+            '[data-om-id="' + escapeAttrValue(pid) + '"]>' + sel +
+            '{' + cdecls.join(';') + '}'
+          );
+        }
+      }
+    }
+    return parts.join('\n');
+  }
+
+  function reapplyOverrides() {
+    var hasAny = false;
+    for (var k in styleOverrides) { hasAny = true; break; }
+    if (!hasAny) {
+      for (var k2 in childrenStyleOverrides) { hasAny = true; break; }
+    }
+    // Cheap exit only when nothing has ever been recorded AND no sheet exists.
+    // If the sheet exists with stale rules (e.g. user just cleared the last
+    // override), we must run through to write the empty CSS back.
+    if (!hasAny && !overrideStyleEl) return;
+    if (hasAny) tagDomWithIds();
+    var el = ensureOverrideStyleEl();
+    var css = hasAny ? buildOverrideCss() : '';
+    if (el.textContent !== css) el.textContent = css;
+  }
+
+  function recordStyleOverride(nodeId, property, value) {
+    if (!isSafeCssProp(property)) return;
+    var bag = styleOverrides[nodeId];
+    if (!bag) bag = styleOverrides[nodeId] = {};
+    if (value === '' || value == null) {
+      delete bag[property];
+      var hasAnyProp = false;
+      for (var p in bag) { hasAnyProp = true; break; }
+      if (!hasAnyProp) delete styleOverrides[nodeId];
+    } else if (isSafeCssValue(String(value))) {
+      bag[property] = String(value);
+    }
+  }
+
+  function recordChildrenStyleOverride(parentId, selector, property, value) {
+    if (!/^[a-z][a-z0-9-]*$/i.test(selector)) return;
+    if (!isSafeCssProp(property)) return;
+    var bySel = childrenStyleOverrides[parentId];
+    if (!bySel) bySel = childrenStyleOverrides[parentId] = {};
+    var bag = bySel[selector];
+    if (!bag) bag = bySel[selector] = {};
+    if (value === '' || value == null) {
+      delete bag[property];
+    } else if (isSafeCssValue(String(value))) {
+      bag[property] = String(value);
+    }
   }
 
   function serializeProps(props) {
@@ -415,26 +604,85 @@ export function buildProxyFiberHookScript(): string {
               var styleProps = [
                 'width','height','background-color','color','font-size',
                 'font-family','font-weight','line-height','letter-spacing','text-align',
-                'display','flex-direction','gap','align-items','justify-content',
+                'display','flex-direction','flex-wrap','gap','row-gap','column-gap',
+                'align-items','align-content','justify-content','justify-items',
                 'padding-top','padding-right','padding-bottom','padding-left',
                 'margin-top','margin-right','margin-bottom','margin-left',
-                'border-radius','border-width','border-color','border-style',
-                'opacity','box-shadow','overflow','position',
+                'border-radius','border-top-left-radius','border-top-right-radius',
+                'border-bottom-right-radius','border-bottom-left-radius',
+                'border-width','border-color','border-style',
+                'opacity','box-shadow','filter','backdrop-filter',
+                'overflow','position','left','top','right','bottom',
+                'transform','text-decoration','text-transform',
+                'grid-template-columns','grid-template-rows',
               ];
               var styles = {};
               styleProps.forEach(function(p) { styles[p] = cs.getPropertyValue(p); });
-              post({ type: 'ELEMENT_STYLES', nodeId: msg.nodeId, styles: styles });
+
+              // ── Structural flags for Typography section (Phase 2) ──────────
+              // hasDirectText: does the element have a direct text node with content?
+              var hasDirectText = false;
+              var nodes = rEl.childNodes;
+              for (var ci = 0; ci < nodes.length; ci++) {
+                if (nodes[ci].nodeType === 3 && nodes[ci].textContent.trim().length > 0) {
+                  hasDirectText = true;
+                  break;
+                }
+              }
+              // hasParagraphChildren: does the element have at least one direct <p> child?
+              var hasParagraphChildren = rEl.querySelector(':scope > p') !== null;
+
+              post({
+                type: 'ELEMENT_STYLES',
+                nodeId: msg.nodeId,
+                styles: styles,
+                hasDirectText: hasDirectText,
+                hasParagraphChildren: hasParagraphChildren,
+              });
             }
           }
         }
         break;
       case 'PATCH_ELEMENT_STYLE':
         if (typeof msg.nodeId === 'string' && typeof msg.property === 'string') {
+          // C-4 fix: (msg.value || '') is falsy for 0, which removes the property.
+          // Use explicit null check so zero values are applied correctly.
+          var pVal = msg.value != null ? String(msg.value) : '';
+          // H-7 fix: record into the override stylesheet FIRST so the patch
+          // survives the next React reconciliation. Then also apply inline
+          // for an immediate, no-flicker visual update on this paint.
+          recordStyleOverride(msg.nodeId, msg.property, pVal);
           var pInfo = nodeMap[msg.nodeId];
           if (pInfo) {
             var pEl = findDomElement(pInfo.fiber);
-            if (pEl) pEl.style.setProperty(msg.property, String(msg.value || ''));
+            if (pEl) pEl.style.setProperty(msg.property, pVal);
           }
+          reapplyOverrides();
+        }
+        break;
+      case 'PATCH_CHILDREN_STYLE':
+        // Apply a CSS property to all matching direct children of a node.
+        // Used for paragraph-spacing: patches margin-bottom on each direct <p> child.
+        if (typeof msg.parentNodeId === 'string' && typeof msg.property === 'string') {
+          if (typeof msg.selector !== 'string') break;
+          // C-5 security fix: validate selector against a simple element-name
+          // allowlist before passing to querySelectorAll. An unconstrained
+          // msg.selector could be crafted to inject CSS or throw a DOMException.
+          if (!/^[a-z][a-z0-9-]*$/i.test(msg.selector)) break;
+          var pcVal = msg.value != null ? String(msg.value) : '';
+          // H-7 fix: persist children-style patches the same way.
+          recordChildrenStyleOverride(msg.parentNodeId, msg.selector, msg.property, pcVal);
+          var pcInfo = nodeMap[msg.parentNodeId];
+          if (pcInfo) {
+            var pcEl = findDomElement(pcInfo.fiber);
+            if (pcEl) {
+              var children = pcEl.querySelectorAll(':scope > ' + msg.selector);
+              for (var ci2 = 0; ci2 < children.length; ci2++) {
+                children[ci2].style.setProperty(msg.property, pcVal);
+              }
+            }
+          }
+          reapplyOverrides();
         }
         break;
       case 'REMOVE_ELEMENT':
@@ -500,8 +748,9 @@ export function buildProxyFiberHookScript(): string {
       if (!path || typeof path !== 'string') return;
       // Skip hash fragments, external links that slipped through, and dynamic segments
       if (path.charAt(0) !== '/') return;
-      // Normalise: strip trailing slash except for root
-      var norm = path.length > 1 ? path.replace(/\\/+$/, '') : '/';
+      // M-4 fix: the original regex /\\/+$/ matched a literal backslash, not a
+      // forward slash. Correct regex is /\/+$/.
+      var norm = path.length > 1 ? path.replace(/\/+$/, '') : '/';
       if (seen[norm]) return;
       seen[norm] = true;
       var label = (hint && typeof hint === 'string' && hint.trim().slice(0, 50)) || humanLabel(norm);
@@ -512,29 +761,33 @@ export function buildProxyFiberHookScript(): string {
     addRoute(window.location.pathname, document.title || undefined);
 
     // ② Next.js Pages Router — __NEXT_DATA__ contains the full page list in build id manifest
-    try {
-      var nextData = window.__NEXT_DATA__;
-      if (nextData && nextData.buildId) {
-        // Fetch the pages manifest — available at /_next/static/{buildId}/_buildManifest.js
-        var manifestUrl = '/_next/static/' + nextData.buildId + '/_buildManifest.js';
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', manifestUrl, false); // sync — runs at init time before user interaction
-        xhr.send();
-        if (xhr.status === 200) {
-          // Manifest exposes self.__BUILD_MANIFEST = { sortedPages: [...] }
-          var match = xhr.responseText.match(/sortedPages\\s*:\\s*(\\[[^\\]]+\\])/);
-          if (match) {
-            try {
-              var pages = JSON.parse(match[1]);
-              pages.forEach(function(p) {
-                // Skip catch-all and dynamic segments for now; static routes only
-                if (p.indexOf('[') === -1) addRoute(p);
-              });
-            } catch (e) { /* parse failed */ }
-          }
+    // H-1 fix: replaced synchronous XHR (deprecated, blocks main thread) with
+    // async fetch. Route discovery happens in a setTimeout callback so async is safe.
+    (function() {
+      try {
+        var nextData = window.__NEXT_DATA__;
+        if (nextData && nextData.buildId) {
+          var manifestUrl = '/_next/static/' + nextData.buildId + '/_buildManifest.js';
+          fetch(manifestUrl).then(function(res) {
+            if (!res.ok) return;
+            return res.text();
+          }).then(function(text) {
+            if (!text) return;
+            var match = text.match(/sortedPages\s*:\s*(\[[^\]]+\])/);
+            if (match) {
+              try {
+                var pages = JSON.parse(match[1]);
+                pages.forEach(function(p) {
+                  if (p.indexOf('[') === -1) addRoute(p);
+                });
+                // Re-post now that we have more routes from the manifest.
+                post({ type: 'ROUTES_DISCOVERED', routes: routes.slice() });
+              } catch (e) { /* parse failed */ }
+            }
+          }).catch(function() { /* manifest unavailable */ });
         }
-      }
-    } catch (e) { /* Next.js not present or manifest unavailable */ }
+      } catch (e) { /* Next.js not present */ }
+    })();
 
     // ③ <a href> same-origin links from the rendered DOM
     var anchors = document.querySelectorAll('a[href]');

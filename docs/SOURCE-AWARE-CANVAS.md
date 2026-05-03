@@ -367,7 +367,7 @@ Canvas transform (pan/zoom) is **session-only** — stored in Zustand + localSto
 | `packages/app/src/components/chrome/AppChrome.tsx` | Add device preset picker to top toolbar for selected artboard |
 | `packages/app/src/store/canvas.ts` | Add `canvasTransform`, `artboardFrames`, `createArtboard`, `deleteArtboard`, `updateArtboardPosition`, `setArtboardDevicePreset` |
 | `packages/app/src/hooks/useArtboards.ts` | Extend to load new schema fields |
-| `packages/cli/src/proxy.ts` | Inject `window.__OM_INDEX_URL__` and `window.__OM_ISO_BASE__` into proxied HTML; intercept `/__om_isolation__` for Vite projects (Next.js isolation pages handled in Phase 3). The boundary: `proxy.ts` intercepts the request and calls `isolationServer.handleRequest(req, res)`. `isolation-server.ts` (Phase 3) contains all the HTML generation and framework detection logic. `proxy.ts` has no HTML generation logic. |
+| `packages/cli/src/proxy.ts` | Inject `window.__OM_INDEX_URL__` and `window.__OM_ISO_BASE__` into proxied HTML; intercept `/__om_isolation__` and delegate to `isolationServer.handleRequest(req, res)`. **Phase 0 stub:** `isolation-server.ts` does not exist yet — create a minimal stub that returns `501 Not Implemented` with body `"Isolation artboards require CLI indexer (Phase 3)"`. Replace with the full implementation in Phase 3 (§6.6). |
 | Database | Migration: `alter-artboards-v2.sql` with new columns above |
 
 ---
@@ -718,7 +718,7 @@ POST /reindex                  → triggers full rescan
 **Why `projectMeta` matters:** The diff generator (`packages/app/src/lib/diff-generator.ts`) runs entirely in the browser and has no direct filesystem access. It must know the project's CSS strategy to choose the right search strategy — especially for Tailwind (where a CSS change means a class swap, not a property edit). The canvas fetches `GET /health` once per CLI session and stores `projectMeta` in Zustand (`canvasStore.projectMeta`). The diff generator reads it from there. The `tailwind` flag triggers the "Tailwind detected — diff is approximate" annotation (§7.3) without the diff generator needing any filesystem access.
 
 **Security on `GET /file`:**
-- Validate the `path` parameter is within the project root: resolve to absolute path first using `path.resolve(projectRoot, requestedPath)`, then verify `absolute === projectRoot || absolute.startsWith(projectRoot + path.sep)`. The `+ path.sep` suffix prevents path prefix confusion (e.g., `/home/user/app-secrets` starting with `/home/user/app`).
+- Validate the `path` parameter is within the project root: resolve to absolute path first using `path.resolve(projectRoot, requestedPath)`, then verify `absolute.startsWith(projectRoot + path.sep)`. The `+ path.sep` suffix prevents path prefix confusion (e.g., `/home/user/app-secrets` starting with `/home/user/app`). **Do not** include an `absolute === projectRoot` check — the project root itself is a directory, not a file, and serving it would be a bug.
 - Path resolution order: (1) URL-decode the `path` parameter first (`decodeURIComponent`), (2) resolve to absolute using `path.resolve(projectRoot, decoded)`, (3) verify the resolved absolute path is within `projectRoot + path.sep`. Do NOT do a raw string `..` check before resolution — URL-encoded traversal (`%2F..%2F`) bypasses raw string checks.
 - Only serve `.ts`, `.tsx`, `.js`, `.jsx`, `.css`, `.scss`, `.json` files
 - Never serve: `.env`, `.env.*`, `*.pem`, `*.key`, `*.p12`, `*.pfx`, `*.jks`, `*.crt`, `*.cer`, `*.der`, `*.secret`, `*.secrets`, anything in `.git/`, `node_modules/.*/`, or any file whose name matches `/password|secret|credential|token|private/i`.
@@ -749,6 +749,14 @@ originmain dev --target http://localhost:3000 [--port 4170] [--index-port 4171] 
 ```
 
 `--no-index` disables the AST indexer. The canvas degrades gracefully: Props tab hidden, diff generation uses component name only (no prop schema).
+
+**Environment variables read by the CLI:**
+
+| Variable | Description | Default |
+|---|---|---|
+| `ORIGINMAIN_BRIDGE_URL` | URL of the Agent Bridge server. Set in `.env.local` or `~/.originmain/config.json` (written by `originmain login`). | `http://localhost:4172` |
+
+If `ORIGINMAIN_BRIDGE_URL` is not set and `~/.originmain/config.json` has no `bridgeUrl`, the CLI falls back to the default and logs: "Using default Agent Bridge URL: http://localhost:4172".
 
 ### 6.6 Files to Create / Change
 
@@ -1369,7 +1377,7 @@ The `CodeTabFooter` shows:
 - `status === 'IMPLEMENTED'`: green "✓ Applied" badge
 - `status === 'BLOCKED'`: red "⚠ Agent could not apply" + reason from `payload.blocked_reason` (add `blocked_reason text` column to `intent_diffs` — the agent calls `update_diff_status` with `status: 'BLOCKED', reason: '...'`)
 
-Add `blocked_reason text` to the `intent_diffs` migration. Add `subscribeToIntentStatus` and a `blocked_reason` column to `§8.4a`.
+Add `blocked_reason text` to the `intent_diffs` migration (already included in §8.5 table — no additional change needed).
 
 ### 7.5 Files to Create / Change
 
@@ -1498,7 +1506,7 @@ originmain dev starts
 
 Claude Code sessions receive this immediately after `push_intent` is called.
 
-### 8.4a Existing `intent_diffs` Table (Reference)
+### 8.5 Existing `intent_diffs` Table (Reference)
 
 `push_intent` writes to this existing table. Schema for reference:
 
@@ -1521,7 +1529,7 @@ CREATE TABLE intent_diffs (
 `update_diff_status` updates the `status` column.  
 `get_pending_diffs` queries `WHERE status = 'EXPORTED'`.
 
-### 8.5 Files to Create / Change
+### 8.6 Files to Create / Change
 
 | File | Change |
 |---|---|
@@ -1629,7 +1637,16 @@ interface DesignToken {
 - Format A/B: `{ "color": { "primary": ... } }` → `--color-primary`
 - Format C: key is already the CSS custom property name (used as-is)
 - Nested paths: `{ "color": { "brand": { "500": ... } } }` → `--color-brand-500`
-- **camelCase segments are converted to kebab-case before joining.** Each path segment is passed through `segment.replace(/([A-Z])/g, '-$1').toLowerCase()` before joining with `-`. Examples: `"borderRadius"` → `border-radius`, `"fontSize"` → `font-size`, `"boxShadow"` → `box-shadow`. This ensures `{ "borderRadius": { "sm": ... } }` → `--border-radius-sm`, not `--borderRadius-sm`. Add a `toKebabCase(s: string): string` utility to `packages/design-language/src/parser.ts`.
+- **camelCase segments are converted to kebab-case before joining.** Each path segment is passed through a `toKebabCase` function before joining with `-`:
+  ```ts
+  function toKebabCase(s: string): string {
+    return s
+      .replace(/([A-Z])/g, '-$1')
+      .toLowerCase()
+      .replace(/^-/, '');  // ← strip leading hyphen: "Color" → "-color" → "color" (not "--color-primary" → "---color-primary")
+  }
+  ```
+  Examples: `"borderRadius"` → `border-radius`, `"fontSize"` → `font-size`, `"Color"` → `color`, `"BoxShadow"` → `box-shadow`. This ensures `{ "borderRadius": { "sm": ... } }` → `--border-radius-sm` and `{ "Color": { "primary": ... } }` → `--color-primary`. The leading-hyphen guard is mandatory — any group name starting with a capital (common in real token files) would otherwise produce `---token-name` without it. Add `toKebabCase` to `packages/design-language/src/parser.ts`.
 
 **Human label derivation:**
 Path segments joined with ` / `: `"color" + "primary"` → `"Color / Primary"`.
@@ -1835,12 +1852,13 @@ CREATE TABLE design_languages (
 -- Version history: keep the last 10 versions
 CREATE TABLE design_language_versions (
   id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  design_language_id  uuid REFERENCES design_languages(id) NOT NULL,
+  design_language_id  uuid REFERENCES design_languages(id) ON DELETE CASCADE NOT NULL,
   version             integer NOT NULL,
   raw_json            jsonb NOT NULL,
   normalized          jsonb NOT NULL,
   source_format       text NOT NULL,
-  created_at          timestamptz DEFAULT now()
+  created_at          timestamptz DEFAULT now(),
+  UNIQUE (design_language_id, version)  -- prevents duplicate version numbers; required for prune trigger correctness
 );
 -- Enforce max 10 versions via a trigger that deletes the oldest on insert
 
@@ -1958,17 +1976,17 @@ User's dev server     CLI Proxy      CLI Indexer    Originmain Canvas (browser)
       │                   │                │──────────────────►│
       │                   │                │                   │
       │                   │                │  FIBER_TREE_UPDATE │
-      │                   │◄───────────────────────────────────│
+      │                   │───────────────────────────────────►│  (postMessage: iframe→canvas)
       │                   │                │  user clicks       │
       │                   │  COMPONENT_SELECTED + ELEMENT_STYLES│
-      │                   │◄───────────────────────────────────│
+      │                   │───────────────────────────────────►│  (postMessage: iframe→canvas)
       │                   │                │  panel renders,    │
       │                   │                │  deviation check   │
       │                   │                │  against tokens    │
       │                   │                │                   │
       │                   │                │  user adjusts      │
-      │                   │  PATCH_ELEMENT_STYLE (DOM preview)  │
-      │                   │───────────────────────────────────►│
+      │                   │◄───────────────────────────────────│  PATCH_ELEMENT_STYLE (DOM preview)
+      │                   │                │                   │  (postMessage: canvas→iframe)
       │                   │                │  "Preview Code"    │
       │                   │                │  GET /file?path=…  │
       │                   │                │◄──────────────────│
@@ -2002,11 +2020,36 @@ User's dev server     CLI Proxy      CLI Indexer    Originmain Canvas (browser)
       │  hot reload       │                │                   │
       │◄──────────────────│                │                   │
       │                   │  FIBER_TREE_UPDATE (post-edit)     │
-      │                   │◄───────────────────────────────────│
+      │                   │───────────────────────────────────►│  (postMessage: iframe→canvas)
       │                   │                │  update_diff_status(IMPLEMENTED)
       │                   │                │                   │◄─────────────────│
       │                   │                │  canvas shows ✓   │
 ```
+
+---
+
+## 10.1 Phase 7 — E2E Validation
+
+Phase 7 is not a feature phase — it is a structured verification pass over the entire stack after all prior phases are merged.
+
+**Scope (2 days):**
+
+1. **Happy path end-to-end:** Run `originmain dev --target http://localhost:3000` against a real Next.js + Tailwind project. Open the canvas. Verify: artboard loads → fiber hook fires → routes discovered → artboards created → component selected → design panel shows computed CSS → edit border-radius → Code tab shows diff → Send to Agent → Claude Code edits file → hot reload → IMPLEMENTED status.
+
+2. **Graceful degradation:** Verify each phase degrades cleanly when the phase below it is absent:
+   - CLI not running: canvas shows "set URL in Props" state; no crash
+   - Indexer offline (`--no-index`): Props tab hidden, Code tab shows "CLI indexer required", diff still works in approximate mode
+   - No design language: all deviation indicators hidden; token chips absent; no crash
+
+3. **Protocol conformance:** Send a `FIBER_TREE_UPDATE`, `ELEMENT_STYLES`, `THUMBNAIL_READY`, and `SNAPSHOT_READY` from a mock iframe and verify the canvas handles each without error. Send malformed messages and verify they are silently ignored.
+
+4. **Security smoke test:** Attempt path traversal on `GET /file?path=../../.env` — verify 403. Attempt to POST `register-indexer` with a non-localhost URL — verify rejection.
+
+5. **Performance baseline:** Open 6 artboards simultaneously. Verify viewport culling activates (only ≤4 iframes mounted). Pan rapidly across the canvas — verify no layout jank, no missed culling transitions.
+
+**Files to create:**
+- `packages/app/src/__tests__/e2e/canvas-flow.test.ts` — Playwright test covering the happy path
+- `packages/cli/src/__tests__/security.test.ts` — path traversal + register-indexer rejection tests
 
 ---
 
@@ -2023,7 +2066,7 @@ User's dev server     CLI Proxy      CLI Indexer    Originmain Canvas (browser)
 | 6 | Design Language System | 5–7 days | 2, 4, 5 | Upload JSON, see token chips in panel, deviation flags, agent writes `var(--token)` (agent context requires Phase 4 IntentMessage + Phase 5 Agent Bridge) |
 | 7 | E2E Validation | 2 days | all | Full flow: select → edit → preview diff → send → agent applies → hot reload confirms |
 
-**Total:** ~25–33 engineering days across all phases.
+**Total:** ~25–35 engineering days across all phases.
 
 ---
 

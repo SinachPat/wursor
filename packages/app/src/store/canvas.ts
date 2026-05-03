@@ -1,6 +1,14 @@
 import { create } from 'zustand';
 import type { FiberNode } from '@originmain/renderer';
 
+/** Framework and CSS strategy detected by the CLI AST indexer at startup. */
+export interface ProjectMeta {
+  framework: 'next' | 'vite' | 'remix' | 'generic';
+  tailwind: boolean;
+  cssModules: boolean;
+  styledComponents: boolean;
+}
+
 export type Tool = 'select' | 'pan' | 'artboard' | 'zone';
 
 interface CanvasStore {
@@ -36,6 +44,13 @@ interface CanvasStore {
   selectedComponentStyles: Record<string, string> | null;
   setComponentStyles: (styles: Record<string, string> | null) => void;
 
+  /** True if the selected element has a direct TEXT_NODE child (gates Typography section). */
+  selectedComponentHasDirectText: boolean;
+  /** True if the selected element has at least one direct <p> child (gates paragraph spacing). */
+  selectedComponentHasParagraphChildren: boolean;
+  /** Set both structural text flags together — always called alongside setComponentStyles. */
+  setComponentTextFlags: (hasDirectText: boolean, hasParagraphChildren: boolean) => void;
+
   // ── Style edit queue ────────────────────────────────────────────────────────
   // The Design tab and resize handles push patches here; each owning
   // LiveArtboard drains entries addressed to it, then removes them.
@@ -45,10 +60,29 @@ interface CanvasStore {
   patchStyleEdit: (artboardId: string, nodeId: string, property: string, value: string) => void;
   clearStyleEdits: (artboardId: string) => void;
 
+  // ── Children style edit queue (PATCH_CHILDREN_STYLE — paragraph spacing etc.) ──
+  childrenStyleEditQueue: Array<{ artboardId: string; parentNodeId: string; selector: string; property: string; value: string }>;
+  patchChildrenStyleEdit: (artboardId: string, parentNodeId: string, selector: string, property: string, value: string) => void;
+  clearChildrenStyleEdits: (artboardId: string) => void;
+
   // ── Element removal mailbox ─────────────────────────────────────────────────
   removeElementEvent: { artboardId: string; nodeId: string } | null;
   dispatchRemoveElement: (artboardId: string, nodeId: string) => void;
   clearRemoveElement: () => void;
+
+  // ── Selected element mode (Phase 2) ─────────────────────────────────────────
+  /** 'component' = capitalized React component; 'element' = lowercase DOM tag; null = nothing selected */
+  selectedElementMode: 'component' | 'element' | null;
+  setSelectedElementMode: (mode: 'component' | 'element' | null) => void;
+
+  // ── CLI AST indexer integration (Phase 3) ────────────────────────────────────
+  /** Status of the CLI AST indexer; drives Props tab and Code tab behavior */
+  indexerStatus: 'offline' | 'indexing' | 'ready';
+  setIndexerStatus: (status: 'offline' | 'indexing' | 'ready') => void;
+
+  /** Project metadata fetched from GET /health on CLI connection */
+  projectMeta: ProjectMeta | null;
+  setProjectMeta: (meta: ProjectMeta | null) => void;
 }
 
 export const useCanvas = create<CanvasStore>((set) => ({
@@ -78,10 +112,23 @@ export const useCanvas = create<CanvasStore>((set) => ({
   selectedComponentId: null,
   selectedComponentData: null,
   selectComponent: (id, data) =>
-    set({ selectedComponentId: id, selectedComponentData: data, selectedComponentStyles: null }),
+    // BUG-2 fix: reset text flags alongside styles so a component without
+    // direct text doesn't inherit the previous selection's Typography section.
+    set({
+      selectedComponentId: id,
+      selectedComponentData: data,
+      selectedComponentStyles: null,
+      selectedComponentHasDirectText: false,
+      selectedComponentHasParagraphChildren: false,
+    }),
 
   selectedComponentStyles: null,
   setComponentStyles: (styles) => set({ selectedComponentStyles: styles }),
+
+  selectedComponentHasDirectText: false,
+  selectedComponentHasParagraphChildren: false,
+  setComponentTextFlags: (hasDirectText, hasParagraphChildren) =>
+    set({ selectedComponentHasDirectText: hasDirectText, selectedComponentHasParagraphChildren: hasParagraphChildren }),
 
   styleEditQueue: [],
   patchStyleEdit: (artboardId, nodeId, property, value) =>
@@ -89,8 +136,23 @@ export const useCanvas = create<CanvasStore>((set) => ({
   clearStyleEdits: (artboardId) =>
     set((s) => ({ styleEditQueue: s.styleEditQueue.filter((e) => e.artboardId !== artboardId) })),
 
+  childrenStyleEditQueue: [],
+  patchChildrenStyleEdit: (artboardId, parentNodeId, selector, property, value) =>
+    set((s) => ({ childrenStyleEditQueue: [...s.childrenStyleEditQueue, { artboardId, parentNodeId, selector, property, value }] })),
+  clearChildrenStyleEdits: (artboardId) =>
+    set((s) => ({ childrenStyleEditQueue: s.childrenStyleEditQueue.filter((e) => e.artboardId !== artboardId) })),
+
   removeElementEvent: null,
   dispatchRemoveElement: (artboardId, nodeId) =>
     set({ removeElementEvent: { artboardId, nodeId } }),
   clearRemoveElement: () => set({ removeElementEvent: null }),
+
+  selectedElementMode: null,
+  setSelectedElementMode: (mode) => set({ selectedElementMode: mode }),
+
+  indexerStatus: 'offline',
+  setIndexerStatus: (status) => set({ indexerStatus: status }),
+
+  projectMeta: null,
+  setProjectMeta: (meta) => set({ projectMeta: meta }),
 }));

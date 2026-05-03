@@ -1,28 +1,40 @@
-// ── HTML Injection ───────────────────────────────────────────────────────────
+// -- HTML Injection ----------------------------------------------------------
 // Injects the Originmain fiber hook <script> into an HTML response body.
 // The script must appear BEFORE any other scripts so that
 // __REACT_DEVTOOLS_GLOBAL_HOOK__ is installed before React evaluates.
+//
+// Also injects window.__OM_INDEX_URL__ (AST indexer API) and
+// window.__OM_ISO_BASE__ (isolation artboard base path) so the canvas can
+// discover the indexer without any out-of-band coordination.
 
 import { buildProxyFiberHookScript } from '@originmain/renderer';
 
 /** The fiber hook script wrapped in a <script> tag, generated once at startup. */
-let cachedScriptTag: string | undefined;
+let cachedFiberTag: string | undefined;
 
-function getScriptTag(): string {
-  if (cachedScriptTag === undefined) {
-    cachedScriptTag = `<script data-originmain-fiber-hook>${buildProxyFiberHookScript()}</script>`;
+function getFiberTag(): string {
+  if (cachedFiberTag === undefined) {
+    cachedFiberTag = `<script data-originmain-fiber-hook>${buildProxyFiberHookScript()}</script>`;
   }
-  return cachedScriptTag;
+  return cachedFiberTag;
+}
+
+/**
+ * Build the bridge config <script> tag.
+ * Not cached because indexUrl may vary per process invocation.
+ */
+function getBridgeConfigTag(indexUrl: string | null | undefined): string {
+  const indexUrlJson = indexUrl ? JSON.stringify(indexUrl) : 'null';
+  return (
+    `<script data-originmain-bridge-config>` +
+    `window.__OM_INDEX_URL__=${indexUrlJson};` +
+    `window.__OM_ISO_BASE__="/__om_isolation__";` +
+    `</script>`
+  );
 }
 
 /**
  * Strip inline Content-Security-Policy meta tags from HTML.
- *
- * The proxy already removes the CSP response header, but some frameworks
- * (e.g. Next.js with a custom _document) also embed CSP inside a meta tag.
- * A meta CSP applies to the entire document — including scripts parsed before
- * it — so our injected hook can be silently blocked even though it runs first.
- * Removing these tags lets the hook execute freely inside the sandboxed iframe.
  */
 function stripMetaCsp(html: string): string {
   return html.replace(
@@ -32,34 +44,26 @@ function stripMetaCsp(html: string): string {
 }
 
 /**
- * Inject the fiber hook script into an HTML string.
- *
- * Steps:
- * 1. Strip any inline Content-Security-Policy meta tags that could block the
- *    injected script (the CSP response header is stripped by the proxy itself).
- * 2. Insert the hook script immediately after the opening <head> tag
- *    (preferred), after <html> (fallback), or prepend to the document (final
- *    fallback). Placing it first ensures __REACT_DEVTOOLS_GLOBAL_HOOK__ is
- *    registered before React's module body runs.
+ * Inject the fiber hook + bridge config scripts into an HTML string.
  */
-export function injectFiberHook(html: string): string {
-  const tag     = getScriptTag();
-  const cleaned = stripMetaCsp(html);
+export function injectFiberHook(html: string, indexUrl?: string | null): string {
+  const injection = getBridgeConfigTag(indexUrl) + getFiberTag();
+  const cleaned   = stripMetaCsp(html);
 
   // Try after <head>
-  const headMatch = /<head[^>]*>/i.exec(cleaned);
-  if (headMatch) {
+  const headMatch = cleaned.match(/<head[^>]*>/i);
+  if (headMatch?.index !== undefined) {
     const insertAt = headMatch.index + headMatch[0].length;
-    return cleaned.slice(0, insertAt) + tag + cleaned.slice(insertAt);
+    return cleaned.slice(0, insertAt) + injection + cleaned.slice(insertAt);
   }
 
   // Try after <html>
-  const htmlMatch = /<html[^>]*>/i.exec(cleaned);
-  if (htmlMatch) {
+  const htmlMatch = cleaned.match(/<html[^>]*>/i);
+  if (htmlMatch?.index !== undefined) {
     const insertAt = htmlMatch.index + htmlMatch[0].length;
-    return cleaned.slice(0, insertAt) + tag + cleaned.slice(insertAt);
+    return cleaned.slice(0, insertAt) + injection + cleaned.slice(insertAt);
   }
 
   // Final fallback: prepend
-  return tag + cleaned;
+  return injection + cleaned;
 }

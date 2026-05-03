@@ -15,12 +15,15 @@ import type { IncomingMessage, ServerResponse,
               RequestOptions, ClientRequest }   from 'node:http';
 import type { Socket }                          from 'node:net';
 import { injectFiberHook }                      from './inject.js';
+import { handleIsolationRequest }               from './isolation-server.js';
 
 export interface ProxyOptions {
   /** Target dev server URL, e.g. "http://localhost:3000" */
   target: string;
   /** Port for the proxy to listen on (default: 4170) */
   port: number;
+  /** URL of the AST indexer API (null when --no-index). Injected as window.__OM_INDEX_URL__ */
+  indexUrl?: string | null;
 }
 
 /** Headers to strip from proxied responses (case-insensitive). */
@@ -66,6 +69,12 @@ export function startProxy(opts: ProxyOptions): { close: () => void } {
   const targetPort = parseInt(targetUrl.port || (isHttps ? '443' : '80'), 10);
 
   const server = createServer((clientReq: IncomingMessage, clientRes: ServerResponse) => {
+    // ── Intercept /__om_isolation__/* requests ────────────────────────────
+    if (clientReq.url?.startsWith('/__om_isolation__')) {
+      handleIsolationRequest(clientReq, clientRes);
+      return;
+    }
+
     // ── Build the outgoing request headers ────────────────────────────────
 
     const outHeaders: Record<string, string | string[]> = {};
@@ -160,7 +169,7 @@ export function startProxy(opts: ProxyOptions): { close: () => void } {
 
         proxyRes.on('end', () => {
           const rawHtml      = Buffer.concat(chunks).toString('utf-8');
-          const injectedHtml = injectFiberHook(rawHtml);
+          const injectedHtml = injectFiberHook(rawHtml, opts.indexUrl);
           const body         = Buffer.from(injectedHtml, 'utf-8');
 
           // Correct Content-Length and drop Transfer-Encoding: chunked.
@@ -249,13 +258,18 @@ export function startProxy(opts: ProxyOptions): { close: () => void } {
 
   // ── Start listening ───────────────────────────────────────────────────────
 
-  server.listen(opts.port, () => {
+  // H-5 fix: bind to loopback only — the proxy strips security headers and
+  // injects the fiber hook, so it must never be reachable from the LAN.
+  server.listen(opts.port, '127.0.0.1', () => {
     const proxyUrl = `http://localhost:${opts.port}`;
     console.log('');
     console.log('  \x1b[36m\x1b[1mOriginmain\x1b[0m proxy running');
     console.log('');
     console.log(`  Target:  ${opts.target}`);
     console.log(`  Proxy:   \x1b[1m${proxyUrl}\x1b[0m`);
+    if (opts.indexUrl) {
+      console.log(`  Indexer: \x1b[1m${opts.indexUrl}\x1b[0m`);
+    }
     console.log('');
     console.log('  Paste the proxy URL into your Originmain artboard\'s');
     console.log('  "Connect app" field to enable live rendering.');
@@ -263,6 +277,10 @@ export function startProxy(opts: ProxyOptions): { close: () => void } {
     console.log('  \x1b[2mFiber hook injection ........ active\x1b[0m');
     console.log('  \x1b[2mX-Frame-Options stripping ... active\x1b[0m');
     console.log('  \x1b[2mWebSocket passthrough ....... active\x1b[0m');
+    console.log(opts.indexUrl
+      ? '  \x1b[2mAST indexer ................. active\x1b[0m'
+      : '  \x1b[2mAST indexer ................. disabled (--no-index)\x1b[0m',
+    );
     if (isHttps) {
       console.log('  \x1b[2mHTTPS → HTTP bridge ......... active\x1b[0m');
     }

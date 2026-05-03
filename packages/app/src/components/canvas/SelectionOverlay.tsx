@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useHistory } from '@/store/history';
 import { useCanvas } from '@/store/canvas';
+import { useViewport } from '@/store/viewport';
 import type { FiberNode, DOMRectLike } from '@originmain/renderer';
 import type { PropChange } from '@originmain/diff-engine';
 
@@ -37,6 +38,11 @@ export function SelectionOverlay({
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const pushEdit = useHistory(s => s.pushEdit);
   const { dispatchRemoveElement } = useCanvas();
+  // C-3 fix: domRect values come from getBoundingClientRect() inside the iframe —
+  // they are in the iframe's own unscaled coordinate space (0..frameWidth/Height).
+  // Mouse events on the overlay are in screen space, which is scaled by canvas zoom.
+  // We must divide by zoom to convert screen-space click coords to iframe-space.
+  const zoom = useViewport(s => s.zoom);
 
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -48,8 +54,9 @@ export function SelectionOverlay({
       }
 
       const overlayRect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
-      const clickX = e.clientX - overlayRect.left;
-      const clickY = e.clientY - overlayRect.top;
+      // Convert screen-space coords to iframe-space by dividing by zoom.
+      const clickX = (e.clientX - overlayRect.left) / zoom;
+      const clickY = (e.clientY - overlayRect.top) / zoom;
 
       const hit = hitTestFiber(fiberRoot, clickX, clickY);
       if (hit) {
@@ -61,19 +68,19 @@ export function SelectionOverlay({
         onSelectionChange?.(null);
       }
     },
-    [fiberRoot, onSelectionChange]
+    [fiberRoot, onSelectionChange, zoom]
   );
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (!fiberRoot) return;
       const overlayRect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
-      const x = e.clientX - overlayRect.left;
-      const y = e.clientY - overlayRect.top;
+      const x = (e.clientX - overlayRect.left) / zoom;
+      const y = (e.clientY - overlayRect.top) / zoom;
       const hit = hitTestFiber(fiberRoot, x, y);
       setHoveredId(hit?.id ?? null);
     },
-    [fiberRoot]
+    [fiberRoot, zoom]
   );
 
   const handleKeyDown = useCallback(

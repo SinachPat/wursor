@@ -13,6 +13,14 @@ export interface FiberNode {
   props: Record<string, unknown>;
   children: FiberNode[];
   domRect?: DOMRectLike;
+  /** JSX call site: the file + line where <ComponentName /> was written (not its definition).
+   *  Only present in React dev builds (__DEV__ = true). Absent in production.
+   *  Renamed from `sourceFile` to `callSite` for accuracy — see Phase 1 §4.2. */
+  callSite?: {
+    fileName: string;
+    lineNumber: number;
+    columnNumber?: number;
+  };
 }
 
 export interface DOMRectLike {
@@ -34,6 +42,9 @@ export type HostMessage =
   /** Apply a single CSS property override directly to the component's DOM element.
    *  Non-destructive — sets inline style only; source files are unchanged. */
   | { type: 'PATCH_ELEMENT_STYLE'; nodeId: string; property: string; value: string }
+  /** Apply a CSS property to all matching direct children of a node.
+   *  Used for paragraph-spacing: patches margin-bottom on each direct <p> child. */
+  | { type: 'PATCH_CHILDREN_STYLE'; parentNodeId: string; selector: string; property: string; value: string }
   /** Hide a component's DOM element (sets display:none). Non-destructive. */
   | { type: 'REMOVE_ELEMENT'; nodeId: string };
 
@@ -51,8 +62,17 @@ export type RendererMessage =
   | { type: 'COMPONENT_SELECTED'; nodeId: string; nodeName?: string; rect: DOMRectLike }
   | { type: 'COMPONENT_DESELECTED' }
   | { type: 'ERROR'; message: string }
-  /** Response to REQUEST_ELEMENT_STYLES — computed CSS properties for the node. */
-  | { type: 'ELEMENT_STYLES'; nodeId: string; styles: Record<string, string> }
+  /** Response to REQUEST_ELEMENT_STYLES — computed CSS properties for the node.
+   *  Also includes structural flags used by the Typography section of the Design Panel. */
+  | {
+      type: 'ELEMENT_STYLES';
+      nodeId: string;
+      styles: Record<string, string>;
+      /** true if the DOM element has a direct TEXT_NODE child with non-whitespace content */
+      hasDirectText: boolean;
+      /** true if the DOM element has at least one direct <p> child */
+      hasParagraphChildren: boolean;
+    }
   /** All discoverable routes found in the running app — sent once after READY
    *  and again after each SPA navigation. */
   | { type: 'ROUTES_DISCOVERED'; routes: Array<{ path: string; label: string }> };

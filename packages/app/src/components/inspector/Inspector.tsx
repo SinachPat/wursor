@@ -10,6 +10,14 @@ import { useCanvasTheme } from '@/store/canvasTheme';
 import type { PropChange } from '@originmain/diff-engine';
 import type { FiberNode } from '@originmain/renderer';
 import type { Artboard, IntentDiff } from '@originmain/origin-graph';
+import { FrameSection } from './sections/FrameSection';
+import { LayoutSection } from './sections/LayoutSection';
+import { FillSection } from './sections/FillSection';
+import { StrokeSection } from './sections/StrokeSection';
+import { EffectsSection } from './sections/EffectsSection';
+import { TypographySection } from './sections/TypographySection';
+import { BoxModelSection } from './sections/BoxModelSection';
+import { ConstraintsSection } from './sections/ConstraintsSection';
 
 const TYPE_COLORS: Record<string, string> = {
   s: '#7DD3A8',
@@ -99,6 +107,7 @@ export function Inspector() {
           <DesignTab
             artboardId={selectedArtboardId}
             componentId={selectedComponentId}
+            componentData={selectedComponentData}
             styles={selectedComponentStyles}
           />
         ) : tab === 'props' ? (
@@ -523,14 +532,16 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 function DesignTab({
   artboardId,
   componentId,
+  componentData,
   styles,
 }: {
   artboardId: string | null;
   componentId: string | null;
+  componentData: FiberNode | null;
   styles: Record<string, string> | null;
 }) {
   const T = useCanvasTheme();
-  const { patchStyleEdit } = useCanvas();
+  const { patchStyleEdit, patchChildrenStyleEdit, indexerStatus, selectedComponentHasDirectText, selectedComponentHasParagraphChildren } = useCanvas();
 
   if (!artboardId) {
     return (
@@ -571,239 +582,98 @@ function DesignTab({
     patchStyleEdit(artboardId, componentId, prop, val);
   };
 
-  const s = styles;
-  const hasFill       = !isTransparent(s['background-color']);
-  const hasTextColor  = !!s['color'] && !isTransparent(s['color']);
-  const hasTypography = !!(s['font-size'] || s['font-family']);
-  const isFlexLayout  = s['display'] === 'flex' || s['display'] === 'inline-flex';
-  const hasBorder     = !!(s['border-width'] && s['border-width'] !== '0px');
+  const patchChildren = (selector: string, prop: string, val: string) => {
+    if (!artboardId || !componentId) return;
+    patchChildrenStyleEdit(artboardId, componentId, selector, prop, val);
+  };
+
+  // ── Derive call-site display ──────────────────────────────────────
+  const callSite = componentData?.callSite;
+  const callSiteLabel = callSite
+    ? (() => {
+        // Show the last two path segments for readability: "app/page.tsx:34"
+        const parts = callSite.fileName.replace(/\\/g, '/').split('/');
+        const short = parts.slice(-2).join('/');
+        return `${short}:${callSite.lineNumber}`;
+      })()
+    : null;
+
+  // ── Indexer status dot ────────────────────────────────────────────
+  const indexerDot = {
+    offline:  { color: T.dim,       title: 'CLI indexer offline' },
+    indexing: { color: '#FFBA7B',   title: 'Indexing…'           },
+    ready:    { color: '#7DD3A8',   title: 'Indexer ready'       },
+  }[indexerStatus];
 
   return (
     <>
-      {/* ── Dimensions ────────────────────────────────────── */}
-      <div style={{ padding: '10px 14px 8px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 10px' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <FieldLabel>W</FieldLabel>
-            <NumInput value={s['width'] ?? '0px'} propKey="width" onPatch={patch} inputWidth={88} />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <FieldLabel>H</FieldLabel>
-            <NumInput value={s['height'] ?? '0px'} propKey="height" onPatch={patch} inputWidth={88} />
-          </div>
-        </div>
-      </div>
-      <HSep />
-
-      {/* ── Fill ─────────────────────────────────────────── */}
-      {hasFill && (
-        <>
-          <div style={{ padding: '8px 14px' }}>
-            <DesignSectionLabel>Fill</DesignSectionLabel>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <ColorInput value={s['background-color'] ?? ''} propKey="background-color" onPatch={patch} />
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
-                <FieldLabel>A%</FieldLabel>
-                <NumInput
-                  value={rgbaAlpha(s['background-color'] ?? '') + '%'}
-                  propKey="_bgAlpha"
-                  onPatch={(_, v) => {
-                    const pct = parseFloat(v.replace('%', ''));
-                    if (!isNaN(pct)) patch('opacity', String(Math.min(1, Math.max(0, pct / 100))));
-                  }}
-                  inputWidth={44}
-                />
-              </div>
-            </div>
-          </div>
-          <HSep />
-        </>
-      )}
-
-      {/* ── Text colour ───────────────────────────────────── */}
-      {hasTextColor && (
-        <>
-          <div style={{ padding: '8px 14px' }}>
-            <DesignSectionLabel>Text Color</DesignSectionLabel>
-            <ColorInput value={s['color'] ?? ''} propKey="color" onPatch={patch} />
-          </div>
-          <HSep />
-        </>
-      )}
-
-      {/* ── Typography ────────────────────────────────────── */}
-      {hasTypography && (
-        <>
-          <div style={{ padding: '8px 14px' }}>
-            <DesignSectionLabel>Typography</DesignSectionLabel>
-
-            {s['font-family'] && (
-              <div style={{ marginBottom: 6 }}>
-                <TextInput value={s['font-family']} propKey="font-family" onPatch={patch} fullWidth />
-              </div>
-            )}
-
-            {/* Size / Weight / Line-height */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 4, marginBottom: 6 }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <FieldLabel>Size</FieldLabel>
-                <NumInput value={s['font-size'] ?? '14px'} propKey="font-size" onPatch={patch} />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <FieldLabel>Weight</FieldLabel>
-                <NumInput value={s['font-weight'] ?? '400'} propKey="font-weight" onPatch={patch} />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <FieldLabel>Line H</FieldLabel>
-                <NumInput value={s['line-height'] ?? 'normal'} propKey="line-height" onPatch={patch} />
-              </div>
-            </div>
-
-            {/* Letter-spacing + text-align toggles */}
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <FieldLabel>Track</FieldLabel>
-                <NumInput value={s['letter-spacing'] ?? '0px'} propKey="letter-spacing" onPatch={patch} inputWidth={52} />
-              </div>
-              <TextAlignToggle
-                value={s['text-align'] ?? 'left'}
-                onPatch={(v) => patch('text-align', v)}
-              />
-            </div>
-          </div>
-          <HSep />
-        </>
-      )}
-
-      {/* ── Layout ────────────────────────────────────────── */}
-      <div style={{ padding: '8px 14px' }}>
-        <DesignSectionLabel>Layout</DesignSectionLabel>
-
-        {/* Display */}
-        <div style={{ display: 'flex', gap: 4, marginBottom: 6, alignItems: 'center' }}>
-          <FieldLabel>Display</FieldLabel>
-          <CssSelect
-            value={s['display'] ?? 'block'}
-            propKey="display"
-            options={[
-              { val: 'block',        label: 'block'        },
-              { val: 'flex',         label: 'flex'         },
-              { val: 'inline-flex',  label: 'inline-flex'  },
-              { val: 'grid',         label: 'grid'         },
-              { val: 'inline-block', label: 'inline-block' },
-              { val: 'inline',       label: 'inline'       },
-              { val: 'none',         label: 'none'         },
-            ]}
-            onPatch={patch}
+      {/* ── Component identity header ────────────────────────────── */}
+      <div style={{
+        padding: '10px 14px 8px',
+        borderBottom: `1px solid ${T.sep}`,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 4,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {/* Component name */}
+          <span style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: '0.6875rem',
+            fontWeight: 600,
+            color: T.fg,
+            letterSpacing: '-0.01em',
+            flex: 1,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}>
+            {componentData?.name ?? componentId}
+          </span>
+          {/* Indexer dot */}
+          <div
+            title={indexerDot.title}
+            style={{
+              width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+              background: indexerDot.color,
+              boxShadow: indexerStatus === 'ready' ? `0 0 5px ${indexerDot.color}` : 'none',
+              transition: 'background 0.3s',
+            }}
           />
         </div>
-
-        {/* Flex controls */}
-        {isFlexLayout && (
-          <>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 6, alignItems: 'flex-end' }}>
-              <FlexDirToggle
-                value={s['flex-direction'] ?? 'row'}
-                onPatch={(v) => patch('flex-direction', v)}
-              />
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <FieldLabel>Gap</FieldLabel>
-                <NumInput value={s['gap'] ?? '0px'} propKey="gap" onPatch={patch} inputWidth={48} />
-              </div>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, marginBottom: 6 }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <FieldLabel>Align</FieldLabel>
-                <CssSelect
-                  value={s['align-items'] ?? 'stretch'}
-                  propKey="align-items"
-                  options={[
-                    { val: 'flex-start', label: 'start'    },
-                    { val: 'center',     label: 'center'   },
-                    { val: 'flex-end',   label: 'end'      },
-                    { val: 'stretch',    label: 'stretch'  },
-                    { val: 'baseline',   label: 'baseline' },
-                  ]}
-                  onPatch={patch}
-                />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <FieldLabel>Justify</FieldLabel>
-                <CssSelect
-                  value={s['justify-content'] ?? 'flex-start'}
-                  propKey="justify-content"
-                  options={[
-                    { val: 'flex-start',    label: 'start'   },
-                    { val: 'center',        label: 'center'  },
-                    { val: 'flex-end',      label: 'end'     },
-                    { val: 'space-between', label: 'between' },
-                    { val: 'space-around',  label: 'around'  },
-                    { val: 'space-evenly',  label: 'evenly'  },
-                  ]}
-                  onPatch={patch}
-                />
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* Padding — 4-corner grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 4 }}>
-          {[
-            { label: '↑', prop: 'padding-top'    },
-            { label: '→', prop: 'padding-right'  },
-            { label: '↓', prop: 'padding-bottom' },
-            { label: '←', prop: 'padding-left'   },
-          ].map(({ label, prop }) => (
-            <div key={prop} style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center' }}>
-              <FieldLabel>{label}</FieldLabel>
-              <NumInput value={s[prop] ?? '0px'} propKey={prop} onPatch={patch} inputWidth={38} />
-            </div>
-          ))}
-        </div>
-      </div>
-      <HSep />
-
-      {/* ── Appearance ────────────────────────────────────── */}
-      <div style={{ padding: '8px 14px 10px' }}>
-        <DesignSectionLabel>Appearance</DesignSectionLabel>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 10px', marginBottom: 6 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <FieldLabel>Radius</FieldLabel>
-            <NumInput value={s['border-radius'] ?? '0px'} propKey="border-radius" onPatch={patch} inputWidth={88} />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <FieldLabel>Opacity</FieldLabel>
-            <NumInput value={s['opacity'] ?? '1'} propKey="opacity" onPatch={patch} inputWidth={88} />
-          </div>
-        </div>
-
-        {/* Border — only show if there's a visible border */}
-        {hasBorder && (
-          <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end' }}>
-            <div style={{ flex: 1 }}>
-              <FieldLabel>Border Color</FieldLabel>
-              <div style={{ marginTop: 2 }}>
-                <ColorInput value={s['border-color'] ?? '#000000'} propKey="border-color" onPatch={patch} />
-              </div>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <FieldLabel>Width</FieldLabel>
-              <NumInput value={s['border-width'] ?? '0px'} propKey="border-width" onPatch={patch} inputWidth={44} />
-            </div>
-          </div>
-        )}
-
-        {/* Box shadow — if present */}
-        {s['box-shadow'] && s['box-shadow'] !== 'none' && (
-          <div style={{ marginTop: 6 }}>
-            <FieldLabel>Shadow</FieldLabel>
-            <div style={{ marginTop: 2 }}>
-              <TextInput value={s['box-shadow']} propKey="box-shadow" onPatch={patch} fullWidth />
-            </div>
-          </div>
+        {/* Call-site breadcrumb — "used in app/page.tsx:34" */}
+        {callSiteLabel && (
+          <span style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: '0.5rem',
+            color: T.dim,
+            letterSpacing: '0.02em',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+            title={`${callSite?.fileName}:${callSite?.lineNumber}`}
+          >
+            ↳ {callSiteLabel}
+          </span>
         )}
       </div>
+
+      {/* ── Section components ───────────────────────────────────── */}
+      <FrameSection       styles={styles} onPatch={patch} />
+      <ConstraintsSection styles={styles} onPatch={patch} />
+      <LayoutSection      styles={styles} onPatch={patch} />
+      <FillSection        styles={styles} onPatch={patch} />
+      <StrokeSection      styles={styles} onPatch={patch} />
+      <TypographySection
+        styles={styles}
+        hasDirectText={selectedComponentHasDirectText}
+        hasParagraphChildren={selectedComponentHasParagraphChildren}
+        onPatch={patch}
+        onPatchChildren={patchChildren}
+      />
+      <EffectsSection     styles={styles} onPatch={patch} />
+      <BoxModelSection    styles={styles} onPatch={patch} />
     </>
   );
 }

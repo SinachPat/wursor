@@ -43,7 +43,7 @@ const DIFF_STATUS_BADGE: Record<string, { color: string; bg: string; label: stri
 export function Artboard({ id, label, x, y, width, height, renderUrl, route, onRoutesDiscovered }: ArtboardProps) {
   const {
     selectedArtboardId, selectArtboard, workspaceId, projectId,
-    setArtboardLive, setFiberRoot, selectComponent, setComponentStyles,
+    setArtboardLive, setFiberRoot, selectComponent, setComponentStyles, setComponentTextFlags,
     selectedComponentId,
   } = useCanvas();
   const selected = selectedArtboardId === id;
@@ -81,14 +81,20 @@ export function Artboard({ id, label, x, y, width, height, renderUrl, route, onR
     selectComponent(nodeId, node ?? null);
   }, [localFiberRoot, selectComponent, setComponentStyles]);
 
-  const handleComponentStylesUpdate = useCallback((nodeId: string, styles: Record<string, string>) => {
+  const handleComponentStylesUpdate = useCallback((
+    nodeId: string,
+    styles: Record<string, string>,
+    hasDirectText: boolean,
+    hasParagraphChildren: boolean,
+  ) => {
     // Guard against stale responses arriving after the user has already clicked
     // a different component — only apply if artboard and node both still match.
     const { selectedComponentId: currentId, selectedArtboardId: currentArtboard } = useCanvas.getState();
     if (currentArtboard === id && currentId === nodeId) {
       setComponentStyles(styles);
+      setComponentTextFlags(hasDirectText, hasParagraphChildren);
     }
-  }, [id, setComponentStyles]);
+  }, [id, setComponentStyles, setComponentTextFlags]);
 
   // ── Drag to reposition ─────────────────────────────────────────────────────
   const isDragging    = useRef(false);
@@ -144,8 +150,14 @@ export function Artboard({ id, label, x, y, width, height, renderUrl, route, onR
       fetch(`/api/artboards/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
+        // H-6 fix: `route` was omitted from the PATCH body, so every drag
+        // silently reset the artboard's SPA route back to undefined (root '/').
         body: JSON.stringify({
-          metadata_jsonb: { x: newX, y: newY, width, height, ...(renderUrl ? { renderUrl } : {}) },
+          metadata_jsonb: {
+            x: newX, y: newY, width, height,
+            ...(renderUrl ? { renderUrl } : {}),
+            ...(route    ? { route }     : {}),
+          },
         }),
       }).then(() => {
         queryClient.invalidateQueries({ queryKey: ['artboards', workspaceId, projectId ?? undefined] });

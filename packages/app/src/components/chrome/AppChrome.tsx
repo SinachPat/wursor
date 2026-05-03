@@ -13,6 +13,7 @@ import { useViewport } from '@/store/viewport';
 import { useTheme } from '@/store/theme';
 import { useCanvasTheme } from '@/store/canvasTheme';
 import { useWalkthrough } from '@/store/walkthrough';
+import { useIndexer } from '@/hooks/useIndexer';
 
 interface AppChromeProps {
   workspaceId?: string;
@@ -28,6 +29,9 @@ export function AppChrome({ workspaceId, projectId, workspaceName, projectName }
   const { mode: themeMode, toggle: toggleTheme } = useTheme();
   const CT = useCanvasTheme();
   const startTour = useWalkthrough((s) => s.start);
+
+  // Connect to the CLI AST indexer (reads window.__OM_INDEX_URL__, no-op if absent)
+  useIndexer();
 
   // Push workspace/project IDs into the store so Canvas and Navigator can read them.
   useEffect(() => {
