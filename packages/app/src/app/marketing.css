@@ -101,6 +101,29 @@
   background: rgba(15,15,17,0.98);
 }
 
+/* ── Dark-mode button corrections ──────────────────────────────
+   The default --border-2 token (rgba(255,255,255,0.12)) is too faint
+   on near-black backgrounds. Lift secondary button borders and hover
+   states so they're clearly legible without the light-mode definition.  */
+[data-theme="dark"] .mkt-btn-secondary {
+  border-color: rgba(255,255,255,0.22);
+}
+[data-theme="dark"] .mkt-btn-secondary:hover {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.32);
+}
+
+/* Primary-button ::after hover overlay is white-on-white in dark mode
+   (white button, white overlay = invisible). Flip it to a dark tint. */
+[data-theme="dark"] .mkt-btn-primary::after,
+[data-theme="dark"] .mkt-btn-white::after {
+  background: rgba(0,0,0,0) !important;
+}
+[data-theme="dark"] .mkt-btn-primary:hover::after,
+[data-theme="dark"] .mkt-btn-white:hover::after {
+  background: rgba(0,0,0,0.08) !important;
+}
+
 /* ── Marketing page body reset ─────────────────────────────── */
 .mkt-root {
   font-family: var(--font);
@@ -217,10 +240,10 @@
 
 .mkt-btn-outline-white {
   background: transparent;
-  color: rgba(255,255,255,0.72);
-  border: 1px solid rgba(255,255,255,0.18);
+  color: rgba(255,255,255,0.82);
+  border: 1px solid rgba(255,255,255,0.28);
 }
-.mkt-btn-outline-white:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.9); transform: translateY(-1px); }
+.mkt-btn-outline-white:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.96); border-color: rgba(255,255,255,0.42); transform: translateY(-1px); }
 
 .mkt-btn-lg { font-size: 1rem; padding: 13px 28px; }
 .mkt-btn-xl { font-size: 1.0625rem; padding: 15px 34px; border-radius: var(--r-3); }
