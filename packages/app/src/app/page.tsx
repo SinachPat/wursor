@@ -138,7 +138,7 @@ export default function MarketingPage() {
       {/* ── Navigation ─────────────────────────────────────────────────── */}
       <nav id="mkt-nav" className={navScrolled ? 'scrolled' : ''}>
         <div className="mkt-nav-inner">
-          <a href="#" className="mkt-nav-logo">Origin<span>main</span></a>
+          <Link href="/" className="mkt-nav-logo">Origin<span>main</span></Link>
 
           <ul className="mkt-nav-links">
             <li
@@ -154,49 +154,49 @@ export default function MarketingPage() {
                 onMouseEnter={openDd}
                 onMouseLeave={schedDd}
               >
-                <a className="mkt-nav-dd-item" href="/features/live-artboard">
+                <Link className="mkt-nav-dd-item" href="/features/live-artboard">
                   <div className="mkt-nav-dd-icon"><IconArtboard /></div>
                   <div className="mkt-nav-dd-text">
                     <span className="mkt-nav-dd-name">Live Artboard</span>
                     <span className="mkt-nav-dd-desc">Your app rendered live in the canvas</span>
                   </div>
-                </a>
-                <a className="mkt-nav-dd-item" href="/features/origin-graph">
+                </Link>
+                <Link className="mkt-nav-dd-item" href="/features/origin-graph">
                   <div className="mkt-nav-dd-icon"><IconGraph /></div>
                   <div className="mkt-nav-dd-text">
                     <span className="mkt-nav-dd-name">Origin Graph</span>
                     <span className="mkt-nav-dd-desc">Every component, indexed and queryable</span>
                   </div>
-                </a>
-                <a className="mkt-nav-dd-item" href="/features/intent-diff">
+                </Link>
+                <Link className="mkt-nav-dd-item" href="/features/intent-diff">
                   <div className="mkt-nav-dd-icon"><IconDiff /></div>
                   <div className="mkt-nav-dd-text">
                     <span className="mkt-nav-dd-name">Intent Diff</span>
                     <span className="mkt-nav-dd-desc">Ship component-level diffs, not redlines</span>
                   </div>
-                </a>
+                </Link>
                 <div className="mkt-nav-dd-sep" />
-                <a className="mkt-nav-dd-item" href="/features/completion-zone">
+                <Link className="mkt-nav-dd-item" href="/features/completion-zone">
                   <div className="mkt-nav-dd-icon"><IconStar /></div>
                   <div className="mkt-nav-dd-text">
                     <span className="mkt-nav-dd-name">Completion Zone</span>
                     <span className="mkt-nav-dd-desc">AI-filled design, constrained to your system</span>
                   </div>
-                </a>
-                <a className="mkt-nav-dd-item" href="/features/agent-bridge">
+                </Link>
+                <Link className="mkt-nav-dd-item" href="/features/agent-bridge">
                   <div className="mkt-nav-dd-icon"><IconBridge /></div>
                   <div className="mkt-nav-dd-text">
                     <span className="mkt-nav-dd-name">Agent Bridge</span>
                     <span className="mkt-nav-dd-desc">MCP channel to Cursor, Claude Code & more</span>
                   </div>
-                </a>
-                <a className="mkt-nav-dd-item" href="/features/integrations">
+                </Link>
+                <Link className="mkt-nav-dd-item" href="/features/integrations">
                   <div className="mkt-nav-dd-icon"><IconLink /></div>
                   <div className="mkt-nav-dd-text">
                     <span className="mkt-nav-dd-name">Integrations</span>
                     <span className="mkt-nav-dd-desc">Linear, Slack, GitHub, Figma & more</span>
                   </div>
-                </a>
+                </Link>
               </div>
             </li>
             <li><a href="#mkt-integrations">Integrations</a></li>
@@ -236,12 +236,12 @@ export default function MarketingPage() {
                 </svg>
               </a>
               <div className={`mkt-nav-mobile-sub${mobileSubOpen ? ' open' : ''}`}>
-                <a href="/features/live-artboard" onClick={() => setMobileOpen(false)}>Live Artboard</a>
-                <a href="/features/origin-graph" onClick={() => setMobileOpen(false)}>Origin Graph</a>
-                <a href="/features/intent-diff" onClick={() => setMobileOpen(false)}>Intent Diff</a>
-                <a href="/features/completion-zone" onClick={() => setMobileOpen(false)}>Completion Zone</a>
-                <a href="/features/agent-bridge" onClick={() => setMobileOpen(false)}>Agent Bridge</a>
-                <a href="/features/integrations" onClick={() => setMobileOpen(false)}>Integrations</a>
+                <Link href="/features/live-artboard" onClick={() => setMobileOpen(false)}>Live Artboard</Link>
+                <Link href="/features/origin-graph" onClick={() => setMobileOpen(false)}>Origin Graph</Link>
+                <Link href="/features/intent-diff" onClick={() => setMobileOpen(false)}>Intent Diff</Link>
+                <Link href="/features/completion-zone" onClick={() => setMobileOpen(false)}>Completion Zone</Link>
+                <Link href="/features/agent-bridge" onClick={() => setMobileOpen(false)}>Agent Bridge</Link>
+                <Link href="/features/integrations" onClick={() => setMobileOpen(false)}>Integrations</Link>
               </div>
             </li>
             <li><a href="#mkt-integrations" onClick={() => setMobileOpen(false)}>Integrations</a></li>
@@ -467,7 +467,7 @@ export default function MarketingPage() {
               <li><span className="mkt-feat-point-icon"><IconGraph /></span>Changes in the canvas write back to your component props — no round trips.</li>
               <li><span className="mkt-feat-point-icon">⚡</span>Hot reload and real-time data. The canvas reflects your app state at all times.</li>
             </ul>
-            <a href="/features/live-artboard" className="mkt-btn mkt-btn-primary">See it in action →</a>
+            <Link href="/features/live-artboard" className="mkt-btn mkt-btn-primary">See it in action →</Link>
           </div>
           <div className="mkt-feat-visual mkt-feat-visual-dark mkt-reveal">
             <div className="mkt-fv-artboard-scene">
@@ -498,7 +498,7 @@ export default function MarketingPage() {
               <li><span className="mkt-feat-point-icon">🤖</span>Agents receive the diff and apply it precisely — no interpretation required.</li>
               <li><span className="mkt-feat-point-icon">✓</span>Parity is verified automatically. The canvas confirms the result.</li>
             </ul>
-            <a href="/features/intent-diff" className="mkt-btn mkt-btn-primary">Explore Intent Diff →</a>
+            <Link href="/features/intent-diff" className="mkt-btn mkt-btn-primary">Explore Intent Diff →</Link>
           </div>
           <div className="mkt-feat-visual mkt-feat-visual-dark mkt-reveal">
             <div className="mkt-fv-diff-scene">
@@ -530,7 +530,7 @@ export default function MarketingPage() {
               <li><span className="mkt-feat-point-icon"><IconLink /></span>Completion Zone uses the graph to constrain AI suggestions to your design language.</li>
               <li><span className="mkt-feat-point-icon"><IconBridge /></span>Agent Bridge exposes the graph to external AI tools via MCP protocol.</li>
             </ul>
-            <a href="/features/origin-graph" className="mkt-btn mkt-btn-primary">Explore the Graph →</a>
+            <Link href="/features/origin-graph" className="mkt-btn mkt-btn-primary">Explore the Graph →</Link>
           </div>
           <div className="mkt-feat-visual mkt-feat-visual-dark mkt-reveal" style={{ position: 'relative' }}>
             <div className="mkt-fv-graph-scene">
@@ -964,12 +964,12 @@ export default function MarketingPage() {
             <div className="mkt-ft-col">
               <h4>Product</h4>
               <ul>
-                <li><a href="/features/live-artboard">Live Artboard</a></li>
-                <li><a href="/features/origin-graph">Origin Graph</a></li>
-                <li><a href="/features/intent-diff">Intent Diff</a></li>
-                <li><a href="/features/completion-zone">Completion Zone</a></li>
-                <li><a href="/features/agent-bridge">Agent Bridge</a></li>
-                <li><a href="/features/integrations">Integrations</a></li>
+                <li><Link href="/features/live-artboard">Live Artboard</Link></li>
+                <li><Link href="/features/origin-graph">Origin Graph</Link></li>
+                <li><Link href="/features/intent-diff">Intent Diff</Link></li>
+                <li><Link href="/features/completion-zone">Completion Zone</Link></li>
+                <li><Link href="/features/agent-bridge">Agent Bridge</Link></li>
+                <li><Link href="/features/integrations">Integrations</Link></li>
                 <li><a href="#mkt-pricing">Pricing</a></li>
               </ul>
             </div>

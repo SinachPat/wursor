@@ -90,15 +90,12 @@
   --sh-product: 0 48px 96px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.05);
 }
 
-[data-theme="dark"] #mkt-nav.scrolled {
-  background: rgba(10,10,10,0.88);
-}
-[data-theme="dark"] .mkt-nav-mobile {
-  background: rgba(10,10,10,0.97);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-}
-[data-theme="dark"] .mkt-nav-dropdown-menu {
-  background: rgba(15,15,17,0.98);
+/* ── Dark-mode comparison card hero fix ────────────────────────
+   The hero card has a hardcoded #06060E bg. In dark mode (--bg = #0A0A0A)
+   it vanishes against the page. Lift it to the elevated surface token.    */
+[data-theme="dark"] .mkt-cmp-card-hero {
+  background: var(--bg-strong);
+  box-shadow: 0 0 0 1px rgba(51,133,255,0.28), var(--sh-xl);
 }
 
 /* ── Dark-mode button corrections ──────────────────────────────
@@ -287,7 +284,8 @@
   transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
 #mkt-nav.scrolled {
-  background: rgba(255,255,255,0.85);
+  /* color-mix collapses the light/dark hardcoded rgba pairs into one token-aware rule */
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: blur(20px) saturate(1.6);
   -webkit-backdrop-filter: blur(20px) saturate(1.6);
   border-bottom: 1px solid var(--border);
@@ -388,11 +386,11 @@
   position: fixed;
   top: 60px; left: 0; right: 0;
   z-index: 199;
-  background: rgba(255,255,255,0.97);
+  background: color-mix(in srgb, var(--bg) 97%, transparent);
   backdrop-filter: blur(20px) saturate(1.6);
   -webkit-backdrop-filter: blur(20px) saturate(1.6);
   border-bottom: 1px solid var(--border);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.07);
+  box-shadow: var(--sh-lg);
   padding: 12px 24px 24px;
   flex-direction: column;
   gap: 2px;
@@ -435,7 +433,8 @@
   top: 100%;
   left: 50%;
   transform: translateX(-50%) translateY(-4px);
-  background: rgba(255,255,255,0.98);
+  /* --bg-subtle gives the dropdown a slight surface lift vs the page bg */
+  background: color-mix(in srgb, var(--bg-subtle) 98%, transparent);
   backdrop-filter: blur(20px);
   border: 1px solid var(--border);
   border-radius: var(--r-3);
@@ -472,7 +471,7 @@
   width: 30px; height: 30px;
   background: var(--blue-soft);
   border: 1px solid var(--blue-mid);
-  border-radius: 6px;
+  border-radius: var(--r-2);
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
   color: var(--blue);
@@ -516,10 +515,10 @@
 .mkt-product-shell {
   width: 100%;
   max-width: 1080px;
-  border-radius: 16px 16px 0 0;
+  border-radius: var(--r-4) var(--r-4) 0 0;
   overflow: hidden;
   box-shadow: var(--sh-product);
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid var(--border-inv);
   border-bottom: none;
   position: relative;
 }
@@ -605,7 +604,7 @@
 .mkt-p-dash-card { padding: 18px; }
 .mkt-p-dc-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
 .mkt-p-dc-title { font-size: 0.6875rem; font-weight: 600; color: #111; letter-spacing: -0.01em; }
-.mkt-p-dc-badge { font-size: 0.5625rem; background: #ECFDF5; color: #059669; padding: 2px 7px; border-radius: 99px; font-weight: 600; font-family: monospace; }
+.mkt-p-dc-badge { font-size: 0.5625rem; background: #ECFDF5; color: #059669; padding: 2px 7px; border-radius: 99px; font-weight: 600; font-family: var(--mono); }
 .mkt-p-dc-val { font-size: 1.375rem; font-weight: 800; color: #0A0A0A; letter-spacing: -0.045em; line-height: 1; margin-bottom: 5px; }
 .mkt-p-dc-delta { font-size: 0.625rem; color: #059669; font-weight: 600; margin-bottom: 14px; }
 .mkt-p-dc-bar { height: 3px; background: #F0F0F0; border-radius: 99px; overflow: hidden; margin-bottom: 14px; }
@@ -660,7 +659,7 @@
 .mkt-feat-visual-dark { background: #0D0D11; border-color: rgba(255,255,255,0.07); }
 .mkt-fv-artboard-scene { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
 .mkt-fv-grid { position: absolute; inset: 0; background-image: radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px); background-size: 22px 22px; }
-.mkt-fv-ab { width: 200px; background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 8px 40px rgba(0,0,0,0.55); position: relative; z-index: 1; outline: 2px solid #3385FF; outline-offset: 2px; }
+.mkt-fv-ab { width: 200px; background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 8px 40px rgba(0,0,0,0.55); position: relative; z-index: 1; outline: 2px solid var(--blue-light); outline-offset: 2px; }
 .mkt-fv-ab-lbl { position: absolute; top: -20px; left: 0; font-family: var(--mono); font-size: 0.5rem; color: #3385FF; white-space: nowrap; }
 .mkt-fv-mini-title { font-size: 0.625rem; font-weight: 700; color: #111; margin-bottom: 8px; }
 .mkt-fv-mini-val { font-size: 1rem; font-weight: 800; color: #0A0A0A; letter-spacing: -0.04em; margin-bottom: 6px; }
@@ -718,8 +717,8 @@
 .mkt-int-name { font-size: .9375rem; font-weight: 700; color: rgba(255,255,255,.9); letter-spacing: -.025em; line-height: 1.25; position: relative; z-index: 1; }
 .mkt-int-desc { font-size: .8rem; color: rgba(255,255,255,.36); line-height: 1.6; flex: 1; position: relative; z-index: 1; }
 .mkt-int-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.05); position: relative; z-index: 1; margin-top: auto; }
-.mkt-int-tag { font-family: 'JetBrains Mono',ui-monospace,monospace; font-size: .5rem; font-weight: 500; letter-spacing: .09em; text-transform: uppercase; color: rgba(255,255,255,.2); }
-.mkt-int-status { display: flex; align-items: center; gap: 5px; font-family: 'JetBrains Mono',ui-monospace,monospace; font-size: .5rem; font-weight: 500; letter-spacing: .05em; color: rgba(255,255,255,.28); }
+.mkt-int-tag { font-family: var(--mono); font-size: .5rem; font-weight: 500; letter-spacing: .09em; text-transform: uppercase; color: rgba(255,255,255,.2); }
+.mkt-int-status { display: flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: .5rem; font-weight: 500; letter-spacing: .05em; color: rgba(255,255,255,.28); }
 .mkt-int-dot { width: 5px; height: 5px; border-radius: 50%; background: #10B981; box-shadow: 0 0 6px rgba(16,185,129,.7); animation: mkt-int-pulse 2.4s ease-in-out infinite; }
 @keyframes mkt-int-pulse {
   0%,100% { opacity:1; box-shadow:0 0 6px rgba(16,185,129,.7); }
