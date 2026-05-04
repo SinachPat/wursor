@@ -131,7 +131,8 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-.mkt-root a { color: inherit; text-decoration: none; }
+.mkt-root a { text-decoration: none; }
+.mkt-root a:not(.mkt-btn) { color: inherit; }
 .mkt-root button { font-family: inherit; cursor: pointer; border: none; background: none; }
 .mkt-root img, .mkt-root svg { display: block; max-width: 100%; }
 
@@ -209,7 +210,7 @@
 
 .mkt-btn-primary {
   background: var(--fg);
-  color: var(--bg);
+  color: var(--fg-inv);
   box-shadow: var(--sh-sm);
 }
 .mkt-btn-primary:hover { transform: translateY(-1px); box-shadow: var(--sh-md); }
