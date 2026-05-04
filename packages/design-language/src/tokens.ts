@@ -6,15 +6,16 @@ import type { DesignLanguageFileBody } from './schema.js';
 
 export type FluentTokenMap = Record<string, string>;
 
-/** Extract color token overrides from a DLF as a Fluent 2 token map. */
+/**
+ * Extract color tokens from a DLF as a Fluent 2 token map.
+ * Tokens are flat strings (spec Layer 5.1: tokens.colors is Record<string,string>),
+ * so each key becomes a CSS custom property name and the value is the CSS value.
+ */
 export function extractColorTokens(dlf: DesignLanguageFileBody): FluentTokenMap {
   const out: FluentTokenMap = {};
   const colors = dlf.tokens?.colors ?? {};
-  for (const [, token] of Object.entries(colors)) {
-    if (!token) continue;
-    if (token.fluentToken) {
-      out[token.fluentToken] = token.value;
-    }
+  for (const [name, value] of Object.entries(colors)) {
+    if (value) out[name] = value;
   }
   return out;
 }

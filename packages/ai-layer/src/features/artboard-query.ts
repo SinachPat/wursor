@@ -1,5 +1,5 @@
 import type { AIGateway } from '../gateway.js';
-import { buildSystemPrompt } from '../prompts/system.js';
+import { buildArtboardQueryMessages } from '../prompts/artboard-query.prompt.js';
 
 export interface ArtboardQueryInput {
   /** Natural language query from the user */
@@ -23,17 +23,13 @@ export async function queryCrossArtboard(
   gateway: AIGateway,
   input: ArtboardQueryInput
 ): Promise<ArtboardQueryOutput> {
-  const system = buildSystemPrompt({ role: 'a search agent filtering artboards by design intent' });
+  const { system, userContent, maxTokens } = buildArtboardQueryMessages(input);
 
   const response = await gateway.complete({
     system,
-    messages: [
-      {
-        role: 'user',
-        content: `<artboards>\n${input.artboardsJson}\n</artboards>\n\n<query>\n${input.query}\n</query>\n\nReturn a JSON object:\n{\n  "results": [{"artboardId": "...", "relevanceScore": 0-1, "reason": "..."}],\n  "reasoning": "brief explanation"\n}\n\nOnly include artboards with relevanceScore > 0.3. Respond ONLY with valid JSON.`,
-      },
-    ],
-    maxTokens: 1024,
+    messages:    [{ role: 'user', content: userContent }],
+    maxTokens,
+    temperature: 0.1,  // spec Layer 10.2: 0.1 for workspace queries (factual)
   });
 
   // Returning empty results on parse failure is indistinguishable from "no match".

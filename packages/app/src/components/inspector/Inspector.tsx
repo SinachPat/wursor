@@ -1,12 +1,17 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
+import { Badge } from '@fluentui/react-components';
 import { useCanvas } from '@/store/canvas';
 import { useHistory } from '@/store/history';
 import { useArtboards, patchArtboard } from '@/hooks/useArtboards';
 import { useDiffs } from '@/hooks/useDiffs';
+import { useDlf } from '@/hooks/useDlf';
 import { useQueryClient } from '@tanstack/react-query';
+import { trpc } from '@/lib/trpc';
 import { useCanvasTheme } from '@/store/canvasTheme';
+import { checkComponentConstraints } from '@originmain/design-language';
+import type { Violation } from '@originmain/design-language';
 import type { PropChange } from '@originmain/diff-engine';
 import type { FiberNode } from '@originmain/renderer';
 import type { Artboard, IntentDiff } from '@originmain/origin-graph';
@@ -109,6 +114,7 @@ export function Inspector() {
             componentId={selectedComponentId}
             componentData={selectedComponentData}
             styles={selectedComponentStyles}
+            workspaceId={workspaceId}
           />
         ) : tab === 'props' ? (
           <PropsTab
@@ -534,14 +540,36 @@ function DesignTab({
   componentId,
   componentData,
   styles,
+  workspaceId,
 }: {
   artboardId: string | null;
   componentId: string | null;
   componentData: FiberNode | null;
   styles: Record<string, string> | null;
+  workspaceId: string | null | undefined;
 }) {
   const T = useCanvasTheme();
-  const { patchStyleEdit, patchChildrenStyleEdit, indexerStatus, selectedComponentHasDirectText, selectedComponentHasParagraphChildren } = useCanvas();
+  const { patchStyleEdit, patchChildrenStyleEdit, indexerStatus, selectedComponentHasDirectText, selectedComponentHasParagraphChildren, setActiveViolations } = useCanvas();
+  const { dlf } = useDlf(workspaceId);
+
+  // Re-run constraint checks whenever the selected component or active DLF changes.
+  // We pass component.props (React props) — not CSS styles — to the validator since
+  // DLF component rules govern variant/size/etc., not raw CSS properties.
+  const dlfViolations = useMemo<Violation[]>(() => {
+    if (!dlf || !componentData?.name) return [];
+    return checkComponentConstraints({
+      componentName: componentData.name,
+      props: (componentData.props ?? {}) as Record<string, unknown>,
+      dlf,
+    });
+  }, [dlf, componentData?.name, componentData?.props]);
+
+  // Sync violations to the canvas store so SelectionOverlay can render inline badges.
+  // Runs after every render where dlfViolations changes; clears on component deselect.
+  useEffect(() => {
+    setActiveViolations(dlfViolations);
+    return () => { setActiveViolations([]); };
+  }, [dlfViolations, setActiveViolations]);
 
   if (!artboardId) {
     return (
@@ -658,6 +686,11 @@ function DesignTab({
           </span>
         )}
       </div>
+
+      {/* ── DLF violation banner ─────────────────────────────────── */}
+      {dlfViolations.length > 0 && (
+        <DlfViolationBanner violations={dlfViolations} />
+      )}
 
       {/* ── Section components ───────────────────────────────────── */}
       <FrameSection       styles={styles} onPatch={patch} />
@@ -1148,12 +1181,73 @@ function HSep() {
   return <div style={{ height: 1, background: T.sep, margin: '2px 0' }} />;
 }
 
+/* ── DLF violation banner ─────────────────────────────────── */
+
+function DlfViolationBanner({ violations }: { violations: Violation[] }) {
+  const T = useCanvasTheme();
+  const hasError = violations.some(v => v.severity === 'error');
+
+  return (
+    <div
+      style={{
+        margin: '4px 10px 2px',
+        padding: '8px 10px',
+        background: hasError ? 'rgba(255,80,80,0.07)' : 'rgba(255,186,123,0.07)',
+        border: `1px solid ${hasError ? 'rgba(255,80,80,0.4)' : 'rgba(255,186,123,0.4)'}`,
+        borderRadius: 6,
+      }}
+    >
+      {/* Section header */}
+      <div style={{
+        fontFamily: "'JetBrains Mono', monospace",
+        fontSize: '0.5rem',
+        fontWeight: 600,
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
+        color: hasError ? '#FF8080' : '#FFBA7B',
+        marginBottom: 6,
+      }}>
+        {hasError ? 'Design system violations' : 'Design system warnings'}
+      </div>
+
+      {/* Per-violation Fluent 2 badges (spec Layer 5.2-R3) */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {violations.map((v, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 5 }}>
+            <Badge
+              appearance="filled"
+              color={v.severity === 'error' ? 'danger' : 'warning'}
+              size="small"
+              style={{ flexShrink: 0, marginTop: 1 }}
+            >
+              {v.severity}
+            </Badge>
+            <span style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: '0.5625rem',
+              color: T.fgMuted,
+              lineHeight: 1.5,
+            }}>
+              {v.prop && <strong style={{ color: T.fg }}>{v.prop}: </strong>}
+              {v.message}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ── Diff tab ─────────────────────────────────────────────── */
 function DiffTab({ artboardId }: { artboardId: string | null }) {
-  const T = useCanvasTheme();
-  const { stacks } = useHistory();
+  const T             = useCanvasTheme();
+  const { stacks }    = useHistory();
   const { diffs, createDiff, isLoading } = useDiffs(artboardId);
+  const { workspaceId, activeAgentSessionId } = useCanvas();
   const [summaryStatus, setSummaryStatus] = useState<'idle' | 'summarising' | 'exporting'>('idle');
+
+  // tRPC mutation for AI diff summary (spec Layer 6 — server-side, authenticated)
+  const summarizeDiff = trpc.ai.generateDiffSummary.useMutation();
 
   const artboardHistory = artboardId ? (stacks[artboardId] ?? { past: [], future: [] }) : { past: [], future: [] };
   const pendingChanges: PropChange[] = artboardHistory.past.flatMap(e => e.changes);
@@ -1162,39 +1256,37 @@ function DiffTab({ artboardId }: { artboardId: string | null }) {
   const exportDiff = useCallback(async () => {
     if (!artboardId || !hasChanges) return;
 
-    // 1. Generate AI summary (best-effort — fall back to empty string on failure)
+    // 1. Generate AI summary via tRPC (best-effort — fall back to empty string)
     let summary = '';
     const meaningfulChanges = pendingChanges.filter(c => c.changeType !== 'unchanged');
-    if (meaningfulChanges.length > 0) {
+    if (meaningfulChanges.length > 0 && workspaceId) {
       setSummaryStatus('summarising');
       try {
-        const res = await fetch('/api/ai/diff-summary', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            changesJson: JSON.stringify(meaningfulChanges),
-            componentName: meaningfulChanges[0]?.key ?? 'Component',
-          }),
+        const data = await summarizeDiff.mutateAsync({
+          artboardId,
+          workspaceId,
+          changesJson:   JSON.stringify(meaningfulChanges),
+          componentName: meaningfulChanges[0]?.key ?? 'Component',
         });
-        if (res.ok) {
-          const data = await res.json() as { summary?: string };
-          summary = data.summary ?? '';
-        }
+        summary = data.summary;
       } catch { /* non-fatal — proceed without summary */ }
     }
 
-    // 2. Export diff with AI-generated summary included
+    // 2. Export diff with AI-generated summary included.
+    // session_id links this diff to the active agent session (if any) so the
+    // Agent Bridge can query diffs-by-session. Empty string = no active session.
     setSummaryStatus('exporting');
     createDiff.mutate(
       {
-        artboard_id: artboardId,
-        changes_jsonb: { propChanges: pendingChanges, styleChanges: [] },
-        summary,
-        status: 'DRAFT',
+        artboard_id:       artboardId,
+        changes:           { propChanges: pendingChanges, styleChanges: [] },
+        aggregate_summary: summary,
+        status:            'draft',
+        session_id:        activeAgentSessionId ?? '',
       },
       { onSettled: () => setSummaryStatus('idle') },
     );
-  }, [artboardId, pendingChanges, hasChanges, createDiff]);
+  }, [artboardId, pendingChanges, hasChanges, createDiff, activeAgentSessionId]);
 
   if (!artboardId) {
     return (
@@ -1277,7 +1369,7 @@ const STATUS_COLOR: Record<string, string> = {
 
 function SavedDiffRow({ diff }: { diff: IntentDiff }) {
   const T = useCanvasTheme();
-  const changes = diff.changes_jsonb as { propChanges?: PropChange[]; styleChanges?: PropChange[] } | null;
+  const changes = diff.changes as { propChanges?: PropChange[]; styleChanges?: PropChange[] } | null;
   const count = (changes?.propChanges?.length ?? 0) + (changes?.styleChanges?.length ?? 0);
   const color = STATUS_COLOR[diff.status] ?? T.dim;
   return (
@@ -1290,9 +1382,9 @@ function SavedDiffRow({ diff }: { diff: IntentDiff }) {
           {count} change{count !== 1 ? 's' : ''}
         </span>
       </div>
-      {diff.summary && (
+      {diff.aggregate_summary && (
         <span style={{ fontFamily: 'sans-serif', fontSize: '0.625rem', color: T.fgMuted, lineHeight: 1.4, display: 'block' }}>
-          {diff.summary}
+          {diff.aggregate_summary}
         </span>
       )}
     </div>

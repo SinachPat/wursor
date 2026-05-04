@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { FiberNode } from '@originmain/renderer';
+import type { Violation } from '@originmain/design-language';
 
 /** Framework and CSS strategy detected by the CLI AST indexer at startup. */
 export interface ProjectMeta {
@@ -83,6 +84,20 @@ interface CanvasStore {
   /** Project metadata fetched from GET /health on CLI connection */
   projectMeta: ProjectMeta | null;
   setProjectMeta: (meta: ProjectMeta | null) => void;
+
+  // ── DLF violations (spec Layer 5.2) ──────────────────────────────────────────
+  // Written by Inspector's DesignTab when it evaluates the selected component
+  // against the active DLF; read by SelectionOverlay to render inline badges.
+  activeViolations: Violation[];
+  setActiveViolations: (violations: Violation[]) => void;
+
+  // ── Active agent session (spec Layer 6 — diff attribution) ──────────────────
+  // Set by the Agent Bridge when a session starts/ends. Inspector and
+  // CompletionZone read this to populate session_id on intent_diffs so the
+  // Agent Bridge can later query diffs by session (getDiffsByStatus etc.).
+  // null = no agent session active; user-created diffs get session_id ''.
+  activeAgentSessionId: string | null;
+  setActiveAgentSessionId: (id: string | null) => void;
 }
 
 export const useCanvas = create<CanvasStore>((set) => ({
@@ -155,4 +170,10 @@ export const useCanvas = create<CanvasStore>((set) => ({
 
   projectMeta: null,
   setProjectMeta: (meta) => set({ projectMeta: meta }),
+
+  activeViolations: [],
+  setActiveViolations: (violations) => set({ activeViolations: violations }),
+
+  activeAgentSessionId: null,
+  setActiveAgentSessionId: (id) => set({ activeAgentSessionId: id }),
 }));

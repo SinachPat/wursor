@@ -3,7 +3,9 @@
 import { useState, useEffect, type ReactNode } from 'react';
 import { FluentProvider } from '@fluentui/react-components';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { httpBatchLink } from '@trpc/client';
 import { originmainLightTheme, originmainDarkTheme } from '@originmain/ui';
+import { trpc } from '@/lib/trpc';
 import { useTheme } from '@/store/theme';
 import { TourOverlay } from '@/components/walkthrough/TourOverlay';
 
@@ -23,6 +25,16 @@ export function Providers({ children }: { children: ReactNode }) {
       }),
   );
 
+  // tRPC client — shares the QueryClient so tRPC queries/mutations go into the
+  // same cache as all other TanStack Query calls in the app.
+  const [trpcClient] = useState(() =>
+    trpc.createClient({
+      links: [
+        httpBatchLink({ url: '/api/trpc' }),
+      ],
+    }),
+  );
+
   const mode = useTheme((s) => s.mode);
   const theme = mode === 'dark' ? originmainDarkTheme : originmainLightTheme;
 
@@ -33,11 +45,13 @@ export function Providers({ children }: { children: ReactNode }) {
   }, [mode]);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <FluentProvider theme={theme} style={{ height: '100%' }}>
-        {children}
-        <TourOverlay />
-      </FluentProvider>
-    </QueryClientProvider>
+    <trpc.Provider client={trpcClient} queryClient={queryClient}>
+      <QueryClientProvider client={queryClient}>
+        <FluentProvider theme={theme} style={{ height: '100%' }}>
+          {children}
+          <TourOverlay />
+        </FluentProvider>
+      </QueryClientProvider>
+    </trpc.Provider>
   );
 }

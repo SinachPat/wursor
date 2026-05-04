@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { Badge } from '@fluentui/react-components';
 import { useHistory } from '@/store/history';
 import { useCanvas } from '@/store/canvas';
 import { useViewport } from '@/store/viewport';
 import type { FiberNode, DOMRectLike } from '@originmain/renderer';
 import type { PropChange } from '@originmain/diff-engine';
+import type { Violation } from '@originmain/design-language';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -179,7 +181,7 @@ function SelectionHandles({ artboardId, selection, onSelectionChange, onResizeCo
   const onResizeCommitRef = useRef(onResizeCommit);
   useEffect(() => { onResizeCommitRef.current = onResizeCommit; });
 
-  const { patchStyleEdit, dispatchRemoveElement } = useCanvas();
+  const { patchStyleEdit, dispatchRemoveElement, activeViolations } = useCanvas();
 
   // Sync rect when selection changes to a different element
   useEffect(() => {
@@ -309,6 +311,11 @@ function SelectionHandles({ artboardId, selection, onSelectionChange, onResizeCo
           {Math.round(width)} × {Math.round(height)}
         </span>
 
+        {/* DLF violation badge — shown when the Inspector has detected violations */}
+        {activeViolations.length > 0 && (
+          <ViolationBadge violations={activeViolations} />
+        )}
+
         {/* Delete button */}
         <button
           title="Delete element (⌫)"
@@ -377,6 +384,31 @@ function SelectionHandles({ artboardId, selection, onSelectionChange, onResizeCo
         />
       ))}
     </>
+  );
+}
+
+// ── Violation badge (Fluent 2 Badge — spec Layer 5.2-R3) ─────────────────────
+// Shown in the SelectionHandles label row when the Inspector has found DLF
+// violations for the currently-selected component.
+// Uses Fluent 2 Badge with appearance="filled" and color="warning"|"danger"
+// exactly as required by the spec.
+
+function ViolationBadge({ violations }: { violations: Violation[] }) {
+  const hasError = violations.some(v => v.severity === 'error');
+  const tooltip  = violations
+    .map(v => `[${v.severity}] ${v.prop}: ${v.message}`)
+    .join('\n');
+
+  return (
+    <span title={tooltip} style={{ cursor: 'default' }}>
+      <Badge
+        appearance="filled"
+        color={hasError ? 'danger' : 'warning'}
+        size="small"
+      >
+        {violations.length} {violations.length === 1 ? 'violation' : 'violations'}
+      </Badge>
+    </span>
   );
 }
 

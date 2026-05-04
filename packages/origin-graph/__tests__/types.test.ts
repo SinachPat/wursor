@@ -160,16 +160,16 @@ describe('IntentDiffSchema', () => {
     id: UUID,
     artboard_id: UUID,
     author_id: 'user_xyz',
-    changes_jsonb: { propChanges: [], styleChanges: [] },
-    summary: 'Updated button variant',
-    status: 'DRAFT',
+    changes: { propChanges: [], styleChanges: [] },
+    aggregate_summary: 'Updated button variant',
+    status: 'draft',
     created_at: NOW,
     updated_at: NOW,
   };
 
   it('parses a valid diff', () => {
     const d = IntentDiffSchema.parse(valid);
-    expect(d.status).toBe('DRAFT');
+    expect(d.status).toBe('draft');
     expect(d.notes).toBeUndefined();
   });
 

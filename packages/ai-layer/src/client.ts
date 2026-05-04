@@ -2,9 +2,10 @@ import Anthropic from '@anthropic-ai/sdk';
 
 // ── Model constants ───────────────────────────────────────────────────────────
 
-// claude-opus-4-7 uses adaptive thinking (thinking.type = 'adaptive').
-// It does NOT accept temperature, top_p, or top_k — those are omitted in gateway.ts.
-export const MODEL = 'claude-opus-4-7' as const;
+// Spec Layer 6: "Claude Sonnet 4 API is the only AI provider."
+// claude-sonnet-4-6 supports per-call temperature (0.1 / 0.2 / 0.3 per prompt)
+// which the spec requires for diff-summary, completion-zone, and agent-query.
+export const MODEL = 'claude-sonnet-4-6' as const;
 
 // ── Singleton client ──────────────────────────────────────────────────────────
 // The client is created once and shared. API key is injected from the server

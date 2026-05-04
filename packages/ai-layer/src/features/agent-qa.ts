@@ -1,5 +1,5 @@
 import type { AIGateway } from '../gateway.js';
-import { buildSystemPrompt } from '../prompts/system.js';
+import { buildAgentQueryMessages } from '../prompts/agent-query.prompt.js';
 
 export interface AgentQAInput {
   /** Question from the coding agent (e.g. Cursor or Claude Code) */
@@ -10,6 +10,10 @@ export interface AgentQAInput {
   artboardContextJson: string;
   /** Active DLF */
   dlfJson?: string;
+  /** Before-state screenshot as base64 data URL (spec Layer 6.3-R3) */
+  beforeScreenshotBase64?: string;
+  /** After-state screenshot as base64 data URL (spec Layer 6.3-R3) */
+  afterScreenshotBase64?: string;
 }
 
 export interface AgentQAOutput {
@@ -22,20 +26,14 @@ export async function answerAgentQuestion(
   gateway: AIGateway,
   input: AgentQAInput
 ): Promise<AgentQAOutput> {
-  const system = buildSystemPrompt({
-    role: 'a design agent answering questions from a coding agent implementing a design diff',
-    ...(input.dlfJson !== undefined ? { dlfJson: input.dlfJson } : {}),
-  });
+  const { system, userContent, maxTokens } = buildAgentQueryMessages(input);
 
   const response = await gateway.complete({
     system,
-    messages: [
-      {
-        role: 'user',
-        content: `<artboard_context>\n${input.artboardContextJson}\n</artboard_context>\n\n<diff_id>${input.diffId}</diff_id>\n\n<question>\n${input.question}\n</question>\n\nAnswer the coding agent's question concisely and precisely. If the answer references a specific design token, component, or visual region, include a "visualReference" field. Return JSON:\n{\n  "answer": "...",\n  "visualReference": "..." (optional)\n}\n\nRespond ONLY with valid JSON.`,
-      },
-    ],
-    maxTokens: 1024,
+    // userContent is ContentBlockParam[] — may include image blocks for screenshots
+    messages:    [{ role: 'user', content: userContent }],
+    maxTokens,
+    temperature: 0.1,  // spec Layer 6.3: 0.1 for agent-query (factual, authoritative)
   });
 
   let parsed: unknown;

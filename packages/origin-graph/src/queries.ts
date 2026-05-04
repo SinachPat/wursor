@@ -19,6 +19,7 @@ import type {
   InsertAgentSession,
   InsertTeamMember,
   InsertProject,
+  InsertWorkspace,
   DiffStatus,
   ArtboardAncestry,
 } from './types.js';
@@ -73,6 +74,17 @@ export async function getArtboards(
   return data;
 }
 
+/**
+ * Spec Layer 4.2 canonical function name — delegates to getArtboards.
+ * Callers that use the spec-mandated name get the same result.
+ */
+export async function getArtboardsByWorkspace(
+  db: DbClient,
+  workspaceId: string,
+): Promise<Artboard[]> {
+  return getArtboards(db, workspaceId);
+}
+
 export async function getArtboard(db: DbClient, id: string): Promise<Artboard> {
   const { data, error } = await (db
     .from('artboards')
@@ -124,6 +136,31 @@ export async function getArtboardAncestors(db: DbClient, artboardId: string): Pr
     .order('depth', { ascending: true }) as unknown as Promise<{ data: ArtboardAncestry[]; error: DbError | null }>);
   if (error) throw new Error(error.message);
   return data;
+}
+
+// ── Full-text artboard search (migration 006) ─────────────────────────────────
+// Calls the search_artboards RPC which ranks artboards by relevance across name,
+// metadata_jsonb, linked intent diff summaries, and origin source_ref.
+// Returns up to `limit` results ordered by rank DESC.
+
+export interface ArtboardSearchResult extends Artboard {
+  rank: number;
+}
+
+export async function searchArtboards(
+  db: DbClient,
+  workspaceId: string,
+  query: string,
+  limit = 20,
+): Promise<ArtboardSearchResult[]> {
+  if (!query.trim()) return [];
+  const { data, error } = await (db.rpc('search_artboards', {
+    p_workspace_id: workspaceId,
+    p_query: query.trim(),
+    p_limit: limit,
+  }) as Promise<{ data: ArtboardSearchResult[]; error: DbError | null }>);
+  if (error) throw new Error(error.message);
+  return data ?? [];
 }
 
 // ── Intent diff queries ───────────────────────────────────────────────────────
@@ -201,6 +238,16 @@ export async function getActiveDesignLanguageFile(
 
 // ── Origin queries ────────────────────────────────────────────────────────────
 
+export async function getOrigin(db: DbClient, id: string): Promise<Origin> {
+  const { data, error } = await (db
+    .from('origins')
+    .select('*')
+    .eq('id', id)
+    .single() as Promise<{ data: Origin; error: DbError | null }>);
+  if (error) throw new Error(error.message);
+  return data;
+}
+
 export async function createOrigin(db: DbClient, row: InsertOrigin): Promise<Origin> {
   const { data, error } = await (db
     .from('origins')
@@ -209,6 +256,34 @@ export async function createOrigin(db: DbClient, row: InsertOrigin): Promise<Ori
     .single() as Promise<{ data: Origin; error: DbError | null }>);
   if (error) throw new Error(error.message);
   return data;
+}
+
+// ── Origin Graph aggregate query ─────────────────────────────────────────────
+// Returns the complete provenance picture for a single artboard: the artboard
+// row, its linked origin (if any), and all intent diffs ever recorded against
+// it. This is the primary read path described in Layer 4.2 of the spec.
+
+export async function getOriginGraph(
+  db: DbClient,
+  artboardId: string,
+): Promise<{ artboard: Artboard; origin: Origin | null; diffs: IntentDiff[] }> {
+  // Fetch artboard and diffs in parallel for minimum latency.
+  const [artboard, diffs] = await Promise.all([
+    getArtboard(db, artboardId),
+    getDiffs(db, artboardId),
+  ]);
+
+  let origin: Origin | null = null;
+  if (artboard.origin_id) {
+    try {
+      origin = await getOrigin(db, artboard.origin_id);
+    } catch {
+      // Origin may have been deleted (ON DELETE SET NULL on the FK) — treat as
+      // missing rather than throwing, since the artboard itself is valid.
+    }
+  }
+
+  return { artboard, origin, diffs };
 }
 
 // ── Agent session queries ─────────────────────────────────────────────────────
@@ -224,6 +299,16 @@ export async function createAgentSession(db: DbClient, row: InsertAgentSession):
 }
 
 // ── Workspace queries ─────────────────────────────────────────────────────────
+
+export async function createWorkspace(db: DbClient, row: InsertWorkspace): Promise<Workspace> {
+  const { data, error } = await (db
+    .from('workspaces')
+    .insert(row)
+    .select()
+    .single() as Promise<{ data: Workspace; error: DbError | null }>);
+  if (error) throw new Error(error.message);
+  return data;
+}
 
 export async function getWorkspace(db: DbClient, id: string): Promise<Workspace> {
   const { data, error } = await (db

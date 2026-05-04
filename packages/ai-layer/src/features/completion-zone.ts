@@ -1,7 +1,16 @@
-import type Anthropic from '@anthropic-ai/sdk';
+import { z } from 'zod';
 import { AIGateway } from '../gateway.js';
-import { buildSystemPrompt } from '../prompts/system.js';
+import { buildCompletionZoneMessages } from '../prompts/completion-zone.prompt.js';
 import type { GatewayResponse } from '../gateway.js';
+
+// ── Output schema (spec Layer 6.3-R2: validated with Zod before accepting) ────
+// The model MUST return exactly these two fields. We validate the shape before
+// returning to callers so a malformed AI response never reaches the canvas store.
+
+const CompletionZoneResultSchema = z.object({
+  proposedTree: z.unknown(),        // arbitrary component tree — shape validated downstream
+  description:  z.string().min(1),  // non-empty natural-language summary
+});
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -14,10 +23,12 @@ export interface CompletionZoneInput {
   dlfJson?: string;
   /** Before screenshot as base64 data URL (optional) */
   screenshotBase64?: string;
+  /** Workspace ID for per-workspace cost attribution (spec Layer 6) */
+  workspaceId?: string;
 }
 
 export interface CompletionZoneOutput {
-  /** Proposed component tree changes as structured JSON */
+  /** Proposed component tree changes as structured JSON — Zod-validated shape */
   proposedTree: unknown;
   /** Natural language description of the proposed change */
   description: string;
@@ -31,45 +42,50 @@ export async function fillCompletionZone(
   input: CompletionZoneInput,
   maxRetries = 3
 ): Promise<CompletionZoneOutput> {
-  const system = buildSystemPrompt({
-    role: 'a Completion Zone design agent',
-    ...(input.dlfJson !== undefined ? { dlfJson: input.dlfJson } : {}),
-  });
+  const { system, userContent, maxTokens } = buildCompletionZoneMessages(input);
 
-  const userContent: Anthropic.Messages.ContentBlockParam[] = [
-    {
-      type: 'text',
-      text: `<component_tree>\n${input.componentTreeJson}\n</component_tree>\n\n<intent>\n${input.intent}\n</intent>\n\nReturn a JSON object with two fields:\n- "proposedTree": the updated component tree matching the intent\n- "description": a one-sentence description of the change\n\nRespond ONLY with valid JSON.`,
-    },
-  ];
-
-  if (input.screenshotBase64) {
-    userContent.unshift({
-      type: 'image',
-      source: { type: 'base64', media_type: 'image/png', data: input.screenshotBase64.replace(/^data:image\/\w+;base64,/, '') },
-    } as Anthropic.Messages.ImageBlockParam);
-  }
-
-  // Retry up to maxRetries times on invalid JSON output
+  // Retry up to maxRetries times on invalid JSON or Zod-invalid output
   let lastError: Error | null = null;
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     const response = await gateway.complete({
       system,
-      messages: [{ role: 'user', content: userContent }],
-      maxTokens: 4096,
+      messages:    [{ role: 'user', content: userContent }],
+      maxTokens,
+      temperature: 0.3,  // spec Layer 6.3: 0.3 for completion-zone (creative latitude)
+      ...(input.workspaceId !== undefined ? { workspaceId: input.workspaceId } : {}),
     });
 
+    // Strip markdown fences the model occasionally adds despite instructions
+    const raw = response.text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+
+    let parsed: unknown;
     try {
-      const parsed = JSON.parse(response.text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim());
-      return { proposedTree: parsed.proposedTree as unknown, description: String(parsed.description ?? ''), raw: response };
+      parsed = JSON.parse(raw);
     } catch (parseErr) {
       lastError = new Error(
         `AI returned invalid JSON on attempt ${attempt + 1}: ${String(parseErr)}. ` +
         `Raw response (first 200 chars): ${response.text.slice(0, 200)}`
       );
+      continue;
     }
+
+    // Validate shape with Zod before accepting (spec Layer 6.3-R2)
+    const validated = CompletionZoneResultSchema.safeParse(parsed);
+    if (!validated.success) {
+      lastError = new Error(
+        `AI response failed schema validation on attempt ${attempt + 1}: ` +
+        validated.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ') +
+        `. Raw response (first 200 chars): ${response.text.slice(0, 200)}`
+      );
+      continue;
+    }
+
+    return {
+      proposedTree: validated.data.proposedTree,
+      description:  validated.data.description,
+      raw:          response,
+    };
   }
 
   throw lastError ?? new Error('Completion zone fill failed after retries');
 }
-
