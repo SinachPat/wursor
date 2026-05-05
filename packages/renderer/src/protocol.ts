@@ -46,7 +46,18 @@ export type HostMessage =
    *  Used for paragraph-spacing: patches margin-bottom on each direct <p> child. */
   | { type: 'PATCH_CHILDREN_STYLE'; parentNodeId: string; selector: string; property: string; value: string }
   /** Hide a component's DOM element (sets display:none). Non-destructive. */
-  | { type: 'REMOVE_ELEMENT'; nodeId: string };
+  | { type: 'REMOVE_ELEMENT'; nodeId: string }
+  /** Phase 0: Ask the renderer to capture a JPEG thumbnail via html2canvas and post THUMBNAIL_READY.
+   *  Sent when an artboard transitions from Active → Near/Far in the viewport culling system. */
+  | { type: 'CAPTURE_THUMBNAIL' }
+  /** Phase 0: Re-render a component isolation artboard with new props (live preview, no code change).
+   *  The iframe sets window.__OM_ISO_PROPS__ and calls window.__OM_ISO_RENDER__(). */
+  | { type: 'UPDATE_ISOLATION_PROPS'; props: Record<string, unknown> }
+  /** Phase 4: Ask the renderer to capture a PNG snapshot of the selected element via html2canvas.
+   *  Sent when the user hovers a component > 200ms or clicks "Preview Code Change". */
+  | { type: 'CAPTURE_SNAPSHOT'; nodeId: string }
+  /** Phase 4: Cancel an in-flight snapshot capture (superseded by a newer request). */
+  | { type: 'CANCEL_SNAPSHOT' };
 
 export interface HostEnvelope {
   source: typeof HOST_SOURCE;
@@ -57,7 +68,10 @@ export interface HostEnvelope {
 // ── Renderer → Host messages ──────────────────────────────────────────────────
 
 export type RendererMessage =
-  | { type: 'READY' }
+  /** Phase 0/6: Sent once the fiber hook is initialised and the React runtime is detected.
+   *  rootFontSizePx is read via getComputedStyle(document.documentElement).fontSize so the
+   *  canvas can normalise rem values to px for token matching (Phase 6). */
+  | { type: 'READY'; rootFontSizePx?: number }
   | { type: 'FIBER_TREE_UPDATE'; root: FiberNode }
   | { type: 'COMPONENT_SELECTED'; nodeId: string; nodeName?: string; rect: DOMRectLike }
   | { type: 'COMPONENT_DESELECTED' }
@@ -75,7 +89,12 @@ export type RendererMessage =
     }
   /** All discoverable routes found in the running app — sent once after READY
    *  and again after each SPA navigation. */
-  | { type: 'ROUTES_DISCOVERED'; routes: Array<{ path: string; label: string }> };
+  | { type: 'ROUTES_DISCOVERED'; routes: Array<{ path: string; label: string }> }
+  /** Phase 0: Response to CAPTURE_THUMBNAIL — base64 JPEG data URL, or null on failure.
+   *  The canvas stores the data URL in Zustand and uploads to Supabase Storage. */
+  | { type: 'THUMBNAIL_READY'; dataUrl: string | null }
+  /** Phase 4: Response to CAPTURE_SNAPSHOT — base64 PNG of the selected element, or null. */
+  | { type: 'SNAPSHOT_READY'; dataUrl: string | null; nodeId: string };
 
 export interface RendererEnvelope {
   source: typeof RENDERER_SOURCE;

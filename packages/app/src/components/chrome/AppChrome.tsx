@@ -14,6 +14,8 @@ import { useTheme } from '@/store/theme';
 import { useCanvasTheme } from '@/store/canvasTheme';
 import { useWalkthrough } from '@/store/walkthrough';
 import { useIndexer } from '@/hooks/useIndexer';
+import { browserClient } from '@/lib/supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 interface AppChromeProps {
   workspaceId?: string;
@@ -26,12 +28,57 @@ export function AppChrome({ workspaceId, projectId, workspaceName, projectName }
   const selectedArtboardId = useCanvas((s) => s.selectedArtboardId);
   const setContext         = useCanvas((s) => s.setContext);
   const setActiveTool      = useCanvas((s) => s.setActiveTool);
+  const setDesignLanguageTokens = useCanvas((s) => s.setDesignLanguageTokens);
   const { mode: themeMode, toggle: toggleTheme } = useTheme();
   const CT = useCanvasTheme();
   const startTour = useWalkthrough((s) => s.start);
 
   // Connect to the CLI AST indexer (reads window.__OM_INDEX_URL__, no-op if absent)
   useIndexer();
+
+  // Phase 6: Supabase Realtime subscription for design language token updates.
+  // When another team member uploads a new active token file, all open sessions
+  // receive the update automatically and re-broadcast SET_DESIGN_TOKENS to every
+  // live iframe via the Artboard → LiveArtboard prop chain.
+  useEffect(() => {
+    if (!workspaceId) return;
+
+    const db = browserClient() as unknown as SupabaseClient;
+    const channel = db
+      .channel(`dlf:${workspaceId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'design_language_files',
+          filter: `workspace_id=eq.${workspaceId}`,
+        },
+        (payload) => {
+          // Only react to rows that are marked as the active version.
+          const row = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
+          if (!row || !row['is_active']) return;
+
+          // Re-parse tokens from the updated schema_jsonb.
+          const schemaJsonb = row['schema_jsonb'];
+          if (!schemaJsonb || typeof schemaJsonb !== 'object') return;
+
+          import('@originmain/design-language').then(({ parseTokenFile }) => {
+            try {
+              const tokens = parseTokenFile(schemaJsonb);
+              setDesignLanguageTokens(tokens as Parameters<typeof setDesignLanguageTokens>[0]);
+            } catch {
+              // Malformed token file in DB — don't crash the session
+            }
+          }).catch(() => { /* design-language package unavailable */ });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void db.removeChannel(channel);
+    };
+  }, [workspaceId, setDesignLanguageTokens]);
 
   // Push workspace/project IDs into the store so Canvas and Navigator can read them.
   useEffect(() => {
@@ -78,16 +125,98 @@ export function AppChrome({ workspaceId, projectId, workspaceName, projectName }
         }
       }
 
-      // Undo/Redo require a selected artboard
-      if (!(e.metaKey || e.ctrlKey)) return;
-      if (!selectedArtboardId) return;
+      // ── Zoom / fit shortcuts (Cmd / Ctrl + …) ──────────────────────────────
+      if (e.metaKey || e.ctrlKey) {
+        const vp = useViewport.getState();
+        const { zoom, panX, panY, setZoom, setPan } = vp;
 
-      if (e.key === 'z' && !e.shiftKey) {
-        e.preventDefault();
-        useHistory.getState().undo(selectedArtboardId);
-      } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
-        e.preventDefault();
-        useHistory.getState().redo(selectedArtboardId);
+        // Cmd+= or Cmd++ → zoom in 10% at viewport centre
+        if (e.key === '=' || e.key === '+') {
+          e.preventDefault();
+          const cx = window.innerWidth / 2;
+          const cy = window.innerHeight / 2;
+          setZoom(zoom * 1.1, cx, cy);
+          return;
+        }
+        // Cmd+- → zoom out 10% at viewport centre
+        if (e.key === '-') {
+          e.preventDefault();
+          const cx = window.innerWidth / 2;
+          const cy = window.innerHeight / 2;
+          setZoom(zoom * 0.9, cx, cy);
+          return;
+        }
+        // Cmd+0 → fit all artboards in view (80px padding)
+        if (e.key === '0') {
+          e.preventDefault();
+          // Dynamically import to avoid circular dep; artboards read from DOM
+          const canvasEl = document.querySelector('[data-canvas-viewport]') as HTMLDivElement | null;
+          const vpW = canvasEl?.clientWidth  ?? window.innerWidth;
+          const vpH = canvasEl?.clientHeight ?? window.innerHeight;
+          const artboardEls = document.querySelectorAll('[data-artboard-world]');
+          if (artboardEls.length === 0) { setZoom(1, vpW / 2, vpH / 2); setPan(0, 0); return; }
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          artboardEls.forEach(el => {
+            const wx = parseFloat((el as HTMLElement).dataset.artboardWorldX ?? '0');
+            const wy = parseFloat((el as HTMLElement).dataset.artboardWorldY ?? '0');
+            const ww = parseFloat((el as HTMLElement).dataset.artboardWorldW ?? '0');
+            const wh = parseFloat((el as HTMLElement).dataset.artboardWorldH ?? '0');
+            minX = Math.min(minX, wx); minY = Math.min(minY, wy);
+            maxX = Math.max(maxX, wx + ww); maxY = Math.max(maxY, wy + wh);
+          });
+          const pad = 80;
+          const tw = maxX - minX; const th = maxY - minY;
+          const newZoom = Math.max(0.1, Math.min(4, (vpW - pad * 2) / tw, (vpH - pad * 2) / th));
+          const newX = pad - minX * newZoom + (vpW - pad * 2 - tw * newZoom) / 2;
+          const newY = pad - minY * newZoom + (vpH - pad * 2 - th * newZoom) / 2;
+          setPan(newX, newY);
+          setZoom(newZoom);
+          return;
+        }
+        // Cmd+1 → reset to 100% centred on selected artboard (or origin)
+        if (e.key === '1') {
+          e.preventDefault();
+          const vpW = window.innerWidth; const vpH = window.innerHeight;
+          // Try to centre on selected artboard's world position
+          const selEl = document.querySelector('[data-artboard-world][data-artboard-selected="true"]') as HTMLElement | null;
+          if (selEl) {
+            const wx = parseFloat(selEl.dataset.artboardWorldX ?? '0');
+            const wy = parseFloat(selEl.dataset.artboardWorldY ?? '0');
+            const ww = parseFloat(selEl.dataset.artboardWorldW ?? '0');
+            const wh = parseFloat(selEl.dataset.artboardWorldH ?? '0');
+            setPan(vpW / 2 - (wx + ww / 2), vpH / 2 - (wy + wh / 2));
+          } else {
+            setPan(0, 0);
+          }
+          setZoom(1);
+          return;
+        }
+        // Cmd+Shift+H → fit artboard height to viewport
+        if (e.key === 'H' && e.shiftKey) {
+          e.preventDefault();
+          const vpH = window.innerHeight;
+          const selEl = document.querySelector('[data-artboard-world][data-artboard-selected="true"]') as HTMLElement | null;
+          if (selEl) {
+            const wx = parseFloat(selEl.dataset.artboardWorldX ?? '0');
+            const wy = parseFloat(selEl.dataset.artboardWorldY ?? '0');
+            const wh = parseFloat(selEl.dataset.artboardWorldH ?? '0');
+            const newZoom = Math.max(0.1, Math.min(4, vpH / wh));
+            setPan(panX, -wy * newZoom + (vpH - wh * newZoom) / 2);
+            setZoom(newZoom, wx, wy);
+          }
+          return;
+        }
+
+        // Undo/Redo require a selected artboard
+        if (!selectedArtboardId) return;
+        if (e.key === 'z' && !e.shiftKey) {
+          e.preventDefault();
+          useHistory.getState().undo(selectedArtboardId);
+        } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
+          e.preventDefault();
+          useHistory.getState().redo(selectedArtboardId);
+        }
+        return;
       }
     }
 

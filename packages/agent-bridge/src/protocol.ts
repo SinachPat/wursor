@@ -54,6 +54,67 @@ export interface AuthAck {
   agentType: 'CURSOR' | 'CLAUDE_CODE' | 'GENERIC';
 }
 
+// ── Intent types — Phase 5 §8.4 ──────────────────────────────────────────────
+// These describe the design changes the canvas wants the agent to apply to source.
+
+export interface IntentChange {
+  type: 'style' | 'prop' | 'layout' | 'remove';
+  cssProperty?: string;
+  propName?: string;
+  from?: unknown;
+  to?: unknown;
+  /** CSS custom property key when the value maps to a design token (Phase 6). */
+  tokenKey?: string;
+  confidence: 'exact' | 'approximate';
+}
+
+export interface IntentMessage {
+  intentId: string;
+  component: {
+    name: string;
+    /** Fiber path ID — used for diff correlation. */
+    nodeId: string;
+    /** Call-site location: "src/app/dashboard/page.tsx:34" */
+    callSite?: string;
+    definitionFile?: string;
+    definitionLine?: number;
+    /** Current runtime props — context for the agent. */
+    props: Record<string, unknown>;
+    /** From AST indexer (optional — indexer may not be running). */
+    propsSchema?: Array<{ name: string; type: string; optional: boolean }>;
+  };
+  changes: IntentChange[];
+  /**
+   * Ready-to-apply code diff (when confidence is 'exact', apply verbatim;
+   * when 'approximate', use as a guide and refine).
+   */
+  codeDiff?: {
+    file: string;
+    originalContent: string;
+    patchedContent: string;
+    confidence: 'exact' | 'approximate';
+  };
+  /** Before/after visual snapshots (base64 data URLs). */
+  snapshot?: {
+    before: string;
+    after?: string;
+  };
+  /** Design language context when tokens are loaded (Phase 6). */
+  designLanguage?: {
+    tokensUsed: string[];
+    palette: Record<string, string>;
+  };
+}
+
+/**
+ * Server → agent push (sent over WebSocket, no JSON-RPC id — not a request).
+ * Emitted immediately after `push_intent` stores a new intent.
+ */
+export interface IntentReceivedPush {
+  type: 'INTENT_RECEIVED';
+  intent: IntentMessage;
+}
+
 // ── Tool result types ─────────────────────────────────────────────────────────
 
 export interface ToolResult<T> {

@@ -11,9 +11,11 @@
     "test": "vitest run --coverage"
   },
   "dependencies": {
+    "culori": "^3.3.0",
     "zod": "^3.0.0"
   },
   "devDependencies": {
+    "@types/culori": "^4.0.1",
     "@vitest/coverage-v8": "^2.1.9",
     "typescript": "^5.5.0",
     "vitest": "^2.1.9"

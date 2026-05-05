@@ -7,6 +7,7 @@ import {
 } from '@originmain/renderer';
 import type { FiberNode, RendererMessage } from '@originmain/renderer';
 import { useCanvas } from '@/store/canvas';
+import { artboardIframeMap } from '@/lib/artboard-iframe-map';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -35,6 +36,10 @@ export interface LiveArtboardProps {
   /** Called when READY fires but no React commits arrive within 4 s — signals a
    *  static HTML page where the fiber hook can't find a React runtime. */
   onStaticPageDetected?: () => void;
+  /** Phase 0: Called when the renderer responds to CAPTURE_THUMBNAIL with a JPEG data URL (or null on failure). */
+  onThumbnailReady?: (dataUrl: string | null) => void;
+  /** Phase 4: Called when the renderer responds to CAPTURE_SNAPSHOT with a PNG data URL (or null on failure). */
+  onSnapshotReady?: (dataUrl: string | null, nodeId: string) => void;
   style?: React.CSSProperties;
 }
 
@@ -53,8 +58,11 @@ export function LiveArtboard({
   onComponentStylesUpdate,
   onRoutesDiscovered,
   onStaticPageDetected,
+  onThumbnailReady,
+  onSnapshotReady,
   style,
 }: LiveArtboardProps) {
+  const { setArtboardRootFontSize } = useCanvas();
   const iframeRef  = useRef<HTMLIFrameElement>(null);
   // Track whether the iframe has sent READY so we don't send messages too early.
   const isReadyRef = useRef(false);
@@ -102,6 +110,10 @@ export function LiveArtboard({
       switch (msg.type) {
         case 'READY':
           isReadyRef.current = true;
+          // Store the root font size for rem→px normalisation in the token resolver.
+          if (typeof msg.rootFontSizePx === 'number') {
+            setArtboardRootFontSize(id, msg.rootFontSizePx);
+          }
           // Push current design tokens into the iframe immediately.
           if (designTokens) sendMessage('SET_DESIGN_TOKENS', { tokens: designTokens });
           // Restore the highlight ring for any active selection.
@@ -146,12 +158,20 @@ export function LiveArtboard({
         case 'ROUTES_DISCOVERED':
           onRoutesDiscovered?.(msg.routes);
           break;
+        case 'THUMBNAIL_READY':
+          // Phase 0: store base64 JPEG for the far-state placeholder in Artboard.tsx.
+          onThumbnailReady?.(msg.dataUrl);
+          break;
+        case 'SNAPSHOT_READY':
+          // Phase 4: PNG of the selected element for the Code Preview diff in Inspector.
+          onSnapshotReady?.(msg.dataUrl, msg.nodeId);
+          break;
       }
     }
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [id, designTokens, selectedComponentId, sendMessage, onReady, onFiberTreeUpdate, onComponentSelected, onComponentStylesUpdate, onRoutesDiscovered]);
+  }, [id, designTokens, selectedComponentId, sendMessage, onReady, onFiberTreeUpdate, onComponentSelected, onComponentStylesUpdate, onRoutesDiscovered, onThumbnailReady, onSnapshotReady]);
 
   // ── Push updated design tokens whenever they change ───────────────────────
   useEffect(() => {
@@ -208,6 +228,16 @@ export function LiveArtboard({
       sendMessage('DESELECT');
     }
   }, [selectedComponentId, sendMessage]);
+
+  // ── Register / deregister in the artboardIframeMap singleton ────────────────
+  // This allows canvas-level dispatch (e.g. CompletionZone, CodeTab send-to-agent)
+  // to reach the correct iframe without going through React state or Zustand.
+  useEffect(() => {
+    const el = iframeRef.current;
+    if (!el) return;
+    artboardIframeMap.set(id, el);
+    return () => { artboardIframeMap.delete(id); };
+  }, [id]);
 
   return (
     <iframe

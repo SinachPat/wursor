@@ -8,6 +8,8 @@ import { useArtboards, createArtboardMutation } from '@/hooks/useArtboards';
 import { useCanvasTheme } from '@/store/canvasTheme';
 import { Artboard } from './Artboard';
 import { CompletionZone } from './CompletionZone';
+import { artboardIframeMap } from '@/lib/artboard-iframe-map';
+import { createHostEnvelope } from '@originmain/renderer';
 
 export function Canvas() {
   const T             = useCanvasTheme();
@@ -15,13 +17,91 @@ export function Canvas() {
   const panX          = useViewport((s) => s.panX);
   const panY          = useViewport((s) => s.panY);
   const zoom          = useViewport((s) => s.zoom);
-  const { activeTool, setActiveTool, selectArtboard, selectedArtboardId, workspaceId, projectId } = useCanvas();
+  const { activeTool, setActiveTool, selectArtboard, selectedArtboardId, workspaceId, projectId, setDiscoveredRoutes } = useCanvas();
   const { artboards } = useArtboards(workspaceId ?? undefined, projectId ?? undefined);
   const queryClient   = useQueryClient();
 
   const isPanning  = useRef(false);
   const lastPos    = useRef({ x: 0, y: 0 });
   const spaceDown  = useRef(false);
+
+  // ── Viewport culling (spec Phase 0 §3.2) ─────────────────────────────────
+  // Classifies each artboard as 'active' | 'near' | 'far' based on whether it
+  // overlaps with the current viewport. Updated 100ms after pan/zoom settles.
+  // 'active'/'near' → full LiveArtboard iframe; 'far' → placeholder thumbnail.
+  const [renderPriorities, setRenderPriorities] = useState<Record<string, 'active' | 'near' | 'far'>>({});
+  const cullTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track previous priorities so we can detect Active/Near → Far transitions
+  // and request a thumbnail snapshot before the iframe is unmounted.
+  const prevPrioritiesRef = useRef<Record<string, 'active' | 'near' | 'far'>>({});
+
+  useEffect(() => {
+    function computeCulling() {
+      const el = containerRef.current;
+      if (!el) return;
+      const { panX, panY, zoom } = useViewport.getState();
+      const vpW = el.clientWidth;
+      const vpH = el.clientHeight;
+
+      // Viewport bounds in world space
+      const vpLeft   = -panX / zoom;
+      const vpTop    = -panY / zoom;
+      const vpRight  = vpLeft + vpW / zoom;
+      const vpBottom = vpTop  + vpH / zoom;
+
+      // Near zone: 1 viewport width/height of padding beyond the visible edge
+      const nearPadX = vpW / zoom;
+      const nearPadY = vpH / zoom;
+
+      const next: Record<string, 'active' | 'near' | 'far'> = {};
+      for (const ab of artboards) {
+        const al = ab.x;
+        const at = ab.y;
+        const ar = ab.x + ab.width;
+        const ab_ = ab.y + ab.height;
+
+        const overlapsViewport =
+          ar > vpLeft && al < vpRight && ab_ > vpTop && at < vpBottom;
+
+        const overlapsNear =
+          ar > vpLeft - nearPadX && al < vpRight + nearPadX &&
+          ab_ > vpTop - nearPadY && at < vpBottom + nearPadY;
+
+        next[ab.id] = overlapsViewport ? 'active' : overlapsNear ? 'near' : 'far';
+      }
+
+      // Detect transitions to 'far' and request a thumbnail before the iframe unmounts.
+      const prev = prevPrioritiesRef.current;
+      for (const abId of Object.keys(next)) {
+        const wasVisible = prev[abId] !== 'far';
+        const nowFar     = next[abId] === 'far';
+        if (wasVisible && nowFar) {
+          const iframe = artboardIframeMap.get(abId);
+          if (iframe?.contentWindow) {
+            iframe.contentWindow.postMessage(createHostEnvelope(abId, { type: 'CAPTURE_THUMBNAIL' }), '*');
+          }
+        }
+      }
+      prevPrioritiesRef.current = next;
+
+      setRenderPriorities(next);
+    }
+
+    function scheduleCull() {
+      if (cullTimerRef.current) clearTimeout(cullTimerRef.current);
+      cullTimerRef.current = setTimeout(computeCulling, 100);
+    }
+
+    // Run immediately when artboards list changes, then subscribe to viewport changes
+    computeCulling();
+
+    // Subscribe to viewport store updates
+    const unsub = useViewport.subscribe(scheduleCull);
+    return () => {
+      unsub();
+      if (cullTimerRef.current) clearTimeout(cullTimerRef.current);
+    };
+  }, [artboards]);
 
   // ── Route discovery: auto-create screen grid ──────────────────────────────
   // When a live artboard discovers routes we don't have artboards for yet,
@@ -40,6 +120,9 @@ export function Canvas() {
       if (newRoutes.length === 0) return;
 
       pendingRouteCreation.current = true;
+
+      // Persist all discovered routes in the canvas store so the Routes tab can display them
+      setDiscoveredRoutes(sourceArtboardId, routes);
 
       // Position new artboards in a row to the right of all existing frames
       const GAP = 80;
@@ -73,7 +156,7 @@ export function Canvas() {
         .catch(console.error)
         .finally(() => { pendingRouteCreation.current = false; });
     },
-    [artboards, workspaceId, projectId, queryClient],
+    [artboards, workspaceId, projectId, queryClient, setDiscoveredRoutes],
   );
 
   // Zone tool: drag to draw a completion zone
@@ -218,6 +301,7 @@ export function Canvas() {
         transition: 'background 0.2s',
         cursor,
       }}
+      data-canvas-viewport="true"
       onMouseDown={onMouseDown}
       onMouseMove={onMouseMove}
       onMouseUp={onMouseUp}
@@ -256,7 +340,12 @@ export function Canvas() {
         }}
       >
         {artboards.map((ab) => (
-          <Artboard key={ab.id} {...ab} onRoutesDiscovered={handleRoutesDiscovered} />
+          <Artboard
+            key={ab.id}
+            {...ab}
+            onRoutesDiscovered={handleRoutesDiscovered}
+            renderPriority={renderPriorities[ab.id] ?? 'active'}
+          />
         ))}
 
         {/* Zone tool: live drag preview rectangle */}

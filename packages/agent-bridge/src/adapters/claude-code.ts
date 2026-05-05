@@ -43,15 +43,21 @@ The server is pre-configured in \`.claude/settings.json\`.
 ${toolLines}
 
 ### Implementation Workflow
-1. \`get_pending_diffs\` → list EXPORTED IntentDiffs that need code changes
-2. \`get_artboard_context\` → load component tree, screenshots, and design language
-3. Implement the required changes in the codebase
-4. \`ask_design_agent\` → clarify design intent when the diff is ambiguous
-5. \`update_diff_status\` → mark IMPLEMENTED or BLOCKED with an explanation
+1. Call \`push_intent\` to receive any pending design intent diffs from the Origin canvas.
+2. Locate the component file using \`resolve_component\` (pass the \`nodeId\` from the intent).
+3. Apply the change to the source file — the intent's \`codeDiff\` contains the expected before/after.
+4. After applying, call \`update_diff_status\` with \`status: "IMPLEMENTED"\` and the \`intentId\`.
+5. If the diff cannot be applied for any reason, call \`update_diff_status\` with \`status: "BLOCKED"\`
+   and a \`reason\` string describing why (e.g. "Component not found in file", "File is read-only",
+   "Diff conflicts with current file state"). The designer will see this reason in the Origin canvas.
 
-### Design Language Validation
-Run \`get_design_language\` at session start to cache the team's active Design Language File.
-All token references (colors, typography, spacing) must match the DLF.
+### Important: Always close the loop with update_diff_status
+Every intent received via \`push_intent\` MUST be closed with \`update_diff_status\` — either
+IMPLEMENTED or BLOCKED. An intent left in EXPORTED state will be retried on the next session.
+
+### Design Language
+When token keys are present in the intent changes (\`tokenKey\` field), write \`var(--token-name)\`
+instead of the raw value so the component stays in sync with the design system.
 
 ### Rate Limit
 100 diff exports/hour per workspace. If you hit the limit, wait before retrying.

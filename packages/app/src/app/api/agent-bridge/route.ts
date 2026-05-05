@@ -3,16 +3,8 @@
 // Authentication: Bearer <workspace_token> (HMAC-SHA256, issued by issueWorkspaceToken).
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyWorkspaceToken, TOOL_MAP, getToolList } from '@originmain/agent-bridge';
+import { verifyWorkspaceToken, TOOL_MAP, getToolList, dispatchTool } from '@originmain/agent-bridge';
 import type { JsonRpcRequest, ToolContext } from '@originmain/agent-bridge';
-import {
-  getDiffsByStatus,
-  getDiff,
-  getArtboard,
-  getActiveDesignLanguageFile,
-  updateDiffStatus,
-} from '@originmain/origin-graph';
-import { AIGateway, answerAgentQuestion } from '@originmain/ai-layer';
 import { serverClient } from '@/lib/supabase';
 
 export async function POST(req: NextRequest) {
@@ -54,8 +46,7 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Dispatch ────────────────────────────────────────────────────────────────
-  const tool = TOOL_MAP.get(body.method);
-  if (!tool) {
+  if (!TOOL_MAP[body.method]) {
     return NextResponse.json({
       jsonrpc: '2.0',
       id: body.id,
@@ -63,31 +54,16 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const db = serverClient();
-  const { workspaceId } = workspaceToken;
-
   const ctx: ToolContext = {
-    workspaceId,
-    db: {
-      getDiffsByStatus: (wsId, status) => getDiffsByStatus(db, wsId, status),
-      getDiff:          (id)            => getDiff(db, id),
-      getArtboard:      (id)            => getArtboard(db, id),
-      getDesignLanguageFile: (wsId)     => getActiveDesignLanguageFile(db, wsId),
-      updateDiffStatus: (id, status, notes) =>
-        updateDiffStatus(db, id, status, notes).then(() => undefined),
-    },
-    ai: {
-      answerAgentQuestion: (diffId: string, question: string, artboardContext: unknown) =>
-        answerAgentQuestion(new AIGateway(), {
-          diffId,
-          question,
-          artboardContextJson: JSON.stringify(artboardContext),
-        }).then(r => r.answer),
-    },
+    workspaceId: workspaceToken.workspaceId,
+    params: body.params ?? {},
+    // Pass the server-side Supabase client for tools that need DB writes
+    // (e.g. update_diff_status writes blocked_reason to intent_diffs).
+    db: serverClient() as unknown as NonNullable<ToolContext['db']>,
   };
 
   try {
-    const result = await tool.execute(body.params ?? {}, ctx);
+    const result = await dispatchTool(body.method, ctx);
     return NextResponse.json({ jsonrpc: '2.0', id: body.id, result });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Internal error';

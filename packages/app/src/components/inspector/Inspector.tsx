@@ -12,9 +12,16 @@ import { trpc } from '@/lib/trpc';
 import { useCanvasTheme } from '@/store/canvasTheme';
 import { checkComponentConstraints } from '@originmain/design-language';
 import type { Violation } from '@originmain/design-language';
+import { generatePatch } from '@originmain/diff-engine';
 import type { PropChange } from '@originmain/diff-engine';
 import type { FiberNode } from '@originmain/renderer';
 import type { Artboard, IntentDiff } from '@originmain/origin-graph';
+import { FileDiff as PierreDiff } from '@pierre/diffs/react';
+import { processFile, diffAcceptRejectHunk } from '@pierre/diffs';
+import type { FileDiffMetadata } from '@pierre/diffs';
+import { useIndexer } from '@/hooks/useIndexer';
+import { browserClient } from '@/lib/supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { FrameSection } from './sections/FrameSection';
 import { LayoutSection } from './sections/LayoutSection';
 import { FillSection } from './sections/FillSection';
@@ -30,7 +37,7 @@ const TYPE_COLORS: Record<string, string> = {
   b: '#FFBA7B',
 };
 
-type TabId = 'design' | 'props' | 'diff' | 'graph';
+type TabId = 'design' | 'props' | 'code' | 'diff' | 'graph';
 
 export function Inspector() {
   const T = useCanvasTheme();
@@ -57,7 +64,7 @@ export function Inspector() {
     >
       {/* Tab bar */}
       <div style={{ display: 'flex', borderBottom: `1px solid ${T.border}`, flexShrink: 0 }}>
-        {(['design', 'props', 'diff', 'graph'] as TabId[]).map((t) => (
+        {(['design', 'props', 'code', 'diff', 'graph'] as TabId[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -123,6 +130,8 @@ export function Inspector() {
             workspaceId={workspaceId}
             projectId={projectId}
           />
+        ) : tab === 'code' ? (
+          <CodeTab componentId={selectedComponentId} componentData={selectedComponentData} artboardId={selectedArtboardId} />
         ) : tab === 'diff' ? (
           <DiffTab artboardId={selectedArtboardId} />
         ) : (
@@ -1233,6 +1242,386 @@ function DlfViolationBanner({ violations }: { violations: Violation[] }) {
             </span>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Source diff helpers ───────────────────────────────────────────────────────
+
+/**
+ * Best-effort application of PropChange values to a source file string.
+ * Searches for `propKey: oldValue` patterns and replaces with new values.
+ * Works for inline style objects and most JSX prop assignments.
+ */
+function applyChangesToSource(source: string, changes: PropChange[]): string {
+  let result = source;
+  for (const change of changes) {
+    if (change.before === undefined || change.before === change.after) continue;
+    // Escape the old value for use in regex
+    const escapedBefore = String(change.before).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Match `key: value` (handles optional whitespace and trailing comma)
+    const re = new RegExp(`(${change.key}\\s*:\\s*)${escapedBefore}`, 'g');
+    result = result.replace(re, `$1${String(change.after)}`);
+  }
+  return result;
+}
+
+/* ── Code tab (Phase 4 full implementation) ──────────────────────────────── */
+function CodeTab({
+  componentId,
+  componentData,
+  artboardId,
+}: {
+  componentId: string | null;
+  componentData: FiberNode | null;
+  artboardId: string | null;
+}) {
+  const T = useCanvasTheme();
+  const { indexerStatus, undoStyleEdit, patchStyleEdit } = useCanvas();
+  const { stacks }  = useHistory();
+  const { fetchFile } = useIndexer();
+  const { createDiff } = useDiffs(artboardId);
+
+  const [diffStyle, setDiffStyle]           = useState<'split' | 'unified'>('split');
+  const [fileDiff,  setFileDiff]            = useState<FileDiffMetadata | null>(null);
+  const [patchStr,  setPatchStr]            = useState<string>('');
+  const [isLoading, setIsLoading]           = useState(false);
+  const [diffError, setDiffError]           = useState<string | null>(null);
+  const [isSending, setIsSending]           = useState(false);
+  const [exportedId, setExportedId]         = useState<string | null>(null);
+  const [intentRtStatus, setIntentRtStatus] = useState<string | null>(null);
+
+  // Pending prop changes for this artboard from the edit history
+  const artboardHistory = artboardId
+    ? (stacks[artboardId] ?? { past: [], future: [] })
+    : { past: [], future: [] };
+  const pendingChanges = artboardHistory.past
+    .flatMap(e => e.changes)
+    .filter(c => c.changeType !== 'unchanged');
+
+  // ── Generate diff whenever callSite / pending changes / indexer status change ─
+  useEffect(() => {
+    if (!componentData?.callSite || indexerStatus !== 'ready' || pendingChanges.length === 0) {
+      setFileDiff(null);
+      setPatchStr('');
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoading(true);
+    setDiffError(null);
+
+    void (async () => {
+      try {
+        const filePath = componentData.callSite!.fileName.replace(/\\/g, '/');
+
+        // Fetch source — best-effort; null if indexer can't serve it
+        const sourceContent = await fetchFile(filePath).catch(() => null);
+
+        let patch: string;
+        if (sourceContent) {
+          // Real diff anchored in the actual source file
+          const afterContent = applyChangesToSource(sourceContent, pendingChanges);
+          patch = generatePatch(sourceContent, afterContent, { filename: filePath });
+        } else {
+          // Fallback: synthetic diff from prop key/value pairs alone
+          const beforeText = pendingChanges.map(c => `  ${c.key}: ${String(c.before)},`).join('\n');
+          const afterText  = pendingChanges.map(c => `  ${c.key}: ${String(c.after)},`).join('\n');
+          patch = generatePatch(beforeText, afterText, { filename: filePath });
+        }
+
+        if (cancelled || !patch) return;
+
+        const parsed = processFile(patch);
+        if (!cancelled) {
+          setFileDiff(parsed ?? null);
+          setPatchStr(patch);
+        }
+      } catch (err) {
+        if (!cancelled) setDiffError(err instanceof Error ? err.message : 'Diff generation failed');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  // Re-run when the file path or change count shifts; intentionally not
+  // exhaustive — pendingChanges reference changes every render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [componentData?.callSite?.fileName, pendingChanges.length, indexerStatus, fetchFile]);
+
+  // ── Supabase Realtime — watch intent_diffs row for agent status updates ───────
+  // browserClient() is typed as DbClient (minimal) — cast to SupabaseClient to
+  // access the Realtime channel API which DbClient intentionally omits.
+  useEffect(() => {
+    if (!exportedId) return;
+    const db = browserClient() as unknown as SupabaseClient;
+    const channel = db
+      .channel(`code_tab_intent_${exportedId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'intent_diffs', filter: `id=eq.${exportedId}` },
+        (payload: { new: Record<string, unknown> }) => {
+          const status = payload.new['status'];
+          if (typeof status === 'string') setIntentRtStatus(status);
+        },
+      )
+      .subscribe();
+    return () => { void db.removeChannel(channel); };
+  }, [exportedId]);
+
+  // ── Cmd+Z — undo the last DOM style preview ───────────────────────────────────
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        const undone = undoStyleEdit();
+        if (undone) {
+          e.preventDefault();
+          patchStyleEdit(undone.artboardId, undone.nodeId, undone.property, undone.previousValue);
+        }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [undoStyleEdit, patchStyleEdit]);
+
+  // ── Empty state — no component selected ──────────────────────────────────────
+  if (!componentId) {
+    return (
+      <div style={{ padding: '32px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, textAlign: 'center' }}>
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" style={{ opacity: 0.22 }}>
+          <polyline points="7,9 2,14 7,19"   stroke="white" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+          <polyline points="21,9 26,14 21,19" stroke="white" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+          <line x1="16" y1="6" x2="12" y2="22" stroke="white" strokeWidth="1.4" strokeLinecap="round"/>
+        </svg>
+        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.5625rem', color: T.dim, letterSpacing: '0.04em', lineHeight: 1.6 }}>
+          Select a component to<br/>view its source
+        </span>
+      </div>
+    );
+  }
+
+  const filePath  = componentData?.callSite?.fileName?.replace(/\\/g, '/') ?? null;
+  const shortPath = filePath ? filePath.split('/').slice(-2).join('/') : null;
+  const hunkCount = fileDiff?.hunks?.length ?? 0;
+
+  async function handleSendToAgent() {
+    if (!artboardId || !fileDiff || pendingChanges.length === 0 || isSending) return;
+    setIsSending(true);
+    try {
+      const result = await createDiff.mutateAsync({
+        artboard_id:       artboardId,
+        changes:           { propChanges: pendingChanges, styleChanges: [] },
+        aggregate_summary: `Code diff — ${componentData?.name ?? componentId} (${pendingChanges.length} change${pendingChanges.length !== 1 ? 's' : ''})`,
+        status:            'EXPORTED',
+        session_id:        '',
+        exported_code:     patchStr || null,
+      });
+      setExportedId(result.id);
+      setIntentRtStatus('EXPORTED');
+    } catch {
+      /* surface nothing — mutation error shown via createDiff.isError */
+    } finally {
+      setIsSending(false);
+    }
+  }
+
+  // Status badge colour helpers
+  const rtColour =
+    intentRtStatus === 'IMPLEMENTED' ? '#7DD3A8' :
+    intentRtStatus === 'BLOCKED'     ? '#FF6B6B' : '#FFBA7B';
+  const rtBg =
+    intentRtStatus === 'IMPLEMENTED' ? 'rgba(125,211,168,0.10)' :
+    intentRtStatus === 'BLOCKED'     ? 'rgba(255,107,107,0.10)' : 'rgba(255,186,123,0.10)';
+  const rtBorder =
+    intentRtStatus === 'IMPLEMENTED' ? 'rgba(125,211,168,0.30)' :
+    intentRtStatus === 'BLOCKED'     ? 'rgba(255,107,107,0.30)' : 'rgba(255,186,123,0.30)';
+  const rtLabel =
+    intentRtStatus === 'IMPLEMENTED' ? '✓ Implemented by agent' :
+    intentRtStatus === 'BLOCKED'     ? '✗ Blocked — check agent output' :
+    intentRtStatus ?? '';
+
+  const canSend = !!fileDiff && !isSending && pendingChanges.length > 0;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+
+      {/* ── Header: breadcrumb + indexer dot + toggle ──────────────────── */}
+      <div style={{
+        padding: '9px 12px',
+        borderBottom: `1px solid ${T.border}`,
+        flexShrink: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 7,
+      }}>
+        {/* File path + indexer status dot */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.5625rem', color: T.fgMuted, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {shortPath ?? '—'}
+            {componentData?.callSite?.lineNumber != null && (
+              <span style={{ color: T.dim }}>:{componentData.callSite.lineNumber}</span>
+            )}
+          </span>
+          <span
+            title={indexerStatus === 'ready' ? 'CLI indexer ready' : indexerStatus === 'indexing' ? 'Indexing…' : 'CLI indexer offline'}
+            style={{
+              display: 'inline-block', width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
+              background: indexerStatus === 'ready' ? '#7DD3A8' : indexerStatus === 'indexing' ? '#FFBA7B' : T.dim,
+              boxShadow: indexerStatus === 'ready' ? '0 0 5px rgba(125,211,168,0.7)' : 'none',
+              transition: 'background 0.25s',
+            }}
+          />
+        </div>
+
+        {/* Component badge + split / unified toggle */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span style={{
+            fontFamily: "'JetBrains Mono', monospace", fontSize: '0.5625rem',
+            color: T.accent, background: T.accentBg,
+            border: `1px solid ${T.accent}33`, borderRadius: 4, padding: '1px 6px',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 100,
+          }}>
+            {componentData?.name ?? componentId}
+          </span>
+          <span style={{ flex: 1 }} />
+          {(['split', 'unified'] as const).map(s => (
+            <button
+              key={s}
+              onClick={() => setDiffStyle(s)}
+              style={{
+                fontFamily: "'JetBrains Mono', monospace", fontSize: '0.5rem',
+                letterSpacing: '0.04em', textTransform: 'uppercase',
+                color: diffStyle === s ? T.accent : T.dim,
+                background: diffStyle === s ? T.accentBg : 'transparent',
+                border: `1px solid ${diffStyle === s ? T.accent + '44' : 'transparent'}`,
+                borderRadius: 3, padding: '2px 6px', cursor: 'pointer',
+                transition: 'color 0.15s, background 0.15s',
+              }}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Diff viewer ──────────────────────────────────────────────────── */}
+      <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
+        {indexerStatus !== 'ready' ? (
+          <div style={{ padding: '20px 14px' }}>
+            <div style={{ padding: '10px 12px', background: 'rgba(255,186,123,0.06)', border: '1px solid rgba(255,186,123,0.2)', borderRadius: 7 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
+                <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#FFBA7B', flexShrink: 0 }} />
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.5625rem', color: '#FFBA7B', letterSpacing: '0.04em' }}>CLI indexer offline</span>
+              </div>
+              <p style={{ fontFamily: "'Inter', sans-serif", fontSize: '0.5875rem', color: T.fgDim, lineHeight: 1.6, margin: 0 }}>
+                Source diffs require the CLI indexer. Run{' '}
+                <code style={{ fontFamily: "'JetBrains Mono', monospace", color: '#FFBA7B', fontSize: '0.5rem' }}>
+                  npx @originmain/cli dev
+                </code>{' '}to enable.
+              </p>
+            </div>
+          </div>
+        ) : pendingChanges.length === 0 ? (
+          <div style={{ padding: '36px 14px', textAlign: 'center' }}>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.5625rem', color: T.dim, letterSpacing: '0.04em' }}>
+              No pending changes
+            </span>
+          </div>
+        ) : isLoading ? (
+          <div style={{ padding: '36px 14px', textAlign: 'center' }}>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.5625rem', color: T.dim }}>Generating diff…</span>
+          </div>
+        ) : diffError ? (
+          <div style={{ padding: '14px', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.5625rem', color: '#FF6B6B' }}>
+            {diffError}
+          </div>
+        ) : fileDiff ? (
+          <div>
+            {/* @pierre/diffs React diff viewer */}
+            <PierreDiff
+              fileDiff={fileDiff}
+              options={{ diffStyle, lineDiffType: 'char' }}
+              style={{ fontSize: '0.5625rem' }}
+            />
+
+            {/* Per-hunk accept / reject controls */}
+            {hunkCount > 0 && (
+              <div style={{ padding: '8px 12px', borderTop: `1px solid ${T.border}`, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                <span style={{
+                  fontFamily: "'JetBrains Mono', monospace", fontSize: '0.5rem',
+                  color: T.dim, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 2,
+                }}>
+                  {hunkCount} hunk{hunkCount !== 1 ? 's' : ''}
+                </span>
+                {fileDiff.hunks.map((_, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.5rem', color: T.fgMuted, flex: 1 }}>
+                      Hunk {i + 1}
+                    </span>
+                    <button
+                      onClick={() => setFileDiff(diffAcceptRejectHunk(fileDiff, i, 'accept'))}
+                      style={{
+                        fontFamily: "'JetBrains Mono', monospace", fontSize: '0.5rem',
+                        color: '#7DD3A8', background: 'rgba(125,211,168,0.08)',
+                        border: '1px solid rgba(125,211,168,0.28)', borderRadius: 3,
+                        padding: '2px 7px', cursor: 'pointer',
+                      }}
+                    >
+                      accept
+                    </button>
+                    <button
+                      onClick={() => setFileDiff(diffAcceptRejectHunk(fileDiff, i, 'reject'))}
+                      style={{
+                        fontFamily: "'JetBrains Mono', monospace", fontSize: '0.5rem',
+                        color: '#FF6B6B', background: 'rgba(255,107,107,0.08)',
+                        border: '1px solid rgba(255,107,107,0.28)', borderRadius: 3,
+                        padding: '2px 7px', cursor: 'pointer',
+                      }}
+                    >
+                      reject
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : null}
+      </div>
+
+      {/* ── Footer: Realtime status badge + Send to Agent ─────────────── */}
+      <div style={{ padding: '9px 12px', borderTop: `1px solid ${T.border}`, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 7 }}>
+        {/* Realtime intent status badge */}
+        {intentRtStatus && (
+          <div style={{
+            padding: '4px 9px',
+            background: rtBg,
+            border: `1px solid ${rtBorder}`,
+            borderRadius: 5,
+          }}>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.5rem', color: rtColour, letterSpacing: '0.02em' }}>
+              {rtLabel}
+            </span>
+          </div>
+        )}
+
+        {/* Send to Agent button */}
+        <button
+          onClick={() => void handleSendToAgent()}
+          disabled={!canSend}
+          style={{
+            width: '100%',
+            fontFamily: "'JetBrains Mono', monospace", fontSize: '0.5875rem',
+            background: canSend ? T.accent : T.bgDeep,
+            color: canSend ? '#fff' : T.dim,
+            border: 'none', borderRadius: 6, padding: '7px 0',
+            cursor: canSend ? 'pointer' : 'not-allowed',
+            transition: 'background 0.15s',
+          }}
+        >
+          {isSending ? 'Sending…' : 'Send to Agent'}
+        </button>
       </div>
     </div>
   );

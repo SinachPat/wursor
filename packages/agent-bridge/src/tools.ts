@@ -1,216 +1,407 @@
-import { z } from 'zod';
-import { checkRateLimit } from './rate-limiter.js';
-import { jsonResult, textResult, MCP_ERROR } from './protocol.js';
-import type { ToolResult, JsonRpcError } from './protocol.js';
-import type { DiffStatus } from '@originmain/origin-graph';
+/**
+ * tools.ts — Phase 5
+ *
+ * Defines the MCP tools exposed by the Agent Bridge to connected IDE agents
+ * (Cursor, Claude Code, etc.). Each tool is a JSON Schema descriptor plus a
+ * handler that runs inside the MCP server request loop.
+ *
+ * Tools:
+ *   push_intent       — Canvas pushes a style intent diff to the agent
+ *   resolve_component — Agent queries the component source location by fiber ID
+ *
+ * spec: SOURCE-AWARE-CANVAS.md Phase 5 §9 "Agent Bridge"
+ */
 
-// ── Tool context (injected per-connection) ────────────────────────────────────
+import { textResult, jsonResult } from './protocol.js';
+import type { ToolResult } from './protocol.js';
 
-export interface ToolContext {
-  workspaceId: string;
-  /** Adapter to the Origin Graph data layer */
-  db: {
-    getDiffsByStatus(workspaceId: string, status: DiffStatus): Promise<unknown[]>;
-    getDiff(id: string): Promise<unknown>;
-    getArtboard(id: string): Promise<unknown>;
-    getDesignLanguageFile(workspaceId: string): Promise<unknown | null>;
-    updateDiffStatus(id: string, status: DiffStatus, notes?: string): Promise<void>;
-  };
-  /** Adapter to the AI layer (for ask_design_agent) */
-  ai: {
-    answerAgentQuestion(diffId: string, question: string, artboardContext: unknown): Promise<string>;
-  };
-}
-
-// ── Tool definition ───────────────────────────────────────────────────────────
+// ── Tool descriptor shape (MCP tools/list schema) ─────────────────────────────
 
 export interface McpTool {
   name: string;
   description: string;
-  inputSchema: z.ZodTypeAny;
-  execute(params: unknown, ctx: ToolContext): Promise<ToolResult<unknown> | JsonRpcError>;
-}
-
-// ── Rate-limited wrapper ──────────────────────────────────────────────────────
-
-function rateGuard(workspaceId: string): JsonRpcError | null {
-  const { allowed } = checkRateLimit(workspaceId);
-  if (!allowed) {
-    return {
-      jsonrpc: '2.0',
-      id: null,
-      error: { code: MCP_ERROR.RATE_LIMITED, message: 'Rate limit exceeded: 100 diff exports per hour per workspace' },
-    };
-  }
-  return null;
-}
-
-function notFound(id: string, type: string): JsonRpcError {
-  return {
-    jsonrpc: '2.0',
-    id: null,
-    error: { code: MCP_ERROR.NOT_FOUND, message: `${type} ${id} not found` },
+  inputSchema: {
+    type: 'object';
+    properties: Record<string, unknown>;
+    required?: string[];
   };
 }
 
-// ── Tool: get_pending_diffs ───────────────────────────────────────────────────
+// ── Tool execution context (injected by the MCP server request loop) ──────────
 
-const GetPendingDiffsInput = z.object({
-  workspace_id: z.string().uuid(),
-  artboard_id: z.string().uuid().optional(),
-});
-
-const getPendingDiffs: McpTool = {
-  name: 'get_pending_diffs',
-  description: 'Returns all IntentDiff objects with EXPORTED status for the workspace.',
-  inputSchema: GetPendingDiffsInput,
-  async execute(params, ctx) {
-    const guard = rateGuard(ctx.workspaceId);
-    if (guard) return guard;
-
-    const { artboard_id } = GetPendingDiffsInput.parse(params);
-    const diffs = await ctx.db.getDiffsByStatus(ctx.workspaceId, 'EXPORTED');
-
-    const filtered = artboard_id
-      ? (diffs as Array<{ artboard_id: string }>).filter(d => d.artboard_id === artboard_id)
-      : diffs;
-
-    return jsonResult(filtered);
-  },
-};
-
-// ── Tool: get_artboard_context ────────────────────────────────────────────────
-
-const GetArtboardContextInput = z.object({
-  artboard_id: z.string().uuid(),
-});
-
-const getArtboardContext: McpTool = {
-  name: 'get_artboard_context',
-  description: 'Returns full artboard metadata, component tree, design language file, and before/after screenshots.',
-  inputSchema: GetArtboardContextInput,
-  async execute(params, ctx) {
-    const { artboard_id } = GetArtboardContextInput.parse(params);
-    const artboard = await ctx.db.getArtboard(artboard_id);
-    if (artboard == null) return notFound(artboard_id, 'Artboard');
-    const dlf = await ctx.db.getDesignLanguageFile(ctx.workspaceId);
-    return jsonResult({ artboard, designLanguageFile: dlf });
-  },
-};
-
-// ── Tool: ask_design_agent ────────────────────────────────────────────────────
-
-const AskDesignAgentInput = z.object({
-  diff_id: z.string().uuid(),
-  question: z.string().min(1).max(2000),
-});
-
-const askDesignAgent: McpTool = {
-  name: 'ask_design_agent',
-  description: 'Ask the design AI agent a question about a specific diff. Returns a Claude-generated answer with visual reference.',
-  inputSchema: AskDesignAgentInput,
-  async execute(params, ctx) {
-    const { diff_id, question } = AskDesignAgentInput.parse(params);
-
-    // Fetch the diff first to resolve its artboard_id, then fetch the artboard.
-    const diff = await ctx.db.getDiff(diff_id);
-    if (diff == null) return notFound(diff_id, 'IntentDiff');
-    const artboardId = (diff as { artboard_id: string }).artboard_id;
-    const artboard = await ctx.db.getArtboard(artboardId);
-    if (artboard == null) return notFound(artboardId, 'Artboard');
-
-    const answer = await ctx.ai.answerAgentQuestion(diff_id, question, artboard);
-    return textResult(answer);
-  },
-};
-
-// ── Tool: update_diff_status ──────────────────────────────────────────────────
-
-const UpdateDiffStatusInput = z.object({
-  diff_id: z.string().uuid(),
-  status: z.enum(['IMPLEMENTED', 'BLOCKED']),
-  notes: z.string().max(1000).optional(),
-});
-
-const updateDiffStatus: McpTool = {
-  name: 'update_diff_status',
-  description: 'Acknowledges implementation or reports a block. Updates the diff status in the Origin Graph.',
-  inputSchema: UpdateDiffStatusInput,
-  async execute(params, ctx) {
-    const { diff_id, status, notes } = UpdateDiffStatusInput.parse(params);
-    await ctx.db.updateDiffStatus(diff_id, status, notes);
-    return textResult(`Diff ${diff_id} status updated to ${status}`);
-  },
-};
-
-// ── Tool: get_design_language ─────────────────────────────────────────────────
-
-const GetDesignLanguageInput = z.object({
-  workspace_id: z.string().uuid(),
-});
-
-const getDesignLanguage: McpTool = {
-  name: 'get_design_language',
-  description: 'Returns the team\'s active Design Language File for local validation by the coding agent.',
-  inputSchema: GetDesignLanguageInput,
-  async execute(params, ctx) {
-    // Validate the input even though we use the connection-scoped workspaceId.
-    // This ensures MCP clients send well-formed requests and the schema is enforced.
-    GetDesignLanguageInput.parse(params);
-    const dlf = await ctx.db.getDesignLanguageFile(ctx.workspaceId);
-    if (!dlf) return textResult('No design language file configured for this workspace.');
-    return jsonResult(dlf);
-  },
-};
-
-// ── Tool registry ─────────────────────────────────────────────────────────────
-
-export const TOOLS: McpTool[] = [
-  getPendingDiffs,
-  getArtboardContext,
-  askDesignAgent,
-  updateDiffStatus,
-  getDesignLanguage,
-];
-
-export const TOOL_MAP = new Map(TOOLS.map(t => [t.name, t]));
-
-/** Returns the MCP-spec JSON Schema listing for all tools. */
-export function getToolList() {
-  return TOOLS.map(t => ({
-    name: t.name,
-    description: t.description,
-    inputSchema: { type: 'object', ...zodToJsonSchema(t.inputSchema) },
-  }));
+export interface ToolContext {
+  /** Verified workspace ID from the authenticated token. */
+  workspaceId: string;
+  /** The raw parsed params from the JSON-RPC request. */
+  params: unknown;
+  /**
+   * Optional Supabase server-client for tools that need DB writes.
+   * Only provided when the route handler calls createServerClient() — tools
+   * that don't need it (push_intent, resolve_component) ignore it.
+   */
+  db?: {
+    from: (table: string) => unknown;
+  };
 }
 
-// ── Minimal Zod → JSON Schema ─────────────────────────────────────────────────
-// Handles the subset of Zod types used by the 5 tools above.
-// Throws at startup if an unsupported type is encountered — fail loud, not silent.
+// ── In-process intent store ───────────────────────────────────────────────────
+// Intents are pushed here by the /api/intent Next.js route (via push_intent),
+// and drained by connected agents through polling or INTENT_RECEIVED push.
+//
+// For production multi-instance deployments, replace with a Redis pub/sub or
+// Supabase Realtime channel.
 
-function zodToJsonSchema(schema: z.ZodTypeAny): { properties?: Record<string, unknown>; required?: string[] } {
-  if (schema instanceof z.ZodObject) {
-    const shape = schema.shape as Record<string, z.ZodTypeAny>;
-    const properties: Record<string, unknown> = {};
-    const required: string[] = [];
+interface IntentRecord {
+  intentId: string;
+  workspaceId: string;
+  artboardId: string;
+  componentName: string;
+  patchJson: string;
+  strategy: string;
+  summary: string;
+  createdAt: number;
+}
 
-    for (const [key, field] of Object.entries(shape)) {
-      properties[key] = zodFieldToSchema(field);
-      if (!(field instanceof z.ZodOptional)) {
-        required.push(key);
-      }
+const pendingIntents = new Map<string, IntentRecord[]>();
+
+/**
+ * Store an intent pushed by the canvas (called from the /api/intent route).
+ * Returns the generated intentId.
+ */
+export function storePendingIntent(
+  workspaceId: string,
+  intent: Omit<IntentRecord, 'intentId' | 'workspaceId' | 'createdAt'>,
+): string {
+  const intentId = `intent_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const record: IntentRecord = {
+    intentId,
+    workspaceId,
+    ...intent,
+    createdAt: Date.now(),
+  };
+  const queue = pendingIntents.get(workspaceId) ?? [];
+  queue.push(record);
+  pendingIntents.set(workspaceId, queue);
+  return intentId;
+}
+
+/**
+ * Drain all pending intents for a workspace (called by push_intent tool handler
+ * or by the agent when polling).
+ */
+export function drainPendingIntents(workspaceId: string): IntentRecord[] {
+  const queue = pendingIntents.get(workspaceId) ?? [];
+  pendingIntents.delete(workspaceId);
+  return queue;
+}
+
+// ── CLI indexer registry ──────────────────────────────────────────────────────
+// Maps workspaceId → { url, expiresAt } (registered via /register-indexer).
+//
+// TTL policy (spec Phase 5 §8.3):
+//   • Default TTL: 300 s (5 min)
+//   • CLI sends heartbeat POST every 120 s to refresh the TTL
+//   • Registration is considered expired after 360 s (3× heartbeat interval)
+//
+// The GC sweep runs on every registration and lookup to avoid a timer leak
+// in serverless/edge environments where setInterval may not fire.
+
+interface IndexerEntry {
+  url: string;
+  expiresAt: number; // ms since epoch
+}
+
+const indexerRegistry = new Map<string, IndexerEntry>();
+
+/** Evict all entries whose TTL has expired. */
+function gcIndexerRegistry(): void {
+  const now = Date.now();
+  for (const [wid, entry] of indexerRegistry) {
+    if (entry.expiresAt < now) indexerRegistry.delete(wid);
+  }
+}
+
+/**
+ * Register (or refresh) a CLI indexer for a workspace.
+ * Security: the caller MUST validate that `url` is a localhost URL before
+ * calling this function (enforced by the /register-indexer API route).
+ *
+ * @param workspaceId  Verified workspace ID
+ * @param url          Indexer URL — must be localhost (caller-validated)
+ * @param ttlSeconds   TTL in seconds (default: 300 s / 5 min)
+ */
+export function registerIndexer(workspaceId: string, url: string, ttlSeconds = 300): void {
+  gcIndexerRegistry();
+  indexerRegistry.set(workspaceId, { url, expiresAt: Date.now() + ttlSeconds * 1000 });
+}
+
+/**
+ * Returns the registered indexer URL for a workspace, or undefined if not
+ * registered or if the TTL has expired.
+ */
+export function getIndexerUrl(workspaceId: string): string | undefined {
+  gcIndexerRegistry();
+  const entry = indexerRegistry.get(workspaceId);
+  if (!entry) return undefined;
+  if (entry.expiresAt < Date.now()) {
+    indexerRegistry.delete(workspaceId);
+    return undefined;
+  }
+  return entry.url;
+}
+
+/**
+ * Refresh the TTL for an already-registered indexer (heartbeat endpoint).
+ * Returns false if no entry exists for the workspace (caller should 404).
+ */
+export function heartbeatIndexer(workspaceId: string, ttlSeconds = 300): boolean {
+  const entry = indexerRegistry.get(workspaceId);
+  if (!entry || entry.expiresAt < Date.now()) return false;
+  entry.expiresAt = Date.now() + ttlSeconds * 1000;
+  return true;
+}
+
+// ── Tool definitions ──────────────────────────────────────────────────────────
+
+const PUSH_INTENT_TOOL: McpTool = {
+  name: 'push_intent',
+  description:
+    'Receive a design intent diff from the Origin canvas. The diff describes style or prop changes ' +
+    'made by the designer that should be applied to the source code. Call this when Origin notifies ' +
+    'you of pending changes. Returns the list of pending intents for this workspace.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      workspace_id: {
+        type: 'string',
+        description: 'The workspace ID (must match the authenticated token).',
+      },
+    },
+    required: ['workspace_id'],
+  },
+};
+
+const RESOLVE_COMPONENT_TOOL: McpTool = {
+  name: 'resolve_component',
+  description:
+    'Resolve the source file location for a component identified by its fiber node ID. ' +
+    'Returns the file path and line number where the component is defined in the codebase, ' +
+    'enabling the agent to navigate directly to the component source.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      artboard_id: {
+        type: 'string',
+        description: 'The artboard that contains the component.',
+      },
+      node_id: {
+        type: 'string',
+        description: 'The fiber node ID of the component (from SelectionOverlay / fiber tree).',
+      },
+      component_name: {
+        type: 'string',
+        description: 'Display name of the component (used as a fallback hint).',
+      },
+    },
+    required: ['artboard_id', 'node_id'],
+  },
+};
+
+const UPDATE_DIFF_STATUS_TOOL: McpTool = {
+  name: 'update_diff_status',
+  description:
+    'Update the status of a design intent diff after attempting to apply it. ' +
+    'Call with status "IMPLEMENTED" after successfully applying the diff to the source code. ' +
+    'Call with status "BLOCKED" and a reason string if the diff could not be applied — ' +
+    'the reason is shown to the designer so they can resolve the conflict manually. ' +
+    'Valid statuses: "IMPLEMENTED" | "BLOCKED".',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      intent_id: {
+        type: 'string',
+        description: 'The intentId received in the INTENT_RECEIVED message or push_intent response.',
+      },
+      status: {
+        type: 'string',
+        enum: ['IMPLEMENTED', 'BLOCKED'],
+        description: '"IMPLEMENTED" if the diff was applied successfully; "BLOCKED" if it could not be applied.',
+      },
+      reason: {
+        type: 'string',
+        description:
+          'Required when status is "BLOCKED". Describe why the diff could not be applied — ' +
+          'e.g. "Component not found in file", "File is read-only", "Diff conflicts with current state".',
+      },
+    },
+    required: ['intent_id', 'status'],
+  },
+};
+
+// ── Tool map (name → descriptor) ──────────────────────────────────────────────
+
+export const TOOL_MAP: Record<string, McpTool> = {
+  push_intent:         PUSH_INTENT_TOOL,
+  resolve_component:   RESOLVE_COMPONENT_TOOL,
+  update_diff_status:  UPDATE_DIFF_STATUS_TOOL,
+};
+
+export const TOOLS: McpTool[] = Object.values(TOOL_MAP);
+
+export function getToolList(): McpTool[] {
+  return TOOLS;
+}
+
+// ── Tool handlers ─────────────────────────────────────────────────────────────
+
+type Params = Record<string, unknown>;
+
+async function handlePushIntent(ctx: ToolContext): Promise<ToolResult<unknown>> {
+  const params = ctx.params as Params;
+  const wid = typeof params['workspace_id'] === 'string' ? params['workspace_id'] : ctx.workspaceId;
+
+  if (wid !== ctx.workspaceId) {
+    return textResult('Error: workspace_id does not match authenticated workspace.');
+  }
+
+  const intents = drainPendingIntents(wid);
+
+  if (intents.length === 0) {
+    return textResult('No pending design intents for this workspace.');
+  }
+
+  const summary = intents.map((intent) => {
+    const patches = JSON.parse(intent.patchJson) as Array<{ property: string; value: string; previousValue?: string }>;
+    const lines = patches.map(
+      (p) => `  • ${p.property}: ${p.previousValue ?? '(unknown)'} → ${p.value}`,
+    );
+    return [
+      `Intent ${intent.intentId} — ${intent.componentName} (${intent.strategy})`,
+      intent.summary,
+      ...lines,
+      `  artboardId: ${intent.artboardId}`,
+    ].join('\n');
+  });
+
+  return textResult(
+    `${intents.length} pending design intent${intents.length !== 1 ? 's' : ''}:\n\n${summary.join('\n\n')}`,
+  );
+}
+
+async function handleResolveComponent(ctx: ToolContext): Promise<ToolResult<unknown>> {
+  const params = ctx.params as Params;
+  const nodeId = typeof params['node_id'] === 'string' ? params['node_id'] : null;
+  const artboardId = typeof params['artboard_id'] === 'string' ? params['artboard_id'] : null;
+  const componentName = typeof params['component_name'] === 'string' ? params['component_name'] : 'Component';
+
+  if (!nodeId || !artboardId) {
+    return textResult('Error: artboard_id and node_id are required.');
+  }
+
+  // Check if a CLI indexer is registered for this workspace
+  const indexerUrl = getIndexerUrl(ctx.workspaceId);
+  if (!indexerUrl) {
+    return textResult(
+      `No CLI indexer registered for workspace ${ctx.workspaceId}. ` +
+      'Run npx @originmain/cli dev to enable component resolution.',
+    );
+  }
+
+  // Proxy the resolution request to the CLI indexer
+  try {
+    const url = new URL('/resolve-component', indexerUrl);
+    url.searchParams.set('nodeId', nodeId);
+    url.searchParams.set('artboardId', artboardId);
+    url.searchParams.set('componentName', componentName);
+
+    const res = await fetch(url.toString(), {
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (!res.ok) {
+      return textResult(`Indexer returned ${res.status}: ${await res.text()}`);
     }
 
-    return { properties, ...(required.length > 0 ? { required } : {}) };
+    const data = (await res.json()) as { filePath?: string; lineNumber?: number; column?: number };
+    if (!data.filePath) {
+      return textResult(`Component ${componentName} not found in index.`);
+    }
+
+    return jsonResult({
+      filePath:    data.filePath,
+      lineNumber:  data.lineNumber ?? 1,
+      column:      data.column ?? 1,
+      nodeId,
+      artboardId,
+      componentName,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return textResult(`Failed to contact CLI indexer: ${msg}`);
   }
-  throw new Error(`zodToJsonSchema: unsupported top-level type ${schema.constructor.name}`);
 }
 
-function zodFieldToSchema(field: z.ZodTypeAny): unknown {
-  if (field instanceof z.ZodOptional) return zodFieldToSchema(field.unwrap());
-  if (field instanceof z.ZodString) return { type: 'string' };
-  if (field instanceof z.ZodEnum) return { type: 'string', enum: field.options as string[] };
-  if (field instanceof z.ZodNumber) return { type: 'number' };
-  if (field instanceof z.ZodBoolean) return { type: 'boolean' };
-  throw new Error(`zodToJsonSchema: unsupported field type ${field.constructor.name}`);
+async function handleUpdateDiffStatus(ctx: ToolContext): Promise<ToolResult<unknown>> {
+  const params = ctx.params as Params;
+  const intentId = typeof params['intent_id'] === 'string' ? params['intent_id'] : null;
+  const status   = typeof params['status']    === 'string' ? params['status']    : null;
+  const reason   = typeof params['reason']    === 'string' ? params['reason']    : null;
+
+  if (!intentId || !status) {
+    return textResult('Error: intent_id and status are required.');
+  }
+
+  if (status !== 'IMPLEMENTED' && status !== 'BLOCKED') {
+    return textResult('Error: status must be "IMPLEMENTED" or "BLOCKED".');
+  }
+
+  if (status === 'BLOCKED' && !reason) {
+    return textResult('Error: reason is required when status is "BLOCKED".');
+  }
+
+  if (!ctx.db) {
+    // Fallback: no DB client available — just acknowledge.
+    return textResult(`update_diff_status acknowledged: ${intentId} → ${status}${reason ? ` (${reason})` : ''}`);
+  }
+
+  try {
+    const updatePayload: Record<string, unknown> = {
+      status,
+      updated_at: new Date().toISOString(),
+    };
+    if (reason) updatePayload['blocked_reason'] = reason;
+
+    // db is typed minimally; cast to any so the Supabase query chain compiles.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await ((ctx.db.from('intent_diffs') as any)
+      .update(updatePayload)
+      .eq('id', intentId)
+      .select()
+      .single() as Promise<{ data: { id: string; status: string } | null; error: { message: string } | null }>);
+
+    if (error) return textResult(`Error updating diff status: ${error.message}`);
+    if (!data) return textResult(`Error: intent ${intentId} not found.`);
+
+    return textResult(
+      `Intent ${intentId} status updated to ${status}${reason ? `: ${reason}` : ''}.`,
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return textResult(`Failed to update diff status: ${msg}`);
+  }
+}
+
+// ── Dispatch ──────────────────────────────────────────────────────────────────
+
+export async function dispatchTool(name: string, ctx: ToolContext): Promise<ToolResult<unknown>> {
+  switch (name) {
+    case 'push_intent':
+      return handlePushIntent(ctx);
+    case 'resolve_component':
+      return handleResolveComponent(ctx);
+    case 'update_diff_status':
+      return handleUpdateDiffStatus(ctx);
+    default:
+      return textResult(`Unknown tool: ${name}`);
+  }
 }

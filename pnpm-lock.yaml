@@ -186,10 +186,16 @@ importers:
 
   packages/design-language:
     dependencies:
+      culori:
+        specifier: ^3.3.0
+        version: 3.3.0
       zod:
         specifier: ^3.0.0
         version: 3.25.76
     devDependencies:
+      '@types/culori':
+        specifier: ^4.0.1
+        version: 4.0.1
       '@vitest/coverage-v8':
         specifier: ^2.1.9
         version: 2.1.9(vitest@2.1.9(@types/node@22.19.17))
@@ -1808,6 +1814,9 @@ packages:
     peerDependencies:
       typescript: '>=5.7.2'
 
+  '@types/culori@4.0.1':
+    resolution: {integrity: sha512-43M51r/22CjhbOXyGT361GZ9vncSVQ39u62x5eJdBQFviI8zWp2X5jzqg7k4M6PVgDQAClpy2bUe2dtwEgEDVQ==}
+
   '@types/estree@1.0.8':
     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
 
@@ -2048,6 +2057,10 @@ packages:
 
   csstype@3.2.3:
     resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
+
+  culori@3.3.0:
+    resolution: {integrity: sha512-pHJg+jbuFsCjz9iclQBqyL3B2HLCBF71BwVNujUYEvCeQMvV97R59MNK3R2+jgJ3a1fcZgI9B3vYgz8lzr/BFQ==}
+    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
   debug@4.4.3:
     resolution: {integrity: sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA==}
@@ -4705,6 +4718,8 @@ snapshots:
     dependencies:
       typescript: 5.9.3
 
+  '@types/culori@4.0.1': {}
+
   '@types/estree@1.0.8': {}
 
   '@types/hast@3.0.4':
@@ -4980,6 +4995,8 @@ snapshots:
       which: 2.0.2
 
   csstype@3.2.3: {}
+
+  culori@3.3.0: {}
 
   debug@4.4.3:
     dependencies:

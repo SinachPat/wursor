@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { FiberNode } from '@originmain/renderer';
 import type { Violation } from '@originmain/design-language';
+import type { DesignToken } from './canvas.types';
 
 /** Framework and CSS strategy detected by the CLI AST indexer at startup. */
 export interface ProjectMeta {
@@ -92,15 +93,58 @@ interface CanvasStore {
   setActiveViolations: (violations: Violation[]) => void;
 
   // ── Active agent session (spec Layer 6 — diff attribution) ──────────────────
-  // Set by the Agent Bridge when a session starts/ends. Inspector and
-  // CompletionZone read this to populate session_id on intent_diffs so the
-  // Agent Bridge can later query diffs by session (getDiffsByStatus etc.).
-  // null = no agent session active; user-created diffs get session_id ''.
   activeAgentSessionId: string | null;
   setActiveAgentSessionId: (id: string | null) => void;
+
+  // ── Phase 0: Discovered routes (aggregated from ROUTES_DISCOVERED messages) ───
+  /** Map of artboardId → routes discovered by that artboard's live app. */
+  discoveredRoutes: Record<string, Array<{ path: string; label: string }>>;
+  setDiscoveredRoutes: (artboardId: string, routes: Array<{ path: string; label: string }>) => void;
+
+  // ── Selected artboard dimensions (Phase 0 device preset picker) ──────────────
+  // Set by Artboard.tsx whenever the selected artboard renders, so that Toolbar
+  // can read current width/height without needing workspaceId/projectId.
+  selectedArtboardW: number | null;
+  selectedArtboardH: number | null;
+  setSelectedArtboardSize: (w: number, h: number) => void;
+  /** One-shot resize event: Artboard.tsx watches this and fires a PATCH, then clears. */
+  artboardResizeEvent: { artboardId: string; width: number; height: number } | null;
+  dispatchArtboardResize: (artboardId: string, width: number, height: number) => void;
+  clearArtboardResize: () => void;
+
+  // ── Phase 4 — Intent diff tracking ───────────────────────────────────────────
+  /** Map of intentId → status: 'EXPORTED' | 'IMPLEMENTED' | 'BLOCKED' */
+  intentStatus: Record<string, string>;
+  setIntentStatus: (intentId: string, status: string) => void;
+
+  /** Undo queue for DOM style previews (Cmd+Z support). */
+  styleUndoStack: Array<{ artboardId: string; nodeId: string; property: string; previousValue: string }>;
+  pushStyleUndo: (artboardId: string, nodeId: string, property: string, previousValue: string) => void;
+  undoStyleEdit: () => { artboardId: string; nodeId: string; property: string; previousValue: string } | null;
+
+  // ── Phase 6 — Design Language (DesignToken[] from parser/resolver) ────────────
+  /** Loaded design tokens after user uploads a token file — null until uploaded. */
+  designLanguageTokens: DesignToken[] | null;
+  setDesignLanguageTokens: (tokens: DesignToken[] | null) => void;
+
+  /** Root font size in px per artboard — read from rootFontSizePx in READY message.
+   *  Used by the token resolver to normalise rem → px. */
+  artboardRootFontSize: Record<string, number>;
+  setArtboardRootFontSize: (artboardId: string, px: number) => void;
+
+  // ── Phase 0 — Artboard thumbnails ────────────────────────────────────────────
+  /** Base64 JPEG data-URL snapshots per artboard — captured when transitioning Active→Far.
+   *  Displayed as a static image placeholder while the iframe is unmounted (far state). */
+  artboardThumbnails: Record<string, string | null>;
+  setArtboardThumbnail: (artboardId: string, dataUrl: string | null) => void;
+
+  // ── Phase 4 — Element snapshot (for Code Preview diff) ───────────────────────
+  /** Most-recent PNG snapshot response from SNAPSHOT_READY — consumed by CodeTab. */
+  elementSnapshot: { artboardId: string; nodeId: string; dataUrl: string | null } | null;
+  setElementSnapshot: (artboardId: string, nodeId: string, dataUrl: string | null) => void;
 }
 
-export const useCanvas = create<CanvasStore>((set) => ({
+export const useCanvas = create<CanvasStore>((set, get) => ({
   activeTool: 'select',
   setActiveTool: (tool) => set({ activeTool: tool }),
 
@@ -176,4 +220,46 @@ export const useCanvas = create<CanvasStore>((set) => ({
 
   activeAgentSessionId: null,
   setActiveAgentSessionId: (id) => set({ activeAgentSessionId: id }),
+
+  discoveredRoutes: {},
+  setDiscoveredRoutes: (artboardId, routes) =>
+    set((s) => ({ discoveredRoutes: { ...s.discoveredRoutes, [artboardId]: routes } })),
+
+  selectedArtboardW: null,
+  selectedArtboardH: null,
+  setSelectedArtboardSize: (w, h) => set({ selectedArtboardW: w, selectedArtboardH: h }),
+
+  artboardResizeEvent: null,
+  dispatchArtboardResize: (artboardId, width, height) =>
+    set({ artboardResizeEvent: { artboardId, width, height } }),
+  clearArtboardResize: () => set({ artboardResizeEvent: null }),
+
+  intentStatus: {},
+  setIntentStatus: (intentId, status) =>
+    set((s) => ({ intentStatus: { ...s.intentStatus, [intentId]: status } })),
+
+  styleUndoStack: [],
+  pushStyleUndo: (artboardId, nodeId, property, previousValue) =>
+    set((s) => ({ styleUndoStack: [...s.styleUndoStack, { artboardId, nodeId, property, previousValue }] })),
+  undoStyleEdit: () => {
+    const stack = get().styleUndoStack;
+    if (stack.length === 0) return null;
+    const item = stack[stack.length - 1]!;
+    set({ styleUndoStack: stack.slice(0, -1) });
+    return item;
+  },
+
+  designLanguageTokens: null,
+  setDesignLanguageTokens: (tokens) => set({ designLanguageTokens: tokens }),
+
+  artboardRootFontSize: {},
+  setArtboardRootFontSize: (artboardId, px) =>
+    set((s) => ({ artboardRootFontSize: { ...s.artboardRootFontSize, [artboardId]: px } })),
+
+  artboardThumbnails: {},
+  setArtboardThumbnail: (artboardId, dataUrl) =>
+    set((s) => ({ artboardThumbnails: { ...s.artboardThumbnails, [artboardId]: dataUrl } })),
+
+  elementSnapshot: null,
+  setElementSnapshot: (artboardId, nodeId, dataUrl) => set({ elementSnapshot: { artboardId, nodeId, dataUrl } }),
 }));

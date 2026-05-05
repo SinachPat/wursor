@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCanvas } from '@/store/canvas';
 import { useViewport } from '@/store/viewport';
 import { useDiffs } from '@/hooks/useDiffs';
-import { LiveArtboard } from './LiveArtboard';
+import { LiveArtboard }    from './LiveArtboard';
+import { IsolationFrame }  from './IsolationFrame';
 import { SelectionOverlay } from './SelectionOverlay';
-import type { FiberNode } from '@originmain/renderer';
+import type { FiberNode }  from '@originmain/renderer';
 
 interface ArtboardProps {
   id: string;
@@ -19,8 +20,28 @@ interface ArtboardProps {
   renderUrl?: string;
   /** Route path appended to renderUrl so each artboard can show a different screen. */
   route?: string;
+  /**
+   * Artboard type (spec Phase 0 §3.3).
+   *   route      — (default) renders a URL in an iframe
+   *   isolation  — renders a single component via the CLI's /__om_isolation__ page
+   *   static     — static screenshot; no iframe
+   */
+  artboard_type?: 'route' | 'isolation' | 'static';
+  /** Component name for isolation artboards (artboard_type === 'isolation'). */
+  isolation_component?: string | null;
+  /** Workspace-relative file path for isolation artboards. */
+  isolation_file?: string | null;
+  /** Current prop overrides forwarded to the isolation iframe. */
+  isolation_props?: Record<string, unknown> | null;
   /** Called when the live app reports discoverable routes — Canvas handles creation. */
   onRoutesDiscovered?: (sourceId: string, routes: Array<{ path: string; label: string }>) => void;
+  /**
+   * Viewport culling classification (spec Phase 0 §3.2).
+   *   active — overlaps the current viewport → render full LiveArtboard iframe
+   *   near   — within 1 viewport margin of the visible area → keep iframe alive
+   *   far    — beyond the near zone → suspend iframe to save resources
+   */
+  renderPriority?: 'active' | 'near' | 'far';
 }
 
 /** Builds the iframe src from a base URL + optional route path.
@@ -40,14 +61,63 @@ const DIFF_STATUS_BADGE: Record<string, { color: string; bg: string; label: stri
   REJECTED: { color: '#FF8080', bg: 'rgba(255,128,128,0.15)', label: 'blocked' },
 };
 
-export function Artboard({ id, label, x, y, width, height, renderUrl, route, onRoutesDiscovered }: ArtboardProps) {
+export function Artboard({
+  id, label, x, y, width, height,
+  renderUrl, route,
+  artboard_type = 'route',
+  isolation_component,
+  isolation_file,
+  isolation_props,
+  onRoutesDiscovered,
+  renderPriority = 'active',
+}: ArtboardProps) {
   const {
     selectedArtboardId, selectArtboard, workspaceId, projectId,
     setArtboardLive, setFiberRoot, selectComponent, setComponentStyles, setComponentTextFlags,
-    selectedComponentId,
+    selectedComponentId, setSelectedArtboardSize,
+    artboardResizeEvent, clearArtboardResize,
+    artboardThumbnails, setArtboardThumbnail,
+    setElementSnapshot,
+    designLanguageTokens,
   } = useCanvas();
+  const thumbnailDataUrl = artboardThumbnails[id] ?? null;
+
+  // Phase 6: convert DesignToken[] → Record<string,string> CSS var map so that
+  // LiveArtboard can forward them to the iframe via SET_DESIGN_TOKENS on READY
+  // and on every change (including Supabase Realtime updates).
+  const designTokens = designLanguageTokens
+    ? Object.fromEntries(designLanguageTokens.map((t) => [t.key, t.rawValue]))
+    : undefined;
   const selected = selectedArtboardId === id;
+
+  // Push dimensions into canvas store when this artboard is selected
+  // so the Toolbar's device preset picker can read them without prop drilling.
+  useEffect(() => {
+    if (selected) setSelectedArtboardSize(width, height);
+  }, [selected, width, height, setSelectedArtboardSize]);
+
   const queryClient = useQueryClient();
+
+  // Watch for device-preset resize events addressed to this artboard and
+  // perform the PATCH, then clear the event.
+  useEffect(() => {
+    if (!artboardResizeEvent || artboardResizeEvent.artboardId !== id) return;
+    const { width: newW, height: newH } = artboardResizeEvent;
+    clearArtboardResize();
+    fetch(`/api/artboards/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        metadata_jsonb: {
+          x, y, width: newW, height: newH,
+          ...(renderUrl ? { renderUrl } : {}),
+          ...(route    ? { route }     : {}),
+        },
+      }),
+    }).then(() => {
+      queryClient.invalidateQueries({ queryKey: ['artboards', workspaceId, projectId ?? undefined] });
+    }).catch(console.error);
+  }, [artboardResizeEvent, id, x, y, renderUrl, route, workspaceId, projectId, queryClient, clearArtboardResize]);
 
   // Diff status badges — fetch is cached by TanStack Query across all artboards
   const { diffs } = useDiffs(id);
@@ -146,6 +216,13 @@ export function Artboard({ id, label, x, y, width, height, renderUrl, route, onR
       const newX = Math.round(dragStart.current.artX + dragOffsetRef.current.dx);
       const newY = Math.round(dragStart.current.artY + dragOffsetRef.current.dy);
 
+      // Phase 0 spec §4.3: mark as manually positioned when the drag exceeds
+      // 10 world-space px so auto-arrange doesn't overwrite user layout.
+      const dragDist = Math.sqrt(
+        dragOffsetRef.current.dx ** 2 + dragOffsetRef.current.dy ** 2,
+      );
+      const wasIntentionalDrag = dragDist >= 10;
+
       // Persist position
       fetch(`/api/artboards/${id}`, {
         method: 'PATCH',
@@ -157,6 +234,7 @@ export function Artboard({ id, label, x, y, width, height, renderUrl, route, onR
             x: newX, y: newY, width, height,
             ...(renderUrl ? { renderUrl } : {}),
             ...(route    ? { route }     : {}),
+            ...(wasIntentionalDrag ? { manuallyPositioned: true } : {}),
           },
         }),
       }).then(() => {
@@ -213,6 +291,12 @@ export function Artboard({ id, label, x, y, width, height, renderUrl, route, onR
   return (
     <div
       style={{ position: 'absolute', top: effectiveY, left: effectiveX }}
+      data-artboard-world="true"
+      data-artboard-world-x={String(effectiveX)}
+      data-artboard-world-y={String(effectiveY)}
+      data-artboard-world-w={String(width)}
+      data-artboard-world-h={String(height)}
+      data-artboard-selected={String(selected)}
       onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => { e.stopPropagation(); selectArtboard(id); }}
     >
@@ -362,49 +446,116 @@ export function Artboard({ id, label, x, y, width, height, renderUrl, route, onR
         })()}
 
         {/* Content */}
-        {renderUrl ? (
+        {/* Isolation artboard — renders a single component via the CLI proxy */}
+        {artboard_type === 'isolation' && renderUrl && isolation_component && isolation_file ? (
+          <IsolationFrame
+            artboardId={id}
+            componentName={isolation_component}
+            componentFile={isolation_file}
+            proxyUrl={renderUrl}
+            {...(isolation_props ? { isolationProps: isolation_props } : {})}
+            width={width}
+            height={height}
+          />
+        ) : renderUrl ? (
           <>
-            <LiveArtboard
-              id={id}
-              src={buildSrc(renderUrl, route)}
-              width={width}
-              height={height}
-              selectedComponentId={selectedComponentId}
-              onReady={() => { setArtboardLive(id, true); setIsStaticPage(false); }}
-              onFiberTreeUpdate={handleFiberUpdate}
-              onComponentSelected={handleComponentSelected}
-              onComponentStylesUpdate={handleComponentStylesUpdate}
-              onRoutesDiscovered={(routes) => onRoutesDiscovered?.(id, routes)}
-              onStaticPageDetected={() => setIsStaticPage(true)}
-            />
+            {renderPriority !== 'far' ? (
+              <>
+                <LiveArtboard
+                  id={id}
+                  src={buildSrc(renderUrl, route)}
+                  width={width}
+                  height={height}
+                  {...(renderPriority === 'near' ? { style: { visibility: 'hidden' } } : {})}
+                  {...(designTokens ? { designTokens } : {})}
+                  selectedComponentId={selectedComponentId}
+                  onReady={() => { setArtboardLive(id, true); setIsStaticPage(false); }}
+                  onFiberTreeUpdate={handleFiberUpdate}
+                  onComponentSelected={handleComponentSelected}
+                  onComponentStylesUpdate={handleComponentStylesUpdate}
+                  onRoutesDiscovered={(routes) => onRoutesDiscovered?.(id, routes)}
+                  onStaticPageDetected={() => setIsStaticPage(true)}
+                  onThumbnailReady={(dataUrl) => {
+                    // 1. Store data URL in Zustand for immediate in-session display
+                    setArtboardThumbnail(id, dataUrl);
+                    // 2. Upload to Supabase Storage in the background (non-blocking).
+                    //    Spec §3.6: only the public Storage URL is persisted in the DB;
+                    //    data URIs are session-only.
+                    if (dataUrl && workspaceId) {
+                      void fetch('/api/artboards/thumbnail', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ artboardId: id, workspaceId, dataUrl }),
+                      }).catch(() => { /* upload failure is non-fatal */ });
+                    }
+                  }}
+                  onSnapshotReady={(dataUrl, nodeId) => setElementSnapshot(id, nodeId, dataUrl)}
+                />
 
-            {/* Static-page banner — shown when the proxy serves a non-React page */}
-            {isStaticPage && (
+                {/* Static-page banner — shown when the proxy serves a non-React page */}
+                {isStaticPage && (
+                  <div style={{
+                    position: 'absolute', bottom: 0, left: 0, right: 0,
+                    background: 'rgba(245,158,11,0.92)', backdropFilter: 'blur(8px)',
+                    padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 8,
+                    zIndex: 20, pointerEvents: 'none',
+                  }}>
+                    <span style={{ fontSize: 12 }}>⚠️</span>
+                    <span style={{
+                      fontFamily: "'JetBrains Mono', monospace", fontSize: '0.5875rem',
+                      color: '#1C1917', letterSpacing: '-0.01em',
+                    }}>
+                      Static HTML page — no React components detected. Navigate to a React route to enable inspection.
+                    </span>
+                  </div>
+                )}
+                <SelectionOverlay
+                  artboardId={id}
+                  {...(localFiberRoot !== undefined ? { fiberRoot: localFiberRoot } : {})}
+                  width={width}
+                  height={height}
+                  onSelectionChange={(sel) => {
+                    if (sel) selectArtboard(id);
+                    handleComponentSelected(sel?.nodeId ?? '');
+                  }}
+                />
+              </>
+            ) : (
+              /* Off-screen placeholder — iframe unmounted to save resources.
+               * Displays the last JPEG thumbnail captured before suspension. */
               <div style={{
-                position: 'absolute', bottom: 0, left: 0, right: 0,
-                background: 'rgba(245,158,11,0.92)', backdropFilter: 'blur(8px)',
-                padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 8,
-                zIndex: 20, pointerEvents: 'none',
+                width, height,
+                background: 'rgba(255,255,255,0.03)',
+                borderRadius: 2,
+                overflow: 'hidden',
+                position: 'relative',
               }}>
-                <span style={{ fontSize: 12 }}>⚠️</span>
-                <span style={{
-                  fontFamily: "'JetBrains Mono', monospace", fontSize: '0.5875rem',
-                  color: '#1C1917', letterSpacing: '-0.01em',
-                }}>
-                  Static HTML page — no React components detected. Navigate to a React route to enable inspection.
-                </span>
+                {thumbnailDataUrl ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={thumbnailDataUrl}
+                    alt=""
+                    aria-hidden
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  />
+                ) : (
+                  <div style={{
+                    width: '100%', height: '100%',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <span style={{
+                      fontFamily: "'JetBrains Mono', monospace",
+                      fontSize: '0.5rem',
+                      color: 'rgba(255,255,255,0.12)',
+                      letterSpacing: '0.06em',
+                      textTransform: 'uppercase',
+                    }}>
+                      off-screen
+                    </span>
+                  </div>
+                )}
               </div>
             )}
-            <SelectionOverlay
-              artboardId={id}
-              {...(localFiberRoot !== undefined ? { fiberRoot: localFiberRoot } : {})}
-              width={width}
-              height={height}
-              onSelectionChange={(sel) => {
-                if (sel) selectArtboard(id);
-                handleComponentSelected(sel?.nodeId ?? '');
-              }}
-            />
           </>
         ) : (
           <EmptyArtboardContent id={id} label={label} width={width} height={height} workspaceId={workspaceId} projectId={projectId} queryClient={queryClient} />

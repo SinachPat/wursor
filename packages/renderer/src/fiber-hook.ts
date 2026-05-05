@@ -154,6 +154,10 @@ export function buildProxyFiberHookScript(): string {
   var childrenStyleOverrides = {};   // parentNodeId -> { selector -> { property -> value } }
   var overrideStyleEl        = null; // the <style id="__om_overrides__"> element
 
+  // ── Snapshot / thumbnail capture state ───────────────────────────────────
+  var _snapshotGeneration = 0;      // incremented on CANCEL_SNAPSHOT to invalidate in-flight captures
+  var _html2canvasLoading = null;   // cached Promise<html2canvas> — only inject script once
+
   // ── postMessage helper ────────────────────────────────────────────────────
   function post(msg) {
     try {
@@ -703,6 +707,62 @@ export function buildProxyFiberHookScript(): string {
           }
         }
         break;
+      case 'CAPTURE_THUMBNAIL':
+        // Phase 0: capture the full page as a JPEG thumbnail via html2canvas.
+        // Sent when an artboard transitions Active → Far in the viewport culling system.
+        loadHtml2Canvas().then(function(h2c) {
+          return h2c(document.body, {
+            useCORS: true,
+            allowTaint: true,
+            logging: false,
+            scale: 0.5,            // half-resolution thumbnail keeps payload small
+            imageTimeout: 4000,
+          });
+        }).then(function(canvas) {
+          post({ type: 'THUMBNAIL_READY', dataUrl: canvas.toDataURL('image/jpeg', 0.7) });
+        }).catch(function() {
+          post({ type: 'THUMBNAIL_READY', dataUrl: null });
+        });
+        break;
+      case 'UPDATE_ISOLATION_PROPS':
+        // Phase 0/3: update isolation artboard props and trigger a re-render.
+        // The isolation page exposes window.__OM_ISO_RENDER__() which calls
+        // ReactDOM.render / root.render with the new window.__OM_ISO_PROPS__.
+        if (msg.props && typeof msg.props === 'object') {
+          window.__OM_ISO_PROPS__ = msg.props;
+          if (typeof window.__OM_ISO_RENDER__ === 'function') {
+            try { window.__OM_ISO_RENDER__(); } catch(e) { /* renderer not yet mounted */ }
+          }
+        }
+        break;
+      case 'CANCEL_SNAPSHOT':
+        // Phase 4: invalidate any pending CAPTURE_SNAPSHOT by bumping the generation
+        // counter — any in-flight html2canvas call will see the mismatch and drop its result.
+        _snapshotGeneration += 1;
+        break;
+      case 'CAPTURE_SNAPSHOT':
+        // Phase 4: capture a PNG of the selected element, used by the Code Preview diff.
+        // Guards against stale results with a per-capture generation counter.
+        if (typeof msg.nodeId !== 'string') break;
+        _snapshotGeneration += 1;
+        (function(nodeId, gen) {
+          var sInfo = nodeMap[nodeId];
+          var sEl = sInfo ? findDomElement(sInfo.fiber) : null;
+          if (!sEl) {
+            post({ type: 'SNAPSHOT_READY', dataUrl: null, nodeId: nodeId });
+            return;
+          }
+          loadHtml2Canvas().then(function(h2c) {
+            if (_snapshotGeneration !== gen) return null;
+            return h2c(sEl, { useCORS: true, allowTaint: true, logging: false, timeout: 3000 });
+          }).then(function(canvas) {
+            if (!canvas || _snapshotGeneration !== gen) return;
+            post({ type: 'SNAPSHOT_READY', dataUrl: canvas.toDataURL('image/png'), nodeId: nodeId });
+          }).catch(function() {
+            if (_snapshotGeneration === gen) post({ type: 'SNAPSHOT_READY', dataUrl: null, nodeId: nodeId });
+          });
+        })(msg.nodeId, _snapshotGeneration);
+        break;
     }
   });
 
@@ -714,6 +774,24 @@ export function buildProxyFiberHookScript(): string {
         root.style.setProperty(k, String(tokens[k]));
       }
     }
+  }
+
+  // ── html2canvas lazy loader ───────────────────────────────────────────────
+  // html2canvas is not bundled in the fiber hook — inject from CDN on first
+  // need, caching the Promise so the script tag is added only once.
+  function loadHtml2Canvas() {
+    if (typeof window.html2canvas === 'function') {
+      return Promise.resolve(window.html2canvas);
+    }
+    if (_html2canvasLoading) return _html2canvasLoading;
+    _html2canvasLoading = new Promise(function(resolve, reject) {
+      var s = document.createElement('script');
+      s.src = 'https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js';
+      s.onload  = function() { resolve(window.html2canvas); };
+      s.onerror = function() { _html2canvasLoading = null; reject(new Error('html2canvas load failed')); };
+      (document.head || document.documentElement).appendChild(s);
+    });
+    return _html2canvasLoading;
   }
 
   // SPA-safe navigation: push to history and fire popstate so framework
@@ -820,8 +898,11 @@ export function buildProxyFiberHookScript(): string {
     if (routes.length > 0) post({ type: 'ROUTES_DISCOVERED', routes: routes });
   }
 
-  // ── Ready signal ──────────────────────────────────────────────────────────
-  post({ type: 'READY' });
+  // ── Ready signal (includes root font size for rem→px normalisation) ────────
+  var rootFontSizePx = parseFloat(
+    window.getComputedStyle(document.documentElement).getPropertyValue('font-size') || '16'
+  ) || 16;
+  post({ type: 'READY', rootFontSizePx: rootFontSizePx });
   setTimeout(discoverRoutes, 800);
   // Re-discover on SPA navigation (Next.js App Router fires popstate on push)
   window.addEventListener('popstate', function() { setTimeout(discoverRoutes, 100); });

@@ -49,6 +49,9 @@ export const WorkspaceSchema = z.object({
 });
 export type Workspace = z.infer<typeof WorkspaceSchema>;
 
+export const ArtboardTypeSchema = z.enum(['route', 'isolation', 'static']);
+export type ArtboardType = z.infer<typeof ArtboardTypeSchema>;
+
 export const ArtboardSchema = z.object({
   id:                 z.string().uuid(),
   workspace_id:       z.string().uuid(),
@@ -66,8 +69,27 @@ export const ArtboardSchema = z.object({
   /** Spec: NOT NULL DEFAULT 900 (migration 008) */
   height:             z.number().int().default(900),
   created_by:         z.string().optional(),
-  created_at:         z.string().datetime(),
-  updated_at:         z.string().datetime(),
+  // ── Phase 0 columns (migration 012) ──────────────────────────────────────
+  /** Canvas X position in world-space pixels (promoted from metadata_jsonb). */
+  canvas_x:             z.number().default(0).optional(),
+  /** Canvas Y position in world-space pixels (promoted from metadata_jsonb). */
+  canvas_y:             z.number().default(0).optional(),
+  /** Device preset label, e.g. 'desktop-hd' | 'laptop' | 'mobile'. */
+  device_preset:        z.string().default('desktop-hd').optional(),
+  /** Artboard type controls which content renderer is used. */
+  artboard_type:        ArtboardTypeSchema.default('route').optional(),
+  /** Isolation artboard: exported symbol name, e.g. "Button". */
+  isolation_component:  z.string().nullable().optional(),
+  /** Isolation artboard: workspace-relative source file path. */
+  isolation_file:       z.string().nullable().optional(),
+  /** Isolation artboard: JSON props fed to window.__OM_ISO_PROPS__. */
+  isolation_props:      z.record(z.unknown()).optional(),
+  /** True once the user has manually dragged the artboard ≥10 world-space px. */
+  manually_positioned:  z.boolean().default(false).optional(),
+  /** Supabase Storage public URL for the JPEG thumbnail (data URIs never stored). */
+  thumbnail_url:        z.string().nullable().optional(),
+  created_at:     z.string().datetime(),
+  updated_at:     z.string().datetime(),
 });
 export type Artboard = z.infer<typeof ArtboardSchema>;
 
@@ -100,6 +122,8 @@ export const IntentDiffSchema = z.object({
   before_screenshot:  z.string().nullable().optional(),
   after_screenshot:   z.string().nullable().optional(),
   exported_code:      z.string().nullable().optional(),
+  /** Phase 5: agent-supplied failure reason when status = 'BLOCKED' (migration 012). */
+  blocked_reason:     z.string().nullable().optional(),
   created_at:         z.string().datetime(),
   updated_at:         z.string().datetime(),
 });
