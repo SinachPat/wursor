@@ -1,15 +1,15 @@
 // GET  /api/diffs?artboardId=<uuid>  → list diffs for an artboard
 // POST /api/diffs                    → create draft diff
 
-import { auth } from '@clerk/nextjs/server';
+import { currentUser } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { serverClient } from '@/lib/supabase';
 import { getDiffs, createDiff } from '@originmain/origin-graph';
 import type { InsertIntentDiff } from '@originmain/origin-graph';
 
 export async function GET(req: NextRequest) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const user = await currentUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const artboardId = req.nextUrl.searchParams.get('artboardId');
   if (!artboardId) return NextResponse.json({ error: 'artboardId is required' }, { status: 400 });
@@ -25,11 +25,14 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const user = await currentUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const body = (await req.json()) as Omit<InsertIntentDiff, 'author_id'>;
-  const insert: InsertIntentDiff = { ...body, author_id: userId };
+  const authorEmail = user.primaryEmailAddress?.emailAddress;
+  if (!authorEmail) return NextResponse.json({ error: 'No verified email on account' }, { status: 401 });
+
+  const body = (await req.json()) as Omit<InsertIntentDiff, 'author_email'>;
+  const insert: InsertIntentDiff = { ...body, author_email: authorEmail };
 
   try {
     const db = serverClient();

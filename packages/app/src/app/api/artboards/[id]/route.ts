@@ -36,6 +36,9 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
   const patch: Partial<InsertArtboard> = {};
   if (typeof body.name === 'string' && body.name.trim()) patch.name = body.name.trim();
   if (body.metadata_jsonb !== undefined) patch.metadata_jsonb = body.metadata_jsonb;
+  // isolation_props are stored as a direct DB column and patched independently
+  // of metadata_jsonb so IsolationFrame can receive live prop updates.
+  if (body.isolation_props !== undefined) patch.isolation_props = body.isolation_props;
 
   if (Object.keys(patch).length === 0)
     return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });

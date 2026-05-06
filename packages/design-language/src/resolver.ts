@@ -40,7 +40,7 @@ function colorDistance(a: string, b: string): number {
 
 // ── Numeric resolution ────────────────────────────────────────────────────────
 
-function parseNumericPx(value: string): number | null {
+function parseNumericPx(value: string, rootFontSizePx = 16): number | null {
   const v = value.trim();
   if (v.endsWith('px')) {
     const n = parseFloat(v);
@@ -48,16 +48,16 @@ function parseNumericPx(value: string): number | null {
   }
   if (v.endsWith('rem')) {
     const n = parseFloat(v);
-    return isNaN(n) ? null : n * 16; // normalise with standard 16px base
+    return isNaN(n) ? null : n * rootFontSizePx;
   }
   const n = parseFloat(v);
   if (!isNaN(n) && v === String(n)) return n;
   return null;
 }
 
-function numericDistance(a: string, b: string): number {
-  const na = parseNumericPx(a);
-  const nb = parseNumericPx(b);
+function numericDistance(a: string, b: string, rootFontSizePx = 16): number {
+  const na = parseNumericPx(a, rootFontSizePx);
+  const nb = parseNumericPx(b, rootFontSizePx);
   if (na === null || nb === null) return Infinity;
   return Math.abs(na - nb);
 }
@@ -96,7 +96,7 @@ export function resolveValueToToken(
       distance = colorDistance(normalised, tokenNorm);
       if (distance > COLOR_DISTANCE_THRESHOLD) continue;
     } else {
-      distance = numericDistance(normalised, tokenNorm);
+      distance = numericDistance(normalised, tokenNorm, rootFontSizePx);
       if (distance > NUMERIC_DISTANCE_THRESHOLD) continue;
     }
 
@@ -134,7 +134,7 @@ export function resolveValueToTokens(
       distance = colorDistance(normalised, tokenNorm);
       if (distance > COLOR_DISTANCE_THRESHOLD) continue;
     } else {
-      distance = numericDistance(normalised, tokenNorm);
+      distance = numericDistance(normalised, tokenNorm, rootFontSizePx);
       if (distance > NUMERIC_DISTANCE_THRESHOLD) continue;
     }
 

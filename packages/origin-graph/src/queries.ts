@@ -10,6 +10,9 @@ import type {
   Origin,
   IntentDiff,
   DesignLanguageFile,
+  DesignLanguage,
+  DesignLanguageVersion,
+  InsertDesignLanguage,
   AgentSession,
   TeamMember,
   Project,
@@ -31,6 +34,7 @@ export interface DbClient {
     select(cols?: string): DbQuery;
     insert(row: unknown): DbMutation;
     update(row: unknown): DbMutation;
+    upsert(row: unknown, opts?: { onConflict?: string }): DbMutation;
     delete(): DbMutation;
   };
   rpc(fn: string, args?: unknown): Promise<{ data: unknown; error: DbError | null }>;
@@ -236,6 +240,66 @@ export async function getActiveDesignLanguageFile(
   return data;
 }
 
+// ── Phase 6: design_languages queries (migration 014) ────────────────────────
+
+/**
+ * Return the single active design language row for a workspace, or null if none
+ * has been uploaded yet. Uses the UNIQUE(workspace_id) constraint — one row per
+ * workspace, no is_active flag needed.
+ */
+export async function getDesignLanguage(
+  db: DbClient,
+  workspaceId: string,
+): Promise<DesignLanguage | null> {
+  const { data, error } = await (db
+    .from('design_languages')
+    .select('*')
+    .eq('workspace_id', workspaceId)
+    .limit(1)
+    .single() as Promise<{ data: DesignLanguage | null; error: DbError | null }>);
+  if (error?.code === 'PGRST116') return null; // No rows — no token file uploaded yet
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+/**
+ * Upsert a design language row (INSERT … ON CONFLICT DO UPDATE).
+ * The DB enforces UNIQUE(workspace_id) so this is safe for concurrent callers.
+ * Also inserts a history row into design_language_versions (handled by trigger).
+ */
+export async function upsertDesignLanguage(
+  db: DbClient,
+  row: InsertDesignLanguage,
+): Promise<DesignLanguage> {
+  const { data, error } = await (db
+    .from('design_languages')
+    .upsert(row, { onConflict: 'workspace_id' })
+    .select()
+    .single() as Promise<{ data: DesignLanguage; error: DbError | null }>);
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+/**
+ * Return the version history for a design language, newest first.
+ * The prune trigger keeps at most 10 rows per design_language_id.
+ */
+export async function getDesignLanguageVersions(
+  db: DbClient,
+  designLanguageId: string,
+): Promise<DesignLanguageVersion[]> {
+  const { data, error } = await (db
+    .from('design_language_versions')
+    .select('*')
+    .eq('design_language_id', designLanguageId)
+    .order('version', { ascending: false }) as unknown as Promise<{
+      data: DesignLanguageVersion[];
+      error: DbError | null;
+    }>);
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
 // ── Origin queries ────────────────────────────────────────────────────────────
 
 export async function getOrigin(db: DbClient, id: string): Promise<Origin> {
@@ -342,13 +406,14 @@ export async function addTeamMember(db: DbClient, row: InsertTeamMember): Promis
 export async function removeTeamMember(
   db: DbClient,
   workspaceId: string,
-  userId: string,
+  /** The email address of the member to remove. */
+  email: string,
 ): Promise<void> {
   const { error } = await (db
     .from('team_members')
     .delete()
     .eq('workspace_id', workspaceId)
-    .eq('user_id', userId) as unknown as Promise<{ data: unknown; error: DbError | null }>);
+    .eq('email', email) as unknown as Promise<{ data: unknown; error: DbError | null }>);
   if (error) throw new Error(error.message);
 }
 

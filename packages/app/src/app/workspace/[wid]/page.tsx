@@ -1,4 +1,4 @@
-import { auth } from '@clerk/nextjs/server';
+import { currentUser } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { serverClient } from '@/lib/supabase';
@@ -18,9 +18,10 @@ export async function generateMetadata({ params }: { params: Promise<{ wid: stri
 
 export default async function WorkspacePage({ params }: { params: Promise<{ wid: string }> }) {
   const { wid } = await params;
-  const { userId } = await auth();
-  if (!userId) redirect('/sign-in');
+  const user = await currentUser();
+  if (!user) redirect('/sign-in');
 
+  const email = user.primaryEmailAddress?.emailAddress ?? '';
   const db = serverClient();
 
   // Verify membership
@@ -28,7 +29,7 @@ export default async function WorkspacePage({ params }: { params: Promise<{ wid:
     .from('team_members')
     .select('id')
     .eq('workspace_id', wid)
-    .eq('user_id', userId)
+    .eq('email', email)
     .limit(1)
     .single();
 

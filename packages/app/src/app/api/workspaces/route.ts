@@ -1,14 +1,17 @@
 // GET  /api/workspaces  — list every workspace the signed-in user belongs to
 // POST /api/workspaces  — create a new workspace + add creator as OWNER
 
-import { auth, currentUser } from '@clerk/nextjs/server';
+import { currentUser } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { serverClient } from '@/lib/supabase';
 import type { Workspace, InsertWorkspace } from '@originmain/origin-graph';
 
 export async function GET() {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const user = await currentUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const email = user.primaryEmailAddress?.emailAddress;
+  if (!email) return NextResponse.json({ error: 'No verified email on account' }, { status: 401 });
 
   const db = serverClient();
 
@@ -16,7 +19,7 @@ export async function GET() {
   const { data: memberships, error: mErr } = await db
     .from('team_members')
     .select('workspace_id')
-    .eq('user_id', userId);
+    .eq('email', email);
 
   if (mErr) return NextResponse.json({ error: mErr.message }, { status: 500 });
 
@@ -35,8 +38,11 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const user = await currentUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const email = user.primaryEmailAddress?.emailAddress;
+  if (!email) return NextResponse.json({ error: 'No verified email on account' }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
   const name = typeof body.name === 'string' && body.name.trim()
@@ -48,7 +54,7 @@ export async function POST(req: NextRequest) {
   const db = serverClient();
 
   const insert: InsertWorkspace = {
-    owner_id: userId,
+    owner_email: email,
     name,
     plan: 'FREE',
     settings_jsonb: {},
@@ -67,7 +73,7 @@ export async function POST(req: NextRequest) {
   // Add creator as OWNER team member so GET /api/workspaces can find it.
   await db.from('team_members').insert({
     workspace_id: workspace.id,
-    user_id: userId,
+    email,
     role: 'OWNER',
   });
 

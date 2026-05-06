@@ -1,9 +1,9 @@
 'use client';
 
-// ── Props Tab (Phase 2) ───────────────────────────────────────────────────────
+// ── Props Tab (Phase 2 + §5.11) ───────────────────────────────────────────────
 // Displays artboard metadata, editable render URL / route, selected component
-// props, and the Drift Report action. Extracted from Inspector.tsx as per
-// spec SOURCE-AWARE-CANVAS.md Phase 2.
+// props with TypeScript type badges, isolation prop editor, and the Drift Report
+// action. Extracted from Inspector.tsx as per spec SOURCE-AWARE-CANVAS.md Phase 2.
 
 import { useState, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -18,6 +18,95 @@ const TYPE_COLORS: Record<string, string> = {
   n: '#7EB8FF',
   b: '#FFBA7B',
 };
+
+// ── TypeScript type badge (spec §5.11) ────────────────────────────────────────
+
+type TsBadgeKind = 'string' | 'number' | 'boolean' | 'object' | 'array' | 'null' | 'unknown';
+
+function inferTsKind(v: unknown): TsBadgeKind {
+  if (v === null || v === undefined) return 'null';
+  if (Array.isArray(v)) return 'array';
+  const t = typeof v;
+  if (t === 'string')  return 'string';
+  if (t === 'number')  return 'number';
+  if (t === 'boolean') return 'boolean';
+  if (t === 'object')  return 'object';
+  return 'unknown';
+}
+
+const TS_BADGE_COLORS: Record<TsBadgeKind, { fg: string; bg: string }> = {
+  string:  { fg: '#7DD3A8', bg: 'rgba(125,211,168,0.10)' },
+  number:  { fg: '#7EB8FF', bg: 'rgba(126,184,255,0.10)' },
+  boolean: { fg: '#FFBA7B', bg: 'rgba(255,186,123,0.10)' },
+  object:  { fg: '#C084FC', bg: 'rgba(192,132,252,0.10)' },
+  array:   { fg: '#C084FC', bg: 'rgba(192,132,252,0.10)' },
+  null:    { fg: '#6B7280', bg: 'rgba(107,114,128,0.10)' },
+  unknown: { fg: '#6B7280', bg: 'rgba(107,114,128,0.10)' },
+};
+
+function TypeBadge({ kind }: { kind: TsBadgeKind }) {
+  const c = TS_BADGE_COLORS[kind];
+  return (
+    <span style={{
+      fontFamily: "'JetBrains Mono', monospace", fontSize: '0.45rem',
+      color: c.fg, background: c.bg,
+      border: `1px solid ${c.fg}33`,
+      borderRadius: 3, padding: '0 3px', flexShrink: 0,
+      letterSpacing: '0.04em', lineHeight: '14px',
+    }}>
+      {kind}
+    </span>
+  );
+}
+
+// ── Isolation prop editor row (spec §5.11) ────────────────────────────────────
+// Editable input for a single isolation prop override. Displays the runtime
+// value and TypeScript type; edits are committed on blur/Enter.
+
+function IsolationPropRow({
+  propKey, runtimeValue, override, kind,
+  onChange,
+}: {
+  propKey: string;
+  runtimeValue: unknown;
+  override: unknown;
+  kind: TsBadgeKind;
+  onChange: (key: string, rawValue: string) => void;
+}) {
+  const T = useCanvasTheme();
+  const displayedValue = override !== undefined ? override : runtimeValue;
+  const [draft, setDraft] = useState(String(displayedValue ?? ''));
+
+  const commit = useCallback(() => {
+    onChange(propKey, draft);
+  }, [propKey, draft, onChange]);
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
+      <TypeBadge kind={kind} />
+      <span style={{
+        fontFamily: "'JetBrains Mono', monospace", fontSize: '0.5625rem',
+        color: T.key, flexShrink: 0, minWidth: 60,
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+      }}>
+        {propKey}
+      </span>
+      <input
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === 'Enter') commit(); }}
+        style={{
+          flex: 1, minWidth: 0, fontSize: '0.5625rem',
+          fontFamily: "'JetBrains Mono', monospace",
+          background: T.bgDeep, border: `1px solid ${T.border}`,
+          borderRadius: 4, padding: '3px 6px',
+          color: override !== undefined ? T.accent : T.fg, outline: 'none',
+        }}
+      />
+    </div>
+  );
+}
 
 interface PropsTabProps {
   artboard:              Artboard | null;
@@ -38,6 +127,31 @@ export function PropsTab({
   const [urlDraft,     setUrlDraft]     = useState('');
   const [editingRoute, setEditingRoute] = useState(false);
   const [routeDraft,   setRouteDraft]   = useState('');
+
+  // ── Isolation prop overrides (spec §5.11) ─────────────────────────────────
+  // Stored in artboard.isolation_props (a direct DB column).
+  const isolationProps = (artboard?.isolation_props ?? {}) as Record<string, unknown>;
+  const isIsolation    = artboard?.artboard_type === 'isolation';
+
+  const handleIsolationPropChange = useCallback(async (propKey: string, rawValue: string) => {
+    if (!artboard) return;
+    // Coerce the string input to the original runtime type
+    const runtimeVal = selectedComponentData?.props?.[propKey];
+    let coerced: unknown = rawValue;
+    if (typeof runtimeVal === 'number') {
+      const n = Number(rawValue);
+      coerced = isNaN(n) ? rawValue : n;
+    } else if (typeof runtimeVal === 'boolean') {
+      coerced = rawValue === 'true';
+    }
+    const updated = { ...isolationProps, [propKey]: coerced };
+    try {
+      await patchArtboard(artboard.id, { isolation_props: updated });
+      queryClient.invalidateQueries({ queryKey: ['artboards', workspaceId, projectId ?? undefined] });
+    } catch (err) {
+      console.error('[PropsTab] isolation_props patch failed', err);
+    }
+  }, [artboard, isolationProps, selectedComponentData?.props, workspaceId, projectId, queryClient]);
 
   // Drift report
   const [driftStatus, setDriftStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
@@ -121,15 +235,36 @@ export function PropsTab({
 
   return (
     <>
-      {/* ── Selected fiber component props ─────────────────────────────── */}
+      {/* ── Selected fiber component props (spec §5.11) ─────────────────── */}
       {selectedComponentData && (
         <>
           <Section label={`↳ ${selectedComponentData.name}`}>
             {Object.entries(selectedComponentData.props ?? {}).map(([k, v]) => {
-              const t     = typeof v;
-              const color = t === 'number' ? N : t === 'boolean' ? B : S;
-              const disp  = t === 'string' ? `"${v as string}"` : String(v);
-              return <PropRow key={k} label={k} value={disp} color={color} />;
+              const kind  = inferTsKind(v);
+              const color = kind === 'number' ? N : kind === 'boolean' ? B : S;
+              const disp  = typeof v === 'string' ? `"${v}"` : String(v);
+
+              if (isIsolation) {
+                // Isolation artboard: show editable override input
+                return (
+                  <IsolationPropRow
+                    key={k}
+                    propKey={k}
+                    runtimeValue={v}
+                    override={isolationProps[k]}
+                    kind={kind}
+                    onChange={handleIsolationPropChange}
+                  />
+                );
+              }
+
+              // Standard artboard: read-only with type badge
+              return (
+                <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 5 }}>
+                  <TypeBadge kind={kind} />
+                  <PropRow label={k} value={disp} color={color} />
+                </div>
+              );
             })}
             {Object.keys(selectedComponentData.props ?? {}).length === 0 && (
               <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.625rem', color: T.dim }}>

@@ -1,4 +1,4 @@
-import { auth } from '@clerk/nextjs/server';
+import { currentUser } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { serverClient } from '@/lib/supabase';
 import { AppChrome } from '@/components/chrome/AppChrome';
@@ -16,9 +16,10 @@ export default async function ProjectCanvasPage({
   params: Promise<{ wid: string; pid: string }>;
 }) {
   const { wid, pid } = await params;
-  const { userId } = await auth();
-  if (!userId) redirect('/sign-in');
+  const user = await currentUser();
+  if (!user) redirect('/sign-in');
 
+  const email = user.primaryEmailAddress?.emailAddress ?? '';
   const db = serverClient();
 
   // Verify membership
@@ -26,7 +27,7 @@ export default async function ProjectCanvasPage({
     .from('team_members')
     .select('id')
     .eq('workspace_id', wid)
-    .eq('user_id', userId)
+    .eq('email', email)
     .limit(1)
     .single();
 

@@ -1,15 +1,20 @@
 // ── useDlf hook ───────────────────────────────────────────────────────────────
-// Fetches the active Design Language File for the current workspace and returns
-// its parsed body as a typed DesignLanguageFileBody (tokens, component rules,
-// screen rules, voice, accessibility). The raw DB row's schema_jsonb field is
-// validated through the Zod schema at cache-write time so every consumer gets
-// a fully typed result without re-parsing on each render.
+// Fetches the active Design Language for the current workspace and returns its
+// parsed body as a typed DesignLanguageFileBody (tokens, component rules,
+// screen rules, voice, accessibility) when the raw_json matches the old DLF
+// spec format (version "1.0").
 //
-// Stale time is 5 minutes — design systems change infrequently (deploy-time
-// events) so we avoid redundant round-trips during normal editing sessions.
+// Phase 6 note: the route now returns a DesignLanguage row (migration 014)
+// whose raw_json may be a W3C DTCG / Style Dictionary / flat-CSS-vars token
+// file rather than the old DLF body. We attempt to validate raw_json through
+// DesignLanguageFileBodySchema; on failure we return null so the inspector
+// gracefully omits constraint checking rather than crashing.
+//
+// Stale time is 5 minutes — design systems change at deploy-time, not
+// interactively, so we avoid redundant round-trips during normal editing.
 
 import { useQuery } from '@tanstack/react-query';
-import type { DesignLanguageFile } from '@originmain/origin-graph';
+import type { DesignLanguage } from '@originmain/origin-graph';
 import { DesignLanguageFileBodySchema, type DesignLanguageFileBody } from '@originmain/design-language';
 
 // ── Fetch + parse ─────────────────────────────────────────────────────────────
@@ -19,19 +24,16 @@ async function fetchDlf(workspaceId: string): Promise<DesignLanguageFileBody | n
   const res = await fetch(url);
   if (!res.ok) throw new Error(`DLF fetch failed: ${res.status}`);
 
-  // API returns the raw DB row or null when no DLF is uploaded yet.
-  const file = (await res.json()) as DesignLanguageFile | null;
-  if (!file) return null;
+  // API returns the active DesignLanguage row or null when nothing is uploaded.
+  const dl = (await res.json()) as DesignLanguage | null;
+  if (!dl) return null;
 
-  // Validate schema_jsonb through the typed Zod schema.
-  // We throw on failure so TanStack Query surfaces it via query.error —
-  // callers can distinguish "no DLF" (null) from "malformed DLF" (error).
-  const parsed = DesignLanguageFileBodySchema.safeParse(file.schema_jsonb);
-  if (!parsed.success) {
-    throw new Error(
-      `Design language file schema is invalid: ${parsed.error.errors.map(e => e.message).join('; ')}`,
-    );
-  }
+  // Attempt to validate raw_json through the old DLF body schema.
+  // Phase 6 token files (W3C DTCG etc.) will not match — we return null
+  // rather than throwing so constraint checking simply goes quiet.
+  const parsed = DesignLanguageFileBodySchema.safeParse(dl.raw_json);
+  if (!parsed.success) return null;
+
   return parsed.data;
 }
 
@@ -43,17 +45,15 @@ export function useDlf(workspaceId: string | null | undefined) {
     queryFn: () => fetchDlf(workspaceId!),
     enabled: Boolean(workspaceId),
     // Design language files change at deploy-time, not interactively.
-    // 5-minute staleness keeps the inspector snappy without burning requests.
     staleTime: 5 * 60_000,
-    // Retry once on transient network errors, then surface the error.
     retry: 1,
   });
 
   return {
-    /** Parsed DLF body, or null if no file is uploaded for this workspace. */
+    /** Parsed DLF body, or null if no file is uploaded or it uses the new token format. */
     dlf: query.data ?? null,
     isLoading: query.isLoading,
-    /** Set when the DLF fetch succeeded but the schema failed Zod validation. */
+    /** Set when the DLF fetch itself failed (network / server error). */
     error: query.error,
   };
 }

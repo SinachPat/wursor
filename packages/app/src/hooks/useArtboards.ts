@@ -42,10 +42,10 @@ async function fetchArtboards(workspaceId: string, projectId?: string): Promise<
   return { rows, canvas: rows.map(toCanvasArtboard).filter((ab): ab is CanvasArtboard => ab !== null) };
 }
 
-/** PATCH an artboard (name and/or metadata_jsonb). */
+/** PATCH an artboard (name, metadata_jsonb, and/or isolation_props). */
 export async function patchArtboard(
   id: string,
-  patch: { name?: string; metadata_jsonb?: Record<string, unknown> },
+  patch: { name?: string; metadata_jsonb?: Record<string, unknown>; isolation_props?: Record<string, unknown> },
 ): Promise<Artboard> {
   const res = await fetch(`/api/artboards/${encodeURIComponent(id)}`, {
     method: 'PATCH',

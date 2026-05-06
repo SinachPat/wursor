@@ -15,7 +15,7 @@
  * (or receives an INTENT_RECEIVED WebSocket push in Phase 5+).
  */
 
-import { auth } from '@clerk/nextjs/server';
+import { currentUser } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { storePendingIntent } from '@originmain/agent-bridge';
 import { createDiff } from '@originmain/origin-graph';
@@ -37,10 +37,11 @@ interface IntentPayload {
 }
 
 export async function POST(req: NextRequest) {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const user = await currentUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const authorEmail = user.primaryEmailAddress?.emailAddress;
+  if (!authorEmail) return NextResponse.json({ error: 'No verified email on account' }, { status: 401 });
 
   let body: IntentPayload;
   try {
@@ -87,7 +88,7 @@ export async function POST(req: NextRequest) {
 
     const row = await createDiff(db, {
       artboard_id:        artboardId,
-      author_id:          userId,
+      author_email:       authorEmail,
       changes:            changesRecord,
       aggregate_summary:  summary ?? `${componentName} style changes`,
       status:             'EXPORTED',

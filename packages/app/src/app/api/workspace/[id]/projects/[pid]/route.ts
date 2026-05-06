@@ -2,7 +2,7 @@
 // PATCH  /api/workspace/:id/projects/:pid  → update name / app_url / framework / description
 // DELETE /api/workspace/:id/projects/:pid  → permanently delete project
 
-import { auth } from '@clerk/nextjs/server';
+import { currentUser } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { serverClient } from '@/lib/supabase';
 import { updateProject, deleteProject } from '@originmain/origin-graph';
@@ -10,23 +10,27 @@ import type { InsertProject, Project } from '@originmain/origin-graph';
 
 type Ctx = { params: Promise<{ id: string; pid: string }> };
 
-async function assertMember(workspaceId: string, userId: string): Promise<boolean> {
+async function assertMember(workspaceId: string, email: string): Promise<boolean> {
   const db = serverClient();
   const { data } = await db
     .from('team_members')
     .select('id')
     .eq('workspace_id', workspaceId)
-    .eq('user_id', userId)
+    .eq('email', email)
     .limit(1)
     .single();
   return !!data;
 }
 
 export async function GET(_req: NextRequest, { params }: Ctx) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const user = await currentUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const email = user.primaryEmailAddress?.emailAddress;
+  if (!email) return NextResponse.json({ error: 'No verified email on account' }, { status: 401 });
+
   const { id: workspaceId, pid } = await params;
-  if (!(await assertMember(workspaceId, userId)))
+  if (!(await assertMember(workspaceId, email)))
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const { data, error } = await serverClient()
@@ -42,10 +46,14 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 }
 
 export async function PATCH(req: NextRequest, { params }: Ctx) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const user = await currentUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const email = user.primaryEmailAddress?.emailAddress;
+  if (!email) return NextResponse.json({ error: 'No verified email on account' }, { status: 401 });
+
   const { id: workspaceId, pid } = await params;
-  if (!(await assertMember(workspaceId, userId)))
+  if (!(await assertMember(workspaceId, email)))
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const body = (await req.json().catch(() => ({}))) as Partial<InsertProject>;
@@ -68,10 +76,14 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 }
 
 export async function DELETE(_req: NextRequest, { params }: Ctx) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const user = await currentUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const email = user.primaryEmailAddress?.emailAddress;
+  if (!email) return NextResponse.json({ error: 'No verified email on account' }, { status: 401 });
+
   const { id: workspaceId, pid } = await params;
-  if (!(await assertMember(workspaceId, userId)))
+  if (!(await assertMember(workspaceId, email)))
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   try {

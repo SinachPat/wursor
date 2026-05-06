@@ -17,7 +17,7 @@
 //
 // spec: SOURCE-AWARE-CANVAS.md Phase 5 §8.6
 
-import { auth }         from '@clerk/nextjs/server';
+import { currentUser } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { serverClient } from '@/lib/supabase';
 import { issueWorkspaceToken } from '@originmain/agent-bridge';
@@ -59,12 +59,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
 
   // ── Require authentication ────────────────────────────────────────────────
-  const { userId } = await auth();
-  if (!userId) {
-    // Redirect to sign-in, then back here after login
+  const user = await currentUser();
+  if (!user) {
     const signInUrl = new URL('/sign-in', APP_URL);
     signInUrl.searchParams.set('redirect_url', req.nextUrl.toString());
     return NextResponse.redirect(signInUrl.toString());
+  }
+
+  const email = user.primaryEmailAddress?.emailAddress;
+  if (!email) {
+    return errorRedirect(callbackUrl, 'No verified email address on this account.');
   }
 
   // ── Resolve workspace ─────────────────────────────────────────────────────
@@ -72,25 +76,28 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   let workspaceId = workspaceIdParam;
 
   if (!workspaceId) {
-    // Use the user's first workspace membership
+    // Use the user's first workspace membership.
     const { data: member } = await db
       .from('team_members')
       .select('workspace_id')
-      .eq('user_id', userId)
+      .eq('email', email)
       .limit(1)
       .single() as unknown as { data: { workspace_id: string } | null; error: unknown };
 
     if (!member) {
-      return errorRedirect(callbackUrl, 'No workspace found for this account. Create a workspace at ' + APP_URL);
+      return errorRedirect(
+        callbackUrl,
+        'No workspace found for this account. Create a workspace at ' + APP_URL,
+      );
     }
     workspaceId = member.workspace_id;
   } else {
-    // Verify the user is a member of the requested workspace
+    // Verify the user is a member of the requested workspace.
     const { data: member } = await db
       .from('team_members')
       .select('id')
       .eq('workspace_id', workspaceId)
-      .eq('user_id', userId)
+      .eq('email', email)
       .limit(1)
       .single();
 

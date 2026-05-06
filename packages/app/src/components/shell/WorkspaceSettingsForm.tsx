@@ -50,7 +50,7 @@ const BTN_PRIMARY: React.CSSProperties = {
 type TeamRole = 'OWNER' | 'DESIGNER' | 'ENGINEER' | 'PM' | 'VIEWER';
 
 function TeamInviteForm({ workspaceId }: { workspaceId: string }) {
-  const [userId, setUserId] = useState('');
+  const [email, setEmail] = useState('');
   const [role, setRole] = useState<TeamRole>('DESIGNER');
   const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'conflict' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
@@ -60,7 +60,7 @@ function TeamInviteForm({ workspaceId }: { workspaceId: string }) {
   useEffect(() => { return () => { clearTimeout(resetTimer.current); }; }, []);
 
   const submit = useCallback(async () => {
-    const trimmed = userId.trim();
+    const trimmed = email.trim().toLowerCase();
     if (!trimmed) return;
     clearTimeout(resetTimer.current);
     setStatus('loading');
@@ -69,7 +69,7 @@ function TeamInviteForm({ workspaceId }: { workspaceId: string }) {
       const res = await fetch(`/api/workspace/${workspaceId}/invite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: trimmed, role }),
+        body: JSON.stringify({ email: trimmed, role }),
       });
       if (res.status === 409) { setStatus('conflict'); return; }
       if (!res.ok) {
@@ -77,14 +77,14 @@ function TeamInviteForm({ workspaceId }: { workspaceId: string }) {
         throw new Error(data.error ?? `HTTP ${res.status}`);
       }
       setStatus('done');
-      setUserId('');
+      setEmail('');
       resetTimer.current = setTimeout(() => setStatus('idle'), 3000);
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : 'Invite failed');
       setStatus('error');
       resetTimer.current = setTimeout(() => setStatus('idle'), 4000);
     }
-  }, [userId, role, workspaceId]);
+  }, [email, role, workspaceId]);
 
   const roles: TeamRole[] = ['DESIGNER', 'ENGINEER', 'PM', 'VIEWER', 'OWNER'];
 
@@ -110,21 +110,22 @@ function TeamInviteForm({ workspaceId }: { workspaceId: string }) {
         ))}
       </div>
 
-      {/* User ID input + submit */}
-      <label style={LABEL} htmlFor="invite-uid">Clerk user ID</label>
+      {/* Email input + submit */}
+      <label style={LABEL} htmlFor="invite-email">Email address</label>
       <div style={{ display: 'flex', gap: 10 }}>
         <input
-          id="invite-uid"
+          id="invite-email"
+          type="email"
           style={INPUT}
-          placeholder="user_2abc…"
-          value={userId}
-          onChange={e => setUserId(e.target.value)}
+          placeholder="colleague@company.com"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') void submit(); }}
           disabled={status === 'loading'}
         />
         <button
           onClick={() => void submit()}
-          disabled={status === 'loading' || !userId.trim()}
+          disabled={status === 'loading' || !email.trim()}
           style={{
             ...BTN_PRIMARY,
             flexShrink: 0,
@@ -356,7 +357,7 @@ export function WorkspaceSettingsForm({ workspaceId, workspaceName, memberRole }
             Team
           </h2>
           <p style={{ fontSize: '0.8125rem', color: 'var(--card-muted)', margin: '0 0 20px', lineHeight: 1.6 }}>
-            Add a team member using their Clerk user ID. You can find this in the Clerk dashboard under Users.
+            Add a team member using their email address. They must sign in with the same address.
           </p>
 
           <TeamInviteForm workspaceId={workspaceId} />

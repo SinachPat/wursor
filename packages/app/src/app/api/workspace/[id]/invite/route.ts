@@ -1,7 +1,7 @@
-// POST   /api/workspace/:id/invite  → add a member by Clerk userId
-// DELETE /api/workspace/:id/invite  → remove a member by Clerk userId (owners only)
+// POST   /api/workspace/:id/invite  → add a member by email address
+// DELETE /api/workspace/:id/invite  → remove a member by email address (owners only)
 
-import { auth } from '@clerk/nextjs/server';
+import { currentUser } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { serverClient } from '@/lib/supabase';
 import { addTeamMember, removeTeamMember } from '@originmain/origin-graph';
@@ -9,33 +9,43 @@ import type { TeamRole } from '@originmain/origin-graph';
 
 type Ctx = { params: Promise<{ id: string }> };
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export async function POST(req: NextRequest, { params }: Ctx) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const caller = await currentUser();
+  if (!caller) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const callerEmail = caller.primaryEmailAddress?.emailAddress;
+  if (!callerEmail) return NextResponse.json({ error: 'No verified email on account' }, { status: 401 });
 
   const { id: workspaceId } = await params;
   const db = serverClient();
 
-  // Only workspace owners can invite
-  const { data: owner } = await db
+  // Only workspace owners can invite.
+  const { data: ownerRow } = await db
     .from('workspaces')
     .select('id')
     .eq('id', workspaceId)
-    .eq('owner_id', userId)
+    .eq('owner_email', callerEmail)
     .single();
 
-  if (!owner) return NextResponse.json({ error: 'Forbidden — only owners can invite members' }, { status: 403 });
+  if (!ownerRow)
+    return NextResponse.json({ error: 'Forbidden — only owners can invite members' }, { status: 403 });
 
-  const body = (await req.json().catch(() => ({}))) as { userId?: string; role?: TeamRole };
-  if (!body.userId) return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+  const body = (await req.json().catch(() => ({}))) as { email?: string; role?: TeamRole };
+
+  if (!body.email || !EMAIL_RE.test(body.email))
+    return NextResponse.json({ error: 'A valid email address is required' }, { status: 400 });
+
+  const inviteEmail = body.email.toLowerCase().trim();
   const role: TeamRole = body.role ?? 'DESIGNER';
 
-  // Check if already a member
+  // Check if already a member.
   const { data: existing } = await db
     .from('team_members')
     .select('id')
     .eq('workspace_id', workspaceId)
-    .eq('user_id', body.userId)
+    .eq('email', inviteEmail)
     .limit(1)
     .single();
 
@@ -44,7 +54,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   try {
     const member = await addTeamMember(db, {
       workspace_id: workspaceId,
-      user_id: body.userId,
+      email: inviteEmail,
       role,
     });
     return NextResponse.json(member, { status: 201 });
@@ -55,28 +65,33 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 }
 
 export async function DELETE(req: NextRequest, { params }: Ctx) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const caller = await currentUser();
+  if (!caller) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const callerEmail = caller.primaryEmailAddress?.emailAddress;
+  if (!callerEmail) return NextResponse.json({ error: 'No verified email on account' }, { status: 401 });
 
   const { id: workspaceId } = await params;
   const db = serverClient();
 
-  const body = (await req.json().catch(() => ({}))) as { userId?: string };
-  if (!body.userId) return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+  const body = (await req.json().catch(() => ({}))) as { email?: string };
+  if (!body.email) return NextResponse.json({ error: 'email is required' }, { status: 400 });
 
-  // Only owners can remove; a member can remove themselves
-  const { data: owner } = await db
+  const targetEmail = body.email.toLowerCase().trim();
+
+  // Owners can remove anyone; members can remove themselves.
+  const { data: ownerRow } = await db
     .from('workspaces')
     .select('id')
     .eq('id', workspaceId)
-    .eq('owner_id', userId)
+    .eq('owner_email', callerEmail)
     .single();
 
-  if (!owner && body.userId !== userId)
+  if (!ownerRow && targetEmail !== callerEmail)
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   try {
-    await removeTeamMember(db, workspaceId, body.userId);
+    await removeTeamMember(db, workspaceId, targetEmail);
     return new NextResponse(null, { status: 204 });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';

@@ -45,32 +45,25 @@ export function AppChrome({ workspaceId, projectId, workspaceName, projectName }
 
     const db = browserClient() as unknown as SupabaseClient;
     const channel = db
-      .channel(`dlf:${workspaceId}`)
+      .channel(`dl:${workspaceId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'design_language_files',
+          table: 'design_languages',
           filter: `workspace_id=eq.${workspaceId}`,
         },
         (payload) => {
-          // Only react to rows that are marked as the active version.
+          // One row per workspace — any INSERT/UPDATE means new active tokens.
           const row = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
-          if (!row || !row['is_active']) return;
+          if (!row) return;
 
-          // Re-parse tokens from the updated schema_jsonb.
-          const schemaJsonb = row['schema_jsonb'];
-          if (!schemaJsonb || typeof schemaJsonb !== 'object') return;
+          // `normalized` is already a DesignToken[] stored as JSONB — use directly.
+          const normalized = row['normalized'];
+          if (!Array.isArray(normalized)) return;
 
-          import('@originmain/design-language').then(({ parseTokenFile }) => {
-            try {
-              const tokens = parseTokenFile(schemaJsonb);
-              setDesignLanguageTokens(tokens as Parameters<typeof setDesignLanguageTokens>[0]);
-            } catch {
-              // Malformed token file in DB — don't crash the session
-            }
-          }).catch(() => { /* design-language package unavailable */ });
+          setDesignLanguageTokens(normalized as Parameters<typeof setDesignLanguageTokens>[0]);
         },
       )
       .subscribe();

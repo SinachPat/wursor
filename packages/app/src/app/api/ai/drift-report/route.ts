@@ -3,14 +3,17 @@
 // then calls generateDriftReport. Screenshots are optional; text-only analysis runs
 // when the artboard has no renderUrl or the screenshot is not provided by the client.
 
-import { auth } from '@clerk/nextjs/server';
+import { currentUser } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { AIGateway, generateDriftReport } from '@originmain/ai-layer';
 import { serverClient } from '@/lib/supabase';
 
 export async function POST(req: NextRequest) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const user = await currentUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const callerEmail = user.primaryEmailAddress?.emailAddress;
+  if (!callerEmail) return NextResponse.json({ error: 'No verified email on account' }, { status: 401 });
 
   const body = (await req.json().catch(() => ({}))) as {
     artboard_id?: string;
@@ -48,7 +51,7 @@ export async function POST(req: NextRequest) {
     .from('team_members')
     .select('id')
     .eq('workspace_id', artboard.workspace_id)
-    .eq('user_id', userId)
+    .eq('email', callerEmail)
     .limit(1)
     .single();
 
@@ -56,14 +59,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  // Fetch the most recently updated Design Language File for this workspace (optional)
-  const { data: dlf } = await db
-    .from('design_language_files')
-    .select('schema_jsonb, name')
+  // Fetch the active Design Language for this workspace (Phase 6 table).
+  // raw_json holds the original uploaded token file; pass it to generateDriftReport
+  // for context. Absence of a design language is non-fatal — analysis runs without it.
+  const { data: dl } = await db
+    .from('design_languages')
+    .select('raw_json, name')
     .eq('workspace_id', artboard.workspace_id)
-    .order('updated_at', { ascending: false })
     .limit(1)
-    .single() as unknown as { data: { schema_jsonb: unknown; name: string } | null };
+    .single() as unknown as { data: { raw_json: unknown; name: string } | null };
 
   const meta = artboard.metadata_jsonb;
   const artboardContext = [
@@ -77,7 +81,7 @@ export async function POST(req: NextRequest) {
     const gateway = new AIGateway();
     const result = await generateDriftReport(gateway, {
       artboardContext,
-      ...(dlf ? { dlfJson: JSON.stringify(dlf.schema_jsonb) } : {}),
+      ...(dl ? { dlfJson: JSON.stringify(dl.raw_json) } : {}),
       ...(body.screenshot_base64 ? { screenshotBase64: body.screenshot_base64 } : {}),
     });
     return NextResponse.json(result);

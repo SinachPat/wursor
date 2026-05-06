@@ -1,4 +1,4 @@
-import { auth } from '@clerk/nextjs/server';
+import { currentUser } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { serverClient } from '@/lib/supabase';
@@ -8,12 +8,12 @@ import type { Workspace } from '@originmain/origin-graph';
 
 export const metadata = { title: 'Workspaces — Originmain' };
 
-async function getWorkspaces(userId: string): Promise<Workspace[]> {
+async function getWorkspaces(email: string): Promise<Workspace[]> {
   const db = serverClient();
   const { data: memberships } = await db
     .from('team_members')
     .select('workspace_id')
-    .eq('user_id', userId);
+    .eq('email', email);
 
   const ids = (memberships ?? []).map((m) => (m as { workspace_id: string }).workspace_id);
   if (ids.length === 0) return [];
@@ -28,10 +28,11 @@ async function getWorkspaces(userId: string): Promise<Workspace[]> {
 }
 
 export default async function WorkspacesPage() {
-  const { userId } = await auth();
-  if (!userId) redirect('/sign-in');
+  const user = await currentUser();
+  if (!user) redirect('/sign-in');
 
-  const workspaces = await getWorkspaces(userId);
+  const email = user.primaryEmailAddress?.emailAddress ?? '';
+  const workspaces = await getWorkspaces(email);
 
   // New user with no workspaces yet → send to onboarding
   if (workspaces.length === 0) redirect('/onboarding');

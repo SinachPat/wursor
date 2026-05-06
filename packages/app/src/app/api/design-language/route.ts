@@ -1,125 +1,129 @@
-// GET  /api/design-language?workspaceId=<uuid>         → active design language file
-// GET  /api/design-language?workspaceId=<uuid>&all=1   → all versions (history)
-// POST /api/design-language                            → upload new version (deactivates prior)
+// GET  /api/design-language?workspaceId=<uuid>         → active DesignLanguage row
+// GET  /api/design-language?workspaceId=<uuid>&all=1   → version history (newest first)
+// POST /api/design-language                            → upload / replace token file
 
-import { auth } from '@clerk/nextjs/server';
+import { currentUser } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { serverClient } from '@/lib/supabase';
-import { getActiveDesignLanguageFile } from '@originmain/origin-graph';
-import type { InsertDesignLanguageFile, DesignLanguageFile } from '@originmain/origin-graph';
+import {
+  getDesignLanguage,
+  upsertDesignLanguage,
+  getDesignLanguageVersions,
+} from '@originmain/origin-graph';
+import type { InsertDesignLanguage } from '@originmain/origin-graph';
 
-export async function GET(req: NextRequest) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+// ── Auth + workspace-member guard (shared) ────────────────────────────────────
 
-  const workspaceId = req.nextUrl.searchParams.get('workspaceId');
-  if (!workspaceId) return NextResponse.json({ error: 'workspaceId is required' }, { status: 400 });
-
+async function assertMember(email: string, workspaceId: string) {
   const db = serverClient();
-
-  // Guard: caller must be a member of the target workspace.
-  const { data: member } = await db
+  const { data } = await db
     .from('team_members')
     .select('id')
     .eq('workspace_id', workspaceId)
-    .eq('user_id', userId)
+    .eq('email', email)
     .limit(1)
     .single();
-  if (!member) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-
-  // ?all=1 returns the full version history, newest first.
-  if (req.nextUrl.searchParams.get('all') === '1') {
-    const { data, error } = await (db
-      .from('design_language_files')
-      .select('*')
-      .eq('workspace_id', workspaceId)
-      .order('version', { ascending: false }) as unknown as Promise<{
-        data: DesignLanguageFile[];
-        error: { message: string } | null;
-      }>);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json(data ?? []);
-  }
-
-  // Default: return the single active file.
-  try {
-    const file = await getActiveDesignLanguageFile(db, workspaceId);
-    if (!file) return NextResponse.json(null);
-    return NextResponse.json(file);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+  return Boolean(data);
 }
 
-export async function POST(req: NextRequest) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+// ── GET ───────────────────────────────────────────────────────────────────────
 
-  let body: InsertDesignLanguageFile & { is_active?: boolean };
+export async function GET(req: NextRequest) {
+  const user = await currentUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const email = user.primaryEmailAddress?.emailAddress;
+  if (!email) return NextResponse.json({ error: 'No verified email on account' }, { status: 401 });
+
+  const workspaceId = req.nextUrl.searchParams.get('workspaceId');
+  if (!workspaceId) {
+    return NextResponse.json({ error: 'workspaceId is required' }, { status: 400 });
+  }
+
+  if (!(await assertMember(email, workspaceId))) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const db = serverClient();
+
+  // ?all=1 — full version history for the workspace's design language.
+  if (req.nextUrl.searchParams.get('all') === '1') {
+    const dl = await getDesignLanguage(db, workspaceId).catch(() => null);
+    if (!dl) return NextResponse.json([]);
+    const versions = await getDesignLanguageVersions(db, dl.id).catch(() => []);
+    return NextResponse.json(versions);
+  }
+
+  // Default — active token file (one row per workspace).
+  const dl = await getDesignLanguage(db, workspaceId).catch((err: Error) => {
+    throw new Response(JSON.stringify({ error: err.message }), { status: 500 });
+  });
+  return NextResponse.json(dl ?? null);
+}
+
+// ── POST ──────────────────────────────────────────────────────────────────────
+
+export async function POST(req: NextRequest) {
+  const user = await currentUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const email = user.primaryEmailAddress?.emailAddress;
+  if (!email) return NextResponse.json({ error: 'No verified email on account' }, { status: 401 });
+
+  let body: Partial<InsertDesignLanguage>;
   try {
-    body = (await req.json()) as InsertDesignLanguageFile & { is_active?: boolean };
+    body = (await req.json()) as Partial<InsertDesignLanguage>;
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  if (!body.workspace_id || !body.name || !body.schema_jsonb) {
+  const { workspace_id, name, raw_json, normalized, source_format, token_count } = body;
+
+  if (!workspace_id || !raw_json || !normalized || !source_format) {
     return NextResponse.json(
-      { error: 'Missing required fields: workspace_id, name, schema_jsonb' },
+      { error: 'Missing required fields: workspace_id, raw_json, normalized, source_format' },
       { status: 400 },
     );
   }
 
-  const db = serverClient();
-
-  // Guard: caller must be a member of the target workspace.
-  const { data: postMember } = await db
-    .from('team_members')
-    .select('id')
-    .eq('workspace_id', body.workspace_id)
-    .eq('user_id', userId)
-    .limit(1)
-    .single();
-  if (!postMember) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-
-  // ── Compute next version number ────────────────────────────────────────────
-  const existing = await getActiveDesignLanguageFile(db, body.workspace_id);
-  const version  = existing ? existing.version + 1 : 1;
-
-  // ── Deactivate all prior versions for this workspace ───────────────────────
-  // This must happen before the insert so the partial unique index
-  // (only one is_active = true per workspace) is not violated.
-  if (existing) {
-    const { error: deactivateError } = await (db
-      .from('design_language_files')
-      .update({ is_active: false })
-      .eq('workspace_id', body.workspace_id) as unknown as Promise<{
-        data: unknown;
-        error: { message: string } | null;
-      }>);
-    if (deactivateError) {
-      return NextResponse.json(
-        { error: `Failed to deactivate previous version: ${deactivateError.message}` },
-        { status: 500 },
-      );
-    }
+  if (!(await assertMember(email, workspace_id))) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  // ── Insert new version as the active one ───────────────────────────────────
-  const { data, error } = await (db
-    .from('design_language_files')
-    .insert({
-      ...body,
-      version,
-      is_active:  true,
-      created_by: userId,
-    })
-    .select()
-    .single() as unknown as Promise<{
-      data: DesignLanguageFile;
-      error: { message: string } | null;
-    }>);
+  const db = serverClient();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data, { status: 201 });
+  // Determine next version number: current + 1, or 1 for first upload.
+  const existing = await getDesignLanguage(db, workspace_id).catch(() => null);
+  const version  = existing ? existing.version + 1 : 1;
+
+  const row: InsertDesignLanguage = {
+    workspace_id,
+    name:          name ?? 'Design Language',
+    raw_json,
+    normalized,
+    source_format,
+    token_count:   token_count ?? (Array.isArray(normalized) ? normalized.length : 0),
+    version,
+  };
+
+  try {
+    const dl = await upsertDesignLanguage(db, row);
+
+    // Insert a version snapshot — the prune trigger fires after this insert
+    // and deletes any rows beyond the 10-most-recent.
+    await db
+      .from('design_language_versions')
+      .insert({
+        design_language_id: dl.id,
+        version:            dl.version,
+        raw_json:           dl.raw_json,
+        normalized:         dl.normalized,
+        source_format:      dl.source_format,
+      });
+
+    return NextResponse.json(dl, { status: 201 });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

@@ -1,17 +1,21 @@
 // GET  /api/workspace/[id]/projects  — list projects in a workspace
 // POST /api/workspace/[id]/projects  — create a new project
 
-import { auth } from '@clerk/nextjs/server';
+import { currentUser } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { serverClient } from '@/lib/supabase';
 import type { Project, InsertProject } from '@originmain/origin-graph';
 
-async function assertMember(db: ReturnType<typeof serverClient>, workspaceId: string, userId: string) {
+async function assertMember(
+  db: ReturnType<typeof serverClient>,
+  workspaceId: string,
+  email: string,
+) {
   const { data } = await db
     .from('team_members')
     .select('id')
     .eq('workspace_id', workspaceId)
-    .eq('user_id', userId)
+    .eq('email', email)
     .limit(1)
     .single();
   return !!data;
@@ -21,13 +25,16 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const user = await currentUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const email = user.primaryEmailAddress?.emailAddress;
+  if (!email) return NextResponse.json({ error: 'No verified email on account' }, { status: 401 });
 
   const { id: workspaceId } = await params;
   const db = serverClient();
 
-  if (!(await assertMember(db, workspaceId, userId)))
+  if (!(await assertMember(db, workspaceId, email)))
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const { data, error } = await db
@@ -45,13 +52,16 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const user = await currentUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const email = user.primaryEmailAddress?.emailAddress;
+  if (!email) return NextResponse.json({ error: 'No verified email on account' }, { status: 401 });
 
   const { id: workspaceId } = await params;
   const db = serverClient();
 
-  if (!(await assertMember(db, workspaceId, userId)))
+  if (!(await assertMember(db, workspaceId, email)))
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const body = await req.json().catch(() => ({}));

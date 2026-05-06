@@ -1,4 +1,4 @@
-import { auth } from '@clerk/nextjs/server';
+import { currentUser } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { serverClient } from '@/lib/supabase';
 import { AppHeader } from '@/components/shell/AppHeader';
@@ -19,9 +19,10 @@ export default async function ProjectSettingsPage({
   params: Promise<{ wid: string; pid: string }>;
 }) {
   const { wid, pid } = await params;
-  const { userId } = await auth();
-  if (!userId) redirect('/sign-in');
+  const user = await currentUser();
+  if (!user) redirect('/sign-in');
 
+  const email = user.primaryEmailAddress?.emailAddress ?? '';
   const db = serverClient();
 
   // Verify membership and role
@@ -29,7 +30,7 @@ export default async function ProjectSettingsPage({
     .from('team_members')
     .select('role')
     .eq('workspace_id', wid)
-    .eq('user_id', userId)
+    .eq('email', email)
     .limit(1)
     .single() as unknown as { data: { role: string } | null };
 

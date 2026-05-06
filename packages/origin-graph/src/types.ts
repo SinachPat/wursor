@@ -41,7 +41,7 @@ export type WorkspacePlan = z.infer<typeof WorkspacePlanSchema>;
 export const WorkspaceSchema = z.object({
   id:             z.string().uuid(),
   name:           z.string(),
-  owner_id:       z.string(),
+  owner_email:    z.string().email(),
   plan:           WorkspacePlanSchema,
   settings_jsonb: z.record(z.unknown()),
   created_at:     z.string().datetime(),
@@ -111,7 +111,7 @@ export type Origin = z.infer<typeof OriginSchema>;
 export const IntentDiffSchema = z.object({
   id:                 z.string().uuid(),
   artboard_id:        z.string().uuid(),
-  author_id:          z.string(),
+  author_email:       z.string().email(),
   /** Spec column name: changes (renamed from changes_jsonb in migration 008) */
   changes:            z.record(z.unknown()),
   /** Spec column name: aggregate_summary (renamed from summary in migration 008) */
@@ -157,7 +157,7 @@ export type DesignLanguageFile = z.infer<typeof DesignLanguageFileSchema>;
 export const TeamMemberSchema = z.object({
   id:           z.string().uuid(),
   workspace_id: z.string().uuid(),
-  user_id:      z.string(),
+  email:        z.string().email(),
   role:         TeamRoleSchema,
   created_at:   z.string().datetime(),
   updated_at:   z.string().datetime(),
@@ -199,3 +199,46 @@ export type InsertAgentSession       = Omit<AgentSession,        'id' | 'created
 export type InsertDesignLanguageFile = Omit<DesignLanguageFile,  'id' | 'created_at' | 'updated_at'>;
 export type InsertTeamMember         = Omit<TeamMember,          'id' | 'created_at' | 'updated_at'>;
 export type InsertProject            = Omit<Project,             'id' | 'created_at' | 'updated_at'>;
+
+// ── Phase 6: design_languages (new token-file schema, migration 014) ──────────
+
+/** Allowed source format discriminants (matches migration 014 CHECK constraint). */
+export const SourceFormatSchema = z.enum(['dtcg', 'style-dictionary', 'flat-css-vars']);
+export type SourceFormat = z.infer<typeof SourceFormatSchema>;
+
+/**
+ * Mirrors the `design_languages` table (migration 014).
+ * One row per workspace — UPSERT on every token file upload.
+ */
+export const DesignLanguageSchema = z.object({
+  id:            z.string().uuid(),
+  workspace_id:  z.string().uuid(),
+  name:          z.string(),
+  /** Raw token file JSON as uploaded (before normalisation). */
+  raw_json:      z.record(z.unknown()),
+  /** Normalised DesignToken[] flat array (from Phase 6 parser). */
+  normalized:    z.array(z.record(z.unknown())),
+  source_format: SourceFormatSchema,
+  token_count:   z.number().int(),
+  version:       z.number().int(),
+  created_at:    z.string().datetime(),
+  updated_at:    z.string().datetime(),
+});
+export type DesignLanguage = z.infer<typeof DesignLanguageSchema>;
+
+/**
+ * Mirrors the `design_language_versions` table (migration 014).
+ * Append-only version history; pruned to last 10 per design_language.
+ */
+export const DesignLanguageVersionSchema = z.object({
+  id:                 z.string().uuid(),
+  design_language_id: z.string().uuid(),
+  version:            z.number().int(),
+  raw_json:           z.record(z.unknown()),
+  normalized:         z.array(z.record(z.unknown())),
+  source_format:      SourceFormatSchema,
+  created_at:         z.string().datetime(),
+});
+export type DesignLanguageVersion = z.infer<typeof DesignLanguageVersionSchema>;
+
+export type InsertDesignLanguage = Omit<DesignLanguage, 'id' | 'created_at' | 'updated_at'>;

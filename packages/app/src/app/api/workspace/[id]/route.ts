@@ -2,7 +2,7 @@
 // PATCH  /api/workspace/:id  → rename workspace (owner only)
 // DELETE /api/workspace/:id  → delete workspace and all its data (owner only)
 
-import { auth } from '@clerk/nextjs/server';
+import { currentUser } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { serverClient } from '@/lib/supabase';
 import { deleteWorkspace } from '@originmain/origin-graph';
@@ -10,20 +10,29 @@ import type { Workspace } from '@originmain/origin-graph';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-async function assertOwner(db: ReturnType<typeof import('@/lib/supabase').serverClient>, workspaceId: string, userId: string) {
+async function getCallerEmail(): Promise<string | null> {
+  const user = await currentUser();
+  return user?.primaryEmailAddress?.emailAddress ?? null;
+}
+
+async function assertOwner(
+  db: ReturnType<typeof serverClient>,
+  workspaceId: string,
+  email: string,
+) {
   const { data } = await db
     .from('team_members')
     .select('role')
     .eq('workspace_id', workspaceId)
-    .eq('user_id', userId)
+    .eq('email', email)
     .limit(1)
     .single();
   return (data as { role: string } | null)?.role === 'OWNER';
 }
 
 export async function GET(_req: NextRequest, { params }: RouteContext) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const email = await getCallerEmail();
+  if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { id } = await params;
   const db = serverClient();
@@ -33,7 +42,7 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
     .from('team_members')
     .select('id')
     .eq('workspace_id', id)
-    .eq('user_id', userId)
+    .eq('email', email)
     .limit(1)
     .single();
 
@@ -46,13 +55,13 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
 }
 
 export async function PATCH(req: NextRequest, { params }: RouteContext) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const email = await getCallerEmail();
+  if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { id } = await params;
   const db = serverClient();
 
-  const isOwner = await assertOwner(db, id, userId);
+  const isOwner = await assertOwner(db, id, email);
   if (!isOwner) return NextResponse.json({ error: 'Only workspace owners can rename' }, { status: 403 });
 
   const body = (await req.json().catch(() => ({}))) as { name?: string };
@@ -73,13 +82,13 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
 }
 
 export async function DELETE(_req: NextRequest, { params }: RouteContext) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const email = await getCallerEmail();
+  if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { id } = await params;
   const db = serverClient();
 
-  const isOwner = await assertOwner(db, id, userId);
+  const isOwner = await assertOwner(db, id, email);
   if (!isOwner) return NextResponse.json({ error: 'Only workspace owners can delete' }, { status: 403 });
 
   try {
