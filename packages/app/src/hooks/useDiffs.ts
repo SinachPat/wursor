@@ -10,7 +10,7 @@ async function fetchDiffs(artboardId: string): Promise<IntentDiff[]> {
 }
 
 async function createDiffRequest(
-  body: Omit<InsertIntentDiff, 'author_id'>,
+  body: Omit<InsertIntentDiff, 'author_email'>,
 ): Promise<IntentDiff> {
   const res = await fetch('/api/diffs', {
     method: 'POST',
@@ -55,7 +55,7 @@ export function useDiffs(artboardId: string | null) {
   });
 
   const createDiff = useMutation({
-    mutationFn: (body: Omit<InsertIntentDiff, 'author_id'>) => createDiffRequest(body),
+    mutationFn: (body: Omit<InsertIntentDiff, 'author_email'>) => createDiffRequest(body),
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
   });
 
