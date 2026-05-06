@@ -5,8 +5,11 @@
  *
  * The canvas calls this when the designer exports a style diff.  This route:
  *   1. Validates the authenticated user and payload
- *   2. Stores the intent in the agent-bridge pending queue
- *   3. Returns the generated intentId so the canvas can track status
+ *   2. Persists the intent to the `intent_diffs` Supabase table (durable)
+ *   3. Enqueues the intent in the agent-bridge in-memory pending queue using
+ *      the Supabase row UUID so the agent's update_diff_status tool can
+ *      reference the same row by id
+ *   4. Returns the intentId (Supabase UUID) so the canvas can track status
  *
  * The connected IDE agent drains the queue the next time it calls push_intent
  * (or receives an INTENT_RECEIVED WebSocket push in Phase 5+).
@@ -15,6 +18,8 @@
 import { auth } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { storePendingIntent } from '@originmain/agent-bridge';
+import { createDiff } from '@originmain/origin-graph';
+import { serverClient } from '@/lib/supabase';
 
 interface IntentPayload {
   /** Supabase workspace ID. */
@@ -61,18 +66,48 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // ── 1. Persist to Supabase (durable) ──────────────────────────────────────
+  let intentId: string;
   try {
-    const intentId = storePendingIntent(workspaceId, {
-      artboardId,
-      componentName,
-      patchJson,
-      strategy,
-      summary: summary ?? '',
+    const db = serverClient();
+
+    // Parse patchJson safely; fall back to wrapping it verbatim so the row
+    // is always writable even if the client sends a malformed payload.
+    let changesRecord: Record<string, unknown>;
+    try {
+      changesRecord = JSON.parse(patchJson) as Record<string, unknown>;
+      // Wrap plain arrays (StylePatch[]) under a "patches" key so the column
+      // type (jsonb object) is satisfied.
+      if (Array.isArray(changesRecord)) {
+        changesRecord = { patches: changesRecord, strategy };
+      }
+    } catch {
+      changesRecord = { raw: patchJson, strategy };
+    }
+
+    const row = await createDiff(db, {
+      artboard_id:        artboardId,
+      author_id:          userId,
+      changes:            changesRecord,
+      aggregate_summary:  summary ?? `${componentName} style changes`,
+      status:             'EXPORTED',
     });
 
-    return NextResponse.json({ intentId, status: 'EXPORTED' }, { status: 201 });
+    intentId = row.id;
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: `DB insert failed: ${message}` }, { status: 500 });
   }
+
+  // ── 2. Enqueue in agent-bridge (real-time poll / WebSocket path) ───────────
+  // Pass the Supabase UUID so update_diff_status can reference the same row.
+  storePendingIntent(workspaceId, {
+    artboardId,
+    componentName,
+    patchJson,
+    strategy,
+    summary: summary ?? '',
+  }, intentId);
+
+  return NextResponse.json({ intentId, status: 'EXPORTED' }, { status: 201 });
 }

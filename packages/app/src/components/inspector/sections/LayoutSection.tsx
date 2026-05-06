@@ -123,7 +123,7 @@ export function LayoutSection({ styles, onPatch }: LayoutSectionProps) {
               {/* Gap */}
               <div style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'center' }}>
                 <FieldLabel>Gap</FieldLabel>
-                <NumInput value={styles['gap'] ?? '0px'} propKey="gap" onPatch={onPatch} inputWidth={60} />
+                <NumInput value={styles['gap'] ?? '0px'} propKey="gap" onPatch={onPatch} inputWidth={60} tokenAware />
               </div>
             </>
           )}
@@ -168,19 +168,19 @@ export function LayoutSection({ styles, onPatch }: LayoutSectionProps) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 6px', marginTop: 4 }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <FieldLabel>Top</FieldLabel>
-                <NumInput value={styles['padding-top'] ?? '0px'} propKey="padding-top" onPatch={onPatch} inputWidth={72} />
+                <NumInput value={styles['padding-top'] ?? '0px'} propKey="padding-top" onPatch={onPatch} inputWidth={72} tokenAware />
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <FieldLabel>Right</FieldLabel>
-                <NumInput value={styles['padding-right'] ?? '0px'} propKey="padding-right" onPatch={onPatch} inputWidth={72} />
+                <NumInput value={styles['padding-right'] ?? '0px'} propKey="padding-right" onPatch={onPatch} inputWidth={72} tokenAware />
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <FieldLabel>Bottom</FieldLabel>
-                <NumInput value={styles['padding-bottom'] ?? '0px'} propKey="padding-bottom" onPatch={onPatch} inputWidth={72} />
+                <NumInput value={styles['padding-bottom'] ?? '0px'} propKey="padding-bottom" onPatch={onPatch} inputWidth={72} tokenAware />
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <FieldLabel>Left</FieldLabel>
-                <NumInput value={styles['padding-left'] ?? '0px'} propKey="padding-left" onPatch={onPatch} inputWidth={72} />
+                <NumInput value={styles['padding-left'] ?? '0px'} propKey="padding-left" onPatch={onPatch} inputWidth={72} tokenAware />
               </div>
             </div>
           </div>

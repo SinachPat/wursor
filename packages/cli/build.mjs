@@ -9,6 +9,9 @@
 
 import { build }                              from 'esbuild';
 import { readFileSync, writeFileSync, chmodSync } from 'node:fs';
+import { createRequire }                      from 'node:module';
+
+const req = createRequire(import.meta.url);
 
 // Node.js built-in module names (without and with the node: prefix).
 // Both forms must be listed so esbuild leaves them as-is whether the
@@ -23,12 +26,31 @@ const NODE_BUILTINS = [
   'vm', 'worker_threads', 'zlib',
 ];
 
+// ── html2canvas text-embed plugin ────────────────────────────────────────────
+// Intercepts the import of html2canvas/dist/html2canvas.min.js and returns
+// its content as a default-exported string, so the proxy can serve it
+// locally (GET /__om_h2c__.js) without any CDN or runtime file reads.
+const html2canvasTextPlugin = {
+  name: 'html2canvas-text',
+  setup(build) {
+    build.onResolve({ filter: /html2canvas\.min\.js$/ }, (args) => ({
+      path: req.resolve('html2canvas/dist/html2canvas.min.js'),
+      namespace: 'h2c-text',
+    }));
+    build.onLoad({ filter: /.*/, namespace: 'h2c-text' }, (args) => {
+      const text = readFileSync(args.path, 'utf-8');
+      return { contents: `export default ${JSON.stringify(text)}`, loader: 'js' };
+    });
+  },
+};
+
 const SHARED_OPTIONS = {
   bundle:   true,
   platform: 'node',
   format:   'esm',
   target:   'node22',
   external: NODE_BUILTINS,
+  plugins:  [html2canvasTextPlugin],
   logLevel: 'info',
 };
 

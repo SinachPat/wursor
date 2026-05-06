@@ -9,6 +9,11 @@
  *   prop     — JSX prop changes in the component call-site .tsx file
  *   tailwind — Tailwind class string replacement in the component call-site
  *
+ * When `fetchFile` is supplied and the FiberNode has a `callSite.fileName`,
+ * the prop and tailwind strategies fetch the real source file from the CLI
+ * indexer (`GET /file?path=<relative>`) and produce a diff against the actual
+ * line, rather than a synthetic snippet.
+ *
  * spec: SOURCE-AWARE-CANVAS.md Phase 4 §8 "Intent Diff"
  */
 
@@ -33,6 +38,13 @@ export interface GeneratedFileDiff {
   /** Strategy used to produce this diff */
   strategy: DiffStrategy;
 }
+
+/**
+ * Optional async file fetcher wired up by the CodeTab to the CLI indexer's
+ * GET /file?path=<relative> endpoint.  When supplied, prop/tailwind strategies
+ * operate on real source text instead of synthetic snippets.
+ */
+export type FileFetcher = (relativePath: string) => Promise<string>;
 
 // ── Strategy: css ─────────────────────────────────────────────────────────────
 // Generates a CSS custom-property block showing what changed.
@@ -78,15 +90,52 @@ function buildCssDiff(
 
 // ── Strategy: prop ────────────────────────────────────────────────────────────
 // Generates a JSX snippet showing style prop changes on the component element.
-// This is a simplified representation; Phase 4+ CLI integration will replace
-// these with real AST-rewritten patches at the actual call-site.
+// When `realSource` is provided (fetched from the CLI indexer), the diff is
+// produced against the actual call-site line in the real file. Otherwise falls
+// back to a synthetic snippet that approximates the change.
 function buildPropDiff(
   componentName: string,
   callSiteFile: string | undefined,
+  callSiteLine: number | undefined,
   patches: StylePatch[],
+  realSource?: string,
 ): GeneratedFileDiff | null {
   const virtualName = callSiteFile ?? `${componentName}.tsx`;
 
+  // ── Real-source path: patch the actual call-site line ──────────────────────
+  if (realSource && callSiteLine !== undefined) {
+    const lines = realSource.split('\n');
+    const lineIdx = Math.max(0, callSiteLine - 1); // 0-based
+
+    // Build the style attribute additions
+    const styleEntries = patches
+      .map((p) => `${camelCase(p.property)}: '${p.value}'`)
+      .join(', ');
+
+    const oldLine = lines[lineIdx] ?? '';
+    let newLine: string;
+
+    // If the line already has a style prop, replace its content; otherwise inject.
+    if (oldLine.includes('style={{')) {
+      newLine = oldLine.replace(/style=\{\{[^}]*\}\}/, `style={{ ${styleEntries} }}`);
+    } else if (oldLine.includes('/>')) {
+      newLine = oldLine.replace('/>', ` style={{ ${styleEntries} }} />`);
+    } else {
+      newLine = oldLine + ` style={{ ${styleEntries} }}`;
+    }
+
+    const newLines = [...lines];
+    newLines[lineIdx] = newLine;
+
+    const fileDiff = processFile('', {
+      oldFile: { name: virtualName, contents: realSource },
+      newFile: { name: virtualName, contents: newLines.join('\n') },
+    });
+    if (!fileDiff) return null;
+    return { fileDiff, filename: virtualName, strategy: 'prop' };
+  }
+
+  // ── Synthetic fallback ─────────────────────────────────────────────────────
   const styleOld = patches
     .filter((p) => p.previousValue)
     .map((p) => `    ${camelCase(p.property)}: '${p.previousValue}'`)
@@ -115,14 +164,21 @@ function buildPropDiff(
 
 // ── Strategy: tailwind ────────────────────────────────────────────────────────
 // Converts CSS property patches into approximate Tailwind utility additions.
-// The mapping is heuristic — a real implementation would require a Tailwind
-// config lookup via the CLI indexer (Phase 3 integration).
+// When `realSource` is provided, injects utility classes at the real call-site
+// line. Otherwise uses a synthetic snippet with placeholder base classes.
 function buildTailwindDiff(
   componentName: string,
   callSiteFile: string | undefined,
+  callSiteLine: number | undefined,
   patches: StylePatch[],
+  realSource?: string,
 ): GeneratedFileDiff | null {
   const virtualName = callSiteFile ?? `${componentName}.tsx`;
+
+  const newClasses = patches
+    .map((p) => cssToTailwindApprox(p.property, p.value))
+    .filter(Boolean)
+    .join(' ');
 
   const oldClasses = patches
     .filter((p) => p.previousValue)
@@ -130,11 +186,37 @@ function buildTailwindDiff(
     .filter(Boolean)
     .join(' ');
 
-  const newClasses = patches
-    .map((p) => cssToTailwindApprox(p.property, p.value))
-    .filter(Boolean)
-    .join(' ');
+  // ── Real-source path ───────────────────────────────────────────────────────
+  if (realSource && callSiteLine !== undefined) {
+    const lines = realSource.split('\n');
+    const lineIdx = Math.max(0, callSiteLine - 1);
+    const oldLine = lines[lineIdx] ?? '';
 
+    // Replace existing utility classes for the changed properties, or append
+    // new ones. We look for a className="..." or className={...} attribute.
+    let newLine = oldLine;
+    if (oldClasses && oldLine.includes(oldClasses)) {
+      newLine = oldLine.replace(oldClasses, newClasses);
+    } else if (oldLine.includes('className="')) {
+      newLine = oldLine.replace(/className="([^"]*)"/, (_, existing: string) =>
+        `className="${existing.trim()} ${newClasses}".trim()`,
+      );
+    } else if (oldLine.includes('/>')) {
+      newLine = oldLine.replace('/>', ` className="${newClasses}" />`);
+    }
+
+    const newLines = [...lines];
+    newLines[lineIdx] = newLine;
+
+    const fileDiff = processFile('', {
+      oldFile: { name: virtualName, contents: realSource },
+      newFile: { name: virtualName, contents: newLines.join('\n') },
+    });
+    if (!fileDiff) return null;
+    return { fileDiff, filename: virtualName, strategy: 'tailwind' };
+  }
+
+  // ── Synthetic fallback ─────────────────────────────────────────────────────
   const baseClasses = 'flex items-center'; // placeholder existing classes
   const oldContents = `<${componentName} className="${[baseClasses, oldClasses].filter(Boolean).join(' ')}" />`;
   const newContents = `<${componentName} className="${[baseClasses, newClasses].filter(Boolean).join(' ')}" />`;
@@ -153,24 +235,43 @@ function buildTailwindDiff(
 /**
  * Generates a FileDiffMetadata for the given patches using the chosen strategy.
  * Returns null if the diff is empty (no actual changes).
+ *
+ * @param fetchFile  Optional async file fetcher (e.g. from useIndexer().fetchFile).
+ *                   When supplied and `componentData.callSite.fileName` is set, the
+ *                   prop and tailwind strategies diff against the *real* source file
+ *                   instead of a synthetic snippet. The css strategy always uses
+ *                   a virtual CSS block (it targets the component's CSS module, not
+ *                   the call site).
  */
-export function buildFileDiffMetadata(
+export async function buildFileDiffMetadata(
   patches: StylePatch[],
   strategy: DiffStrategy,
   componentData: FiberNode | null,
-): GeneratedFileDiff | null {
+  fetchFile?: FileFetcher,
+): Promise<GeneratedFileDiff | null> {
   if (patches.length === 0) return null;
 
   const componentName = componentData?.name ?? 'Component';
-  const callSiteFile = componentData?.callSite?.fileName;
+  const callSiteFile  = componentData?.callSite?.fileName;
+  const callSiteLine  = componentData?.callSite?.lineNumber;
+
+  // Fetch the real source for strategies that operate on the call-site file.
+  let realSource: string | undefined;
+  if (fetchFile && callSiteFile && (strategy === 'prop' || strategy === 'tailwind')) {
+    try {
+      realSource = await fetchFile(callSiteFile);
+    } catch {
+      // Non-fatal: fall back to synthetic snippet below.
+    }
+  }
 
   switch (strategy) {
     case 'css':
       return buildCssDiff(componentName, callSiteFile, patches);
     case 'prop':
-      return buildPropDiff(componentName, callSiteFile, patches);
+      return buildPropDiff(componentName, callSiteFile, callSiteLine, patches, realSource);
     case 'tailwind':
-      return buildTailwindDiff(componentName, callSiteFile, patches);
+      return buildTailwindDiff(componentName, callSiteFile, callSiteLine, patches, realSource);
   }
 }
 

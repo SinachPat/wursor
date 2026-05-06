@@ -42,18 +42,30 @@ The server is pre-configured in \`.claude/settings.json\`.
 ### Available MCP Tools
 ${toolLines}
 
+### How intents arrive
+The Origin canvas pushes design intent diffs in two ways:
+
+1. **SSE push (primary):** The MCP server sends an \`INTENT_RECEIVED\` event over the SSE
+   connection automatically when the designer exports a change. You do not need to poll.
+
+2. **Poll (fallback):** Call \`push_intent\` with \`{ workspace_id }\` to drain any pending
+   intents. Use this at session start or when you suspect a missed push.
+
 ### Implementation Workflow
-1. Call \`push_intent\` to receive any pending design intent diffs from the Origin canvas.
-2. Locate the component file using \`resolve_component\` (pass the \`nodeId\` from the intent).
-3. Apply the change to the source file — the intent's \`codeDiff\` contains the expected before/after.
+1. Wait for an \`INTENT_RECEIVED\` SSE event, or call \`push_intent\` to fetch pending intents.
+2. Each intent includes a \`component.name\` — call \`resolve_component\` with that name to locate
+   the source file and line number (e.g. \`{ component_name: "DashboardCard" }\`).
+3. Apply the change to the source file. When \`codeDiff\` is present and \`confidence\` is
+   \`"exact"\`, apply it verbatim. When \`"approximate"\`, use it as a guide and refine as needed.
 4. After applying, call \`update_diff_status\` with \`status: "IMPLEMENTED"\` and the \`intentId\`.
 5. If the diff cannot be applied for any reason, call \`update_diff_status\` with \`status: "BLOCKED"\`
    and a \`reason\` string describing why (e.g. "Component not found in file", "File is read-only",
    "Diff conflicts with current file state"). The designer will see this reason in the Origin canvas.
 
 ### Important: Always close the loop with update_diff_status
-Every intent received via \`push_intent\` MUST be closed with \`update_diff_status\` — either
-IMPLEMENTED or BLOCKED. An intent left in EXPORTED state will be retried on the next session.
+Every intent received — whether via SSE push or \`push_intent\` poll — MUST be closed with
+\`update_diff_status\` using either \`IMPLEMENTED\` or \`BLOCKED\`. An intent left in \`EXPORTED\`
+state will be retried on the next session.
 
 ### Design Language
 When token keys are present in the intent changes (\`tokenKey\` field), write \`var(--token-name)\`

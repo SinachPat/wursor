@@ -45,7 +45,7 @@ export function StrokeSection({ styles, onPatch }: StrokeSectionProps) {
           ) : (
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                <ColorInput value={styles['border-color'] ?? ''} propKey="border-color" onPatch={onPatch} />
+                <ColorInput value={styles['border-color'] ?? ''} propKey="border-color" onPatch={onPatch} tokenAware />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 8px', marginBottom: 6 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

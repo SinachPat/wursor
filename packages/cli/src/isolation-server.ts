@@ -38,23 +38,33 @@ const NEXT_PAGE_CONTENT    = (componentName: string, importPath: string, isDefau
 // This file is deleted when the CLI stops (process.on('exit')).
 // Add __om_isolation__/ to your .gitignore to prevent accidental commits.
 import ${isDefault ? componentName : `{ ${componentName} }`} from '${importPath}';
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
-// Expose render function for the host-to-iframe UPDATE_ISOLATION_PROPS protocol
+// IsolationPage renders the component in isolation and exposes
+// window.__OM_ISO_RENDER__ for the host-to-iframe UPDATE_ISOLATION_PROPS protocol.
+// Props are held in React state so calling __OM_ISO_RENDER__() causes a real re-render.
 function IsolationPage() {
+  // Initialise from window.__OM_ISO_PROPS__ if the parent frame already set it.
+  const [isoProps, setIsoProps] = useState<Record<string, unknown>>(
+    () => (typeof window !== 'undefined' ? (window.__OM_ISO_PROPS__ ?? {}) : {})
+  );
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    window.__OM_ISO_RENDER__ = function() {
-      // Force a re-render by dispatching a custom event — the component
-      // reads window.__OM_ISO_PROPS__ in its own render cycle.
+    // Make sure the global is initialised before the first render.
+    window.__OM_ISO_PROPS__ = window.__OM_ISO_PROPS__ ?? {};
+    // Register the render trigger. The host writes to window.__OM_ISO_PROPS__
+    // then calls window.__OM_ISO_RENDER__(). setState with a new object reference
+    // is what actually causes React to re-render the component with new props.
+    window.__OM_ISO_RENDER__ = function () {
+      setIsoProps({ ...(window.__OM_ISO_PROPS__ ?? {}) });
     };
-    // Trigger initial render
-    window.__OM_ISO_PROPS__ = window.__OM_ISO_PROPS__ || {};
+    return () => {
+      window.__OM_ISO_RENDER__ = undefined;
+    };
   }, []);
 
-  // Read props from the isolation protocol global
-  const props = (typeof window !== 'undefined' && window.__OM_ISO_PROPS__) ? window.__OM_ISO_PROPS__ : {};
-  return <${componentName} {...(props as Record<string, unknown>)} />;
+  return <${componentName} {...isoProps} />;
 }
 
 export default IsolationPage;

@@ -8,7 +8,7 @@ export type { RateLimitResult } from './rate-limiter.js';
 export { checkRateLimit, getRateLimitStatus } from './rate-limiter.js';
 
 export type { McpTool, ToolContext } from './tools.js';
-export { TOOLS, TOOL_MAP, getToolList, dispatchTool, storePendingIntent, drainPendingIntents, registerIndexer, getIndexerUrl, heartbeatIndexer } from './tools.js';
+export { TOOLS, TOOL_MAP, getToolList, dispatchTool, storePendingIntent, drainPendingIntents, registerIndexer, getIndexerUrl, heartbeatIndexer, registerSseClient } from './tools.js';
 
 export type { CursorAdapterOptions, CursorAdapterOutput } from './adapters/cursor.js';
 export { generateCursorConfig } from './adapters/cursor.js';

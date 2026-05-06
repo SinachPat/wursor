@@ -84,11 +84,11 @@ export function FrameSection({ styles, onPatch }: FrameSectionProps) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 8px', marginBottom: 6 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <FieldLabel>W</FieldLabel>
-              <NumInput value={styles['width'] ?? '0px'} propKey="width" onPatch={onPatch} inputWidth={80} />
+              <NumInput value={styles['width'] ?? '0px'} propKey="width" onPatch={onPatch} inputWidth={80} tokenAware />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <FieldLabel>H</FieldLabel>
-              <NumInput value={styles['height'] ?? '0px'} propKey="height" onPatch={onPatch} inputWidth={80} />
+              <NumInput value={styles['height'] ?? '0px'} propKey="height" onPatch={onPatch} inputWidth={80} tokenAware />
             </div>
           </div>
 
@@ -106,7 +106,7 @@ export function FrameSection({ styles, onPatch }: FrameSectionProps) {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <FieldLabel>Radius</FieldLabel>
-              <NumInput value={borderRadius} propKey="border-radius" onPatch={onPatch} inputWidth={80} />
+              <NumInput value={borderRadius} propKey="border-radius" onPatch={onPatch} inputWidth={80} tokenAware />
             </div>
           </div>
 

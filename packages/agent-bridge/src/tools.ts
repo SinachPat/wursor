@@ -13,7 +13,7 @@
  */
 
 import { textResult, jsonResult } from './protocol.js';
-import type { ToolResult } from './protocol.js';
+import type { ToolResult, IntentMessage, IntentChange, IntentReceivedPush } from './protocol.js';
 
 // ── Tool descriptor shape (MCP tools/list schema) ─────────────────────────────
 
@@ -66,13 +66,19 @@ const pendingIntents = new Map<string, IntentRecord[]>();
 
 /**
  * Store an intent pushed by the canvas (called from the /api/intent route).
- * Returns the generated intentId.
+ *
+ * @param supplyIntentId  Pass the Supabase UUID when you've already created the
+ *                        DB row — the in-memory ID must match so that the agent's
+ *                        `update_diff_status` tool can call `.eq('id', intentId)`.
+ *                        If omitted, a local opaque ID is generated (dev/offline mode).
+ * Returns the intentId actually stored.
  */
 export function storePendingIntent(
   workspaceId: string,
   intent: Omit<IntentRecord, 'intentId' | 'workspaceId' | 'createdAt'>,
+  supplyIntentId?: string,
 ): string {
-  const intentId = `intent_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const intentId = supplyIntentId ?? `intent_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const record: IntentRecord = {
     intentId,
     workspaceId,
@@ -82,7 +88,77 @@ export function storePendingIntent(
   const queue = pendingIntents.get(workspaceId) ?? [];
   queue.push(record);
   pendingIntents.set(workspaceId, queue);
+
+  // Push INTENT_RECEIVED to any SSE-connected agents for this workspace.
+  const push: IntentReceivedPush = {
+    type: 'INTENT_RECEIVED',
+    intent: recordToIntentMessage(record),
+  };
+  pushToSseClients(workspaceId, `data: ${JSON.stringify(push)}\n\n`);
+
   return intentId;
+}
+
+// ── SSE client registry ───────────────────────────────────────────────────────
+// Maps workspaceId → set of send callbacks registered by connected SSE clients.
+//
+// Same in-process design as pendingIntents / indexerRegistry — for production
+// multi-instance deployments, replace with Redis pub/sub or Supabase Realtime.
+
+type SseSendFn = (chunk: string) => void;
+
+const sseClients = new Map<string, Set<SseSendFn>>();
+
+/**
+ * Register an SSE send callback for a workspace.
+ * Returns an unsubscribe function — call it when the SSE connection closes.
+ */
+export function registerSseClient(workspaceId: string, send: SseSendFn): () => void {
+  let set = sseClients.get(workspaceId);
+  if (!set) { set = new Set(); sseClients.set(workspaceId, set); }
+  set.add(send);
+  return () => {
+    set!.delete(send);
+    if (set!.size === 0) sseClients.delete(workspaceId);
+  };
+}
+
+/** Broadcast a raw SSE chunk to all connected clients for a workspace. */
+function pushToSseClients(workspaceId: string, chunk: string): void {
+  const clients = sseClients.get(workspaceId);
+  if (!clients) return;
+  for (const send of clients) {
+    try { send(chunk); } catch { /* client disconnected — will be deregistered on abort */ }
+  }
+}
+
+/** Convert an IntentRecord to the IntentMessage shape for SSE / push_intent JSON response. */
+function recordToIntentMessage(record: IntentRecord): IntentMessage {
+  let changes: IntentChange[] = [];
+  try {
+    const parsed = JSON.parse(record.patchJson) as unknown;
+    const patches: Array<{ property?: string; value?: string; previousValue?: string }> =
+      Array.isArray(parsed) ? parsed : ((parsed as { patches?: unknown[] }).patches ?? []);
+    changes = patches.map((p) => ({
+      type:        'style' as const,
+      cssProperty: p.property ?? '',
+      from:        p.previousValue,
+      to:          p.value ?? '',
+      confidence:  'approximate' as const,
+    }));
+  } catch { /* malformed patchJson — send empty changes list */ }
+
+  return {
+    intentId:  record.intentId,
+    component: {
+      name:   record.componentName,
+      // nodeId not stored in IntentRecord — agent uses component_name with
+      // resolve_component instead of a fiber-ID lookup.
+      nodeId: '',
+      props:  {},
+    },
+    changes,
+  };
 }
 
 /**
@@ -184,26 +260,20 @@ const PUSH_INTENT_TOOL: McpTool = {
 const RESOLVE_COMPONENT_TOOL: McpTool = {
   name: 'resolve_component',
   description:
-    'Resolve the source file location for a component identified by its fiber node ID. ' +
-    'Returns the file path and line number where the component is defined in the codebase, ' +
-    'enabling the agent to navigate directly to the component source.',
+    'Resolve the source file location for a React component by name. ' +
+    'Proxies to the CLI indexer running in the workspace and returns the file path, ' +
+    'line number, props schema, and design tokens used by the component.',
   inputSchema: {
     type: 'object',
     properties: {
-      artboard_id: {
-        type: 'string',
-        description: 'The artboard that contains the component.',
-      },
-      node_id: {
-        type: 'string',
-        description: 'The fiber node ID of the component (from SelectionOverlay / fiber tree).',
-      },
       component_name: {
         type: 'string',
-        description: 'Display name of the component (used as a fallback hint).',
+        description:
+          'The display name of the component to look up (e.g. "DashboardCard"). ' +
+          'Case-sensitive; use the name exactly as it appears in the INTENT_RECEIVED message.',
       },
     },
-    required: ['artboard_id', 'node_id'],
+    required: ['component_name'],
   },
 };
 
@@ -264,76 +334,72 @@ async function handlePushIntent(ctx: ToolContext): Promise<ToolResult<unknown>> 
     return textResult('Error: workspace_id does not match authenticated workspace.');
   }
 
-  const intents = drainPendingIntents(wid);
+  const records = drainPendingIntents(wid);
 
-  if (intents.length === 0) {
-    return textResult('No pending design intents for this workspace.');
+  if (records.length === 0) {
+    return jsonResult({ intents: [], message: 'No pending design intents for this workspace.' });
   }
 
-  const summary = intents.map((intent) => {
-    const patches = JSON.parse(intent.patchJson) as Array<{ property: string; value: string; previousValue?: string }>;
-    const lines = patches.map(
-      (p) => `  • ${p.property}: ${p.previousValue ?? '(unknown)'} → ${p.value}`,
-    );
-    return [
-      `Intent ${intent.intentId} — ${intent.componentName} (${intent.strategy})`,
-      intent.summary,
-      ...lines,
-      `  artboardId: ${intent.artboardId}`,
-    ].join('\n');
-  });
-
-  return textResult(
-    `${intents.length} pending design intent${intents.length !== 1 ? 's' : ''}:\n\n${summary.join('\n\n')}`,
-  );
+  // Return the full IntentMessage array so the agent can act on each intent
+  // without a separate round-trip. The same data is pushed proactively over
+  // SSE as INTENT_RECEIVED — this poll path exists as a fallback and for
+  // agents that do not maintain a persistent SSE connection.
+  const intents = records.map(recordToIntentMessage);
+  return jsonResult({ intents });
 }
 
 async function handleResolveComponent(ctx: ToolContext): Promise<ToolResult<unknown>> {
   const params = ctx.params as Params;
-  const nodeId = typeof params['node_id'] === 'string' ? params['node_id'] : null;
-  const artboardId = typeof params['artboard_id'] === 'string' ? params['artboard_id'] : null;
-  const componentName = typeof params['component_name'] === 'string' ? params['component_name'] : 'Component';
+  const componentName = typeof params['component_name'] === 'string' ? params['component_name'] : null;
 
-  if (!nodeId || !artboardId) {
-    return textResult('Error: artboard_id and node_id are required.');
+  if (!componentName) {
+    return textResult('Error: component_name is required.');
   }
 
-  // Check if a CLI indexer is registered for this workspace
+  // Check if a CLI indexer is registered for this workspace.
   const indexerUrl = getIndexerUrl(ctx.workspaceId);
   if (!indexerUrl) {
     return textResult(
       `No CLI indexer registered for workspace ${ctx.workspaceId}. ` +
-      'Run npx @originmain/cli dev to enable component resolution.',
+      'Run "npx @originmain/cli dev" to enable component resolution.',
     );
   }
 
-  // Proxy the resolution request to the CLI indexer
+  // Proxy to GET /components?name=<componentName> on the CLI indexer.
+  // The indexer returns ComponentEntry[] — we return the first exact or best match.
   try {
-    const url = new URL('/resolve-component', indexerUrl);
-    url.searchParams.set('nodeId', nodeId);
-    url.searchParams.set('artboardId', artboardId);
-    url.searchParams.set('componentName', componentName);
+    const url = new URL('/components', indexerUrl);
+    url.searchParams.set('name', componentName);
 
-    const res = await fetch(url.toString(), {
-      signal: AbortSignal.timeout(5000),
-    });
+    const res = await fetch(url.toString(), { signal: AbortSignal.timeout(5000) });
 
     if (!res.ok) {
       return textResult(`Indexer returned ${res.status}: ${await res.text()}`);
     }
 
-    const data = (await res.json()) as { filePath?: string; lineNumber?: number; column?: number };
-    if (!data.filePath) {
-      return textResult(`Component ${componentName} not found in index.`);
+    const entries = (await res.json()) as Array<{
+      name: string;
+      definitionFile: string;
+      relativeFile: string;
+      lineNumber: number;
+      props: Array<{ name: string; type: string; optional: boolean }>;
+      tokensUsed: string[];
+    }>;
+
+    if (!entries.length) {
+      return textResult(`Component "${componentName}" not found in index. Make sure the CLI indexer has indexed this file.`);
     }
 
+    // Prefer exact name match; fall back to first fuzzy result.
+    const match = entries.find((e) => e.name === componentName) ?? entries[0]!;
+
     return jsonResult({
-      filePath:    data.filePath,
-      lineNumber:  data.lineNumber ?? 1,
-      column:      data.column ?? 1,
-      nodeId,
-      artboardId,
-      componentName,
+      name:           match.name,
+      definitionFile: match.definitionFile,
+      relativeFile:   match.relativeFile,
+      lineNumber:     match.lineNumber,
+      props:          match.props,
+      tokensUsed:     match.tokensUsed,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

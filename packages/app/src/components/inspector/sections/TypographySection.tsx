@@ -50,15 +50,15 @@ export function TypographySection({
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px 6px', marginBottom: 6 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <FieldLabel>Size</FieldLabel>
-              <NumInput value={styles['font-size'] ?? '14px'} propKey="font-size" onPatch={onPatch} />
+              <NumInput value={styles['font-size'] ?? '14px'} propKey="font-size" onPatch={onPatch} tokenAware />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <FieldLabel>Weight</FieldLabel>
-              <NumInput value={styles['font-weight'] ?? '400'} propKey="font-weight" onPatch={onPatch} />
+              <NumInput value={styles['font-weight'] ?? '400'} propKey="font-weight" onPatch={onPatch} tokenAware />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <FieldLabel>Line H</FieldLabel>
-              <NumInput value={styles['line-height'] ?? 'normal'} propKey="line-height" onPatch={onPatch} />
+              <NumInput value={styles['line-height'] ?? 'normal'} propKey="line-height" onPatch={onPatch} tokenAware />
             </div>
           </div>
 
@@ -83,7 +83,7 @@ export function TypographySection({
           {/* Color */}
           <div style={{ marginBottom: 6 }}>
             <FieldLabel>Color</FieldLabel>
-            <ColorInput value={styles['color'] ?? '#000000'} propKey="color" onPatch={onPatch} />
+            <ColorInput value={styles['color'] ?? '#000000'} propKey="color" onPatch={onPatch} tokenAware />
           </div>
 
           {/* Decoration + Transform */}

@@ -16,6 +16,7 @@ import type { IncomingMessage, ServerResponse,
 import type { Socket }                          from 'node:net';
 import { injectFiberHook }                      from './inject.js';
 import { handleIsolationRequest }               from './isolation-server.js';
+import html2canvasSource                        from 'html2canvas/dist/html2canvas.min.js';
 
 export interface ProxyOptions {
   /** Target dev server URL, e.g. "http://localhost:3000" */
@@ -68,7 +69,25 @@ export function startProxy(opts: ProxyOptions): { close: () => void } {
   // Default port: 443 for HTTPS, 80 for HTTP — matches browser behaviour.
   const targetPort = parseInt(targetUrl.port || (isHttps ? '443' : '80'), 10);
 
+  // html2canvas source is embedded at build time by build.mjs's html2canvas-text
+  // plugin. Convert to a Buffer once so repeated requests don't re-encode.
+  const html2canvasBuf = Buffer.from(html2canvasSource, 'utf-8');
+
   const server = createServer((clientReq: IncomingMessage, clientRes: ServerResponse) => {
+    // ── Serve embedded html2canvas bundle (replaces CDN dependency) ───────
+    // The fiber hook loads html2canvas via /__om_h2c__.js instead of unpkg so
+    // the proxy works offline and is not blocked by restrictive CSP policies.
+    if (clientReq.url === '/__om_h2c__.js') {
+      clientRes.writeHead(200, {
+        'content-type':   'application/javascript; charset=utf-8',
+        'content-length': String(html2canvasBuf.byteLength),
+        'cache-control':  'public, max-age=86400, immutable',
+        ...CORS_HEADERS,
+      });
+      clientRes.end(html2canvasBuf);
+      return;
+    }
+
     // ── Intercept /__om_isolation__/* requests ────────────────────────────
     if (clientReq.url?.startsWith('/__om_isolation__')) {
       handleIsolationRequest(clientReq, clientRes);

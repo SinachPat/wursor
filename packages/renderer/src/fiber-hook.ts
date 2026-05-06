@@ -777,8 +777,9 @@ export function buildProxyFiberHookScript(): string {
   }
 
   // ── html2canvas lazy loader ───────────────────────────────────────────────
-  // html2canvas is not bundled in the fiber hook — inject from CDN on first
-  // need, caching the Promise so the script tag is added only once.
+  // The Originmain proxy serves html2canvas at /__om_h2c__.js (embedded at
+  // build time in the CLI bundle — no CDN, no external network dependency).
+  // The script tag uses the same origin as the proxy, so no CORS or CSP issues.
   function loadHtml2Canvas() {
     if (typeof window.html2canvas === 'function') {
       return Promise.resolve(window.html2canvas);
@@ -786,9 +787,9 @@ export function buildProxyFiberHookScript(): string {
     if (_html2canvasLoading) return _html2canvasLoading;
     _html2canvasLoading = new Promise(function(resolve, reject) {
       var s = document.createElement('script');
-      s.src = 'https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js';
+      s.src = '/__om_h2c__.js';
       s.onload  = function() { resolve(window.html2canvas); };
-      s.onerror = function() { _html2canvasLoading = null; reject(new Error('html2canvas load failed')); };
+      s.onerror = function() { _html2canvasLoading = null; reject(new Error('html2canvas load failed (/__om_h2c__.js)')); };
       (document.head || document.documentElement).appendChild(s);
     });
     return _html2canvasLoading;

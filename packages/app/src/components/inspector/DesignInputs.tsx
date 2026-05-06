@@ -4,9 +4,132 @@
 // Small, reusable input components for the Design Panel sections.
 // All accept an `onPatch(property, value)` callback that flows up to
 // useCanvas().patchStyleEdit → PATCH_ELEMENT_STYLE → fiber hook.
+//
+// When the `tokenAware` prop is set to true, NumInput and ColorInput render a
+// token-match badge (Phase 6) alongside the input. Clicking the badge opens a
+// TokenPicker so the designer can swap to a nearby design token value.
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useCanvasTheme } from '@/store/canvasTheme';
+import { useCanvas } from '@/store/canvas';
+import type { DesignToken, TokenMatch } from '@/store/canvas.types';
+
+// ── Token badge helper ────────────────────────────────────────────────────────
+// Lazy-resolves the closest design token for a CSS value and renders a small
+// clickable badge. Clicking opens a TokenPicker dropdown for the section input.
+// This is extracted so both NumInput and ColorInput can embed it.
+
+function useTokenMatch(
+  value: string,
+  propKey: string,
+  enabled: boolean,
+): { match: TokenMatch | null; tokens: DesignToken[] | null; rootFontSizePx: number } {
+  const { designLanguageTokens, artboardRootFontSize, selectedArtboardId } = useCanvas();
+  const rootFontSizePx = selectedArtboardId ? (artboardRootFontSize[selectedArtboardId] ?? 16) : 16;
+  const [match, setMatch] = useState<TokenMatch | null>(null);
+
+  useEffect(() => {
+    if (!enabled || !designLanguageTokens || designLanguageTokens.length === 0) {
+      setMatch(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { resolveValueToToken } = await import('@originmain/design-language');
+        const m = resolveValueToToken(value, designLanguageTokens, rootFontSizePx) as TokenMatch | null;
+        if (!cancelled) setMatch(m);
+      } catch { /* design-language package not available */ }
+    })();
+    return () => { cancelled = true; };
+  }, [value, designLanguageTokens, rootFontSizePx, enabled, propKey]);
+
+  return { match, tokens: enabled ? designLanguageTokens : null, rootFontSizePx };
+}
+
+function TokenBadge({
+  match,
+  tokens,
+  cssValue,
+  propKey,
+  rootFontSizePx,
+  onSelect,
+}: {
+  match: TokenMatch;
+  tokens: DesignToken[];
+  cssValue: string;
+  propKey: string;
+  rootFontSizePx: number;
+  onSelect: (token: DesignToken) => void;
+}) {
+  const T = useCanvasTheme();
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  // Lazy import TokenPicker to avoid a circular dependency at module load time.
+  const [TokenPickerComp, setTokenPickerComp] = useState<React.ComponentType<{
+    cssValue: string;
+    propKey: string;
+    tokens: DesignToken[];
+    rootFontSizePx: number;
+    onSelect: (t: DesignToken) => void;
+    onClose: () => void;
+  }> | null>(null);
+
+  useEffect(() => {
+    if (pickerOpen && !TokenPickerComp) {
+      void import('./TokenPicker').then(m => {
+        setTokenPickerComp(() => m.TokenPicker);
+      });
+    }
+  }, [pickerOpen, TokenPickerComp]);
+
+  return (
+    <div style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
+      <button
+        title={`Token: ${match.token.name}\n${match.token.key}\n${match.exact ? 'Exact match' : `Distance: ${match.distance.toFixed(1)}`}`}
+        onClick={() => setPickerOpen(o => !o)}
+        style={{
+          background: match.exact ? T.accentBg : 'rgba(255,186,123,0.12)',
+          border: `1px solid ${match.exact ? T.accent + '44' : 'rgba(255,186,123,0.3)'}`,
+          borderRadius: 3,
+          padding: '2px 4px',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 3,
+        }}
+      >
+        {match.token.type === 'color' && (
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: match.token.rawValue, border: '1px solid rgba(255,255,255,0.2)', flexShrink: 0 }} />
+        )}
+        <span style={{
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: '0.4rem',
+          color: match.exact ? T.accent : '#FFBA7B',
+          letterSpacing: '-0.01em',
+          maxWidth: 48,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          lineHeight: 1,
+        }}>
+          {match.token.key.replace(/^--/, '')}
+        </span>
+      </button>
+
+      {pickerOpen && TokenPickerComp && (
+        <TokenPickerComp
+          cssValue={cssValue}
+          propKey={propKey}
+          tokens={tokens}
+          rootFontSizePx={rootFontSizePx}
+          onSelect={t => { onSelect(t); setPickerOpen(false); }}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
 
 // ── Number / CSS value helpers ────────────────────────────────────────────────
 
@@ -126,6 +249,7 @@ export function NumInput({
   inputWidth = 60,
   readOnly,
   title,
+  tokenAware = false,
 }: {
   value: string;
   propKey: string;
@@ -133,6 +257,8 @@ export function NumInput({
   inputWidth?: number;
   readOnly?: boolean;
   title?: string;
+  /** When true, resolves the value against loaded design tokens and shows a badge. */
+  tokenAware?: boolean;
 }) {
   const T    = useCanvasTheme();
   const unit = parseCssUnit(value);
@@ -144,12 +270,14 @@ export function NumInput({
     setDraft(parseCssNum(value));
   }
 
-  const commit = (v: string) => {
+  const commit = useCallback((v: string) => {
     const n = parseFloat(v);
     if (!isNaN(n)) onPatch(propKey, `${n}${unit}`);
-  };
+  }, [onPatch, propKey, unit]);
 
-  return (
+  const { match, tokens, rootFontSizePx } = useTokenMatch(value, propKey, tokenAware && !readOnly);
+
+  const input = (
     <input
       readOnly={readOnly}
       title={title}
@@ -173,8 +301,8 @@ export function NumInput({
       style={{
         fontFamily: "'JetBrains Mono', monospace",
         fontSize: '0.5875rem',
-        background: readOnly ? T.bgDeep : T.bgDeep,
-        border: `1px solid ${T.border}`,
+        background: T.bgDeep,
+        border: `1px solid ${match?.exact ? T.accent + '55' : T.border}`,
         borderRadius: 4,
         color: readOnly ? T.dim : T.fg,
         padding: '3px 6px',
@@ -183,8 +311,25 @@ export function NumInput({
         textAlign: 'right',
         boxSizing: 'border-box',
         cursor: readOnly ? 'default' : 'text',
+        transition: 'border-color 0.15s',
       }}
     />
+  );
+
+  if (!tokenAware || !match || !tokens) return input;
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+      {input}
+      <TokenBadge
+        match={match}
+        tokens={tokens}
+        cssValue={value}
+        propKey={propKey}
+        rootFontSizePx={rootFontSizePx}
+        onSelect={t => onPatch(propKey, t.rawValue)}
+      />
+    </div>
   );
 }
 
@@ -241,10 +386,13 @@ export function ColorInput({
   value,
   propKey,
   onPatch,
+  tokenAware = false,
 }: {
   value: string;
   propKey: string;
   onPatch: (prop: string, val: string) => void;
+  /** When true, resolves the color against loaded design tokens and shows a badge. */
+  tokenAware?: boolean;
 }) {
   const T        = useCanvasTheme();
   const colorRef = useRef<HTMLInputElement>(null);
@@ -256,13 +404,16 @@ export function ColorInput({
     setHexDraft((value.startsWith('rgb') ? rgbToHex(value) : value).replace('#', ''));
   }
 
-  const commitHex = (v: string) => {
+  const commitHex = useCallback((v: string) => {
     const cleaned = v.startsWith('#') ? v : `#${v}`;
     onPatch(propKey, cleaned);
-  };
+  }, [onPatch, propKey]);
+
+  const { match, tokens, rootFontSizePx } = useTokenMatch(value, propKey, tokenAware);
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 5, flex: 1 }}>
+      {/* Color swatch / native picker */}
       <div
         title="Pick color"
         style={{
@@ -280,6 +431,8 @@ export function ColorInput({
           style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%' }}
         />
       </div>
+
+      {/* Hex text input */}
       <input
         value={hexDraft.toUpperCase()}
         maxLength={6}
@@ -294,14 +447,93 @@ export function ColorInput({
           fontFamily: "'JetBrains Mono', monospace",
           fontSize: '0.5875rem',
           background: T.bgDeep,
-          border: `1px solid ${T.border}`,
+          border: `1px solid ${match?.exact ? T.accent + '55' : T.border}`,
           borderRadius: 4,
           color: T.fg,
           padding: '3px 6px',
           width: 60,
           outline: 'none',
+          transition: 'border-color 0.15s',
         }}
       />
+
+      {/* Token badge (only when a close token match exists) */}
+      {tokenAware && match && tokens && (
+        <TokenBadge
+          match={match}
+          tokens={tokens}
+          cssValue={value}
+          propKey={propKey}
+          rootFontSizePx={rootFontSizePx}
+          onSelect={t => onPatch(propKey, t.rawValue)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Section header with label + optional children ────────────────────────────
+
+export function Section({ label, children }: { label: string; children: React.ReactNode }) {
+  const T = useCanvasTheme();
+  return (
+    <div style={{ padding: '12px 14px' }}>
+      <div
+        style={{
+          fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+          fontSize: '0.5rem',
+          fontWeight: 500,
+          letterSpacing: '0.12em',
+          textTransform: 'uppercase',
+          color: T.label,
+          marginBottom: 10,
+        }}
+      >
+        {label}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+// ── Key/value prop row ────────────────────────────────────────────────────────
+
+export function PropRow({ label, value, color }: { label: string; value: string; color: string }) {
+  const T = useCanvasTheme();
+  return (
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'baseline',
+        marginBottom: 8,
+        gap: 8,
+      }}
+    >
+      <span
+        style={{
+          fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+          fontSize: '0.625rem',
+          color: T.key,
+          flexShrink: 0,
+        }}
+      >
+        {label}
+      </span>
+      <span
+        style={{
+          fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+          fontSize: '0.625rem',
+          color,
+          textAlign: 'right',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          maxWidth: '60%',
+        }}
+      >
+        {value}
+      </span>
     </div>
   );
 }
