@@ -129,7 +129,7 @@ function TeamInviteForm({ workspaceId }: { workspaceId: string }) {
           style={{
             ...BTN_PRIMARY,
             flexShrink: 0,
-            opacity: (status === 'loading' || !userId.trim()) ? 0.5 : 1,
+            opacity: (status === 'loading' || !email.trim()) ? 0.5 : 1,
             transition: 'opacity 0.15s',
           }}
         >
