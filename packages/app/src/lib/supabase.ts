@@ -14,12 +14,17 @@ function requireEnv(name: string): string {
   return val;
 }
 
-/** Browser-safe Supabase client (anon key, RLS enforced). */
+/** Browser-safe Supabase client (anon key, RLS enforced).
+ *
+ * IMPORTANT: NEXT_PUBLIC_* vars must be accessed via dot notation so Next.js
+ * can statically inline them into the client bundle at build time. Dynamic
+ * bracket access (process.env[name]) is not replaced and yields undefined. */
 export function browserClient(): DbClient {
-  return createClient(
-    requireEnv('NEXT_PUBLIC_SUPABASE_URL'),
-    requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
-  ) as unknown as DbClient;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url) throw new Error('Missing required environment variable: NEXT_PUBLIC_SUPABASE_URL');
+  if (!key) throw new Error('Missing required environment variable: NEXT_PUBLIC_SUPABASE_ANON_KEY');
+  return createClient(url, key) as unknown as DbClient;
 }
 
 /** Server-only Supabase client (service-role key, bypasses RLS). */
