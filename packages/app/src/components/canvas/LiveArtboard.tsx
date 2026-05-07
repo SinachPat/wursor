@@ -124,11 +124,13 @@ export function LiveArtboard({
             pendingStylesFetchRef.current = selectedComponentId;
           }
           onReady?.();
-          // Start a 4-second timer: if React never commits, this is a static page.
+          // Start an 8-second timer: if React never commits (including the
+          // 2-second retroactive captureExistingTree safety net), this is
+          // genuinely a static page.
           if (staticTimerRef.current) clearTimeout(staticTimerRef.current);
           staticTimerRef.current = setTimeout(() => {
             if (!hasReactRef.current) onStaticPageDetected?.();
-          }, 4000);
+          }, 8000);
           break;
         case 'FIBER_TREE_UPDATE':
           // Mark that this iframe contains a live React app.

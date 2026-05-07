@@ -868,14 +868,25 @@ export function buildProxyFiberHookScript(): string {
       } catch (e) { /* Next.js not present */ }
     })();
 
-    // ③ <a href> same-origin links from the rendered DOM
+    // ③ <a href> links — relative paths AND same-origin absolute URLs.
+    // When running through the CLI proxy, the page's links still point to the
+    // original domain (e.g. intraining.com), not the proxy (localhost:4170).
+    // A strict same-origin check would reject all of them.  Instead, accept
+    // any href that is already a root-relative path ("/courses"), plus
+    // same-origin absolute URLs for direct (non-proxied) connections.
     var anchors = document.querySelectorAll('a[href]');
     for (var i = 0; i < anchors.length; i++) {
       try {
+        var rawHref = (anchors[i].getAttribute('href') || '').trim();
+        // Root-relative paths — always valid routes regardless of origin
+        if (rawHref.charAt(0) === '/') {
+          addRoute(rawHref, (anchors[i].textContent || '').trim() || undefined);
+          continue;
+        }
+        // Absolute URLs — only add if same-origin (direct connection)
         var url = new URL(anchors[i].href, window.location.href);
         if (url.origin !== window.location.origin) continue;
-        // Skip hash-only links
-        if (!url.pathname || url.hash && !url.pathname) continue;
+        if (!url.pathname || (url.hash && !url.pathname)) continue;
         addRoute(url.pathname, (anchors[i].textContent || '').trim() || undefined);
       } catch (e) { /* skip malformed hrefs */ }
     }
@@ -899,12 +910,68 @@ export function buildProxyFiberHookScript(): string {
     if (routes.length > 0) post({ type: 'ROUTES_DISCOVERED', routes: routes });
   }
 
+  // ── Retroactive fiber capture ─────────────────────────────────────────────
+  // onCommitFiberRoot only fires on FUTURE commits. If React already completed
+  // its first render (hydration) before our hook script was evaluated, we miss
+  // the initial tree entirely and the 4-second static-page timer fires falsely.
+  //
+  // Fix: scan common React root containers for __reactFiber$ DOM annotations
+  // that React writes onto every host element. Walk the found fiber up to the
+  // HostRoot (fiber.return chain) and serialize it exactly as onCommitFiberRoot
+  // does.  Two attempts cover the two race modes:
+  //   Attempt 1 (immediate) – hook ran after hydration; DOM is populated now.
+  //   Attempt 2 (2 s delay) – hook ran before hydration or Suspense deferred.
+  function captureExistingTree() {
+    // Find any DOM element that React has annotated with a fiber reference.
+    var candidates = [
+      document.getElementById('__next'),
+      document.getElementById('root'),
+      document.getElementById('app'),
+      document.body,
+    ];
+
+    var fiber = null;
+    for (var ci = 0; ci < candidates.length; ci++) {
+      var el = candidates[ci];
+      if (!el) continue;
+      var keys = Object.keys(el);
+      for (var ki = 0; ki < keys.length; ki++) {
+        if (keys[ki].indexOf('__reactFiber$') === 0) {
+          fiber = el[keys[ki]];
+          break;
+        }
+      }
+      if (fiber) break;
+    }
+
+    if (!fiber) return; // React not yet mounted on any known container.
+
+    // Walk up to the HostRoot (the sentinel fiber React builds the tree from).
+    var f = fiber;
+    while (f.return) f = f.return;
+
+    // Rebuild maps and serialize — identical to what onCommitFiberRoot does.
+    nodeMap  = {};
+    fiberMap = new WeakMap();
+    var tree = serializeFiber(f, '');
+    if (!tree) return; // Nothing serializable yet.
+
+    reapplyOverrides();
+    post({ type: 'FIBER_TREE_UPDATE', root: tree });
+    if (selectedNodeId) updateHighlight();
+  }
+
   // ── Ready signal (includes root font size for rem→px normalisation) ────────
   var rootFontSizePx = parseFloat(
     window.getComputedStyle(document.documentElement).getPropertyValue('font-size') || '16'
   ) || 16;
   post({ type: 'READY', rootFontSizePx: rootFontSizePx });
+  // Attempt 1: capture already-mounted React tree immediately (handles the
+  // common case where hydration completed before the hook script ran).
+  captureExistingTree();
   setTimeout(discoverRoutes, 800);
+  // Attempt 2: safety-net capture 2 s later for deferred hydration / Suspense.
+  setTimeout(captureExistingTree, 2000);
   // Re-discover on SPA navigation (Next.js App Router fires popstate on push)
   window.addEventListener('popstate', function() { setTimeout(discoverRoutes, 100); });
 })();`;

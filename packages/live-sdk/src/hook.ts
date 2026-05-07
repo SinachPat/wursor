@@ -442,9 +442,18 @@ function installFiberHook(): void {
     // Current route first
     addRoute(window.location.pathname, document.title || undefined);
 
-    // Scan real <a> elements
+    // Scan real <a> elements — accept root-relative paths regardless of origin
+    // so that CLI-proxied pages (where links still point to the original domain)
+    // are handled correctly alongside direct same-origin connections.
     document.querySelectorAll<HTMLAnchorElement>('a[href]').forEach((a) => {
       try {
+        const rawHref = (a.getAttribute('href') ?? '').trim();
+        // Root-relative paths are always valid routes.
+        if (rawHref.startsWith('/')) {
+          addRoute(rawHref, a.textContent ?? undefined);
+          return;
+        }
+        // Absolute URLs — only add if same-origin (direct connection).
         const url = new URL(a.href, window.location.href);
         if (url.origin !== window.location.origin) return;
         addRoute(url.pathname, a.textContent ?? undefined);
