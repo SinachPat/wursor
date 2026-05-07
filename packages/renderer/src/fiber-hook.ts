@@ -172,8 +172,30 @@ export function buildProxyFiberHookScript(): string {
   // __REACT_DEVTOOLS_GLOBAL_HOOK__ exactly once at import time.
   var hook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
   if (!hook) {
-    hook = { renderers: new Map(), supportsFiber: true, _isDisabled: false };
+    // React calls hook.inject(renderer) before it will ever call
+    // onCommitFiberRoot. Without an inject method, React's injectInternals()
+    // try/catch silently bails and our handler is never reached.
+    var _nextRendererId = 0;
+    hook = {
+      renderers:    new Map(),
+      supportsFiber: true,
+      _isDisabled:  false,
+      inject: function(renderer) {
+        var id = ++_nextRendererId;
+        hook.renderers.set(id, renderer);
+        return id;
+      },
+    };
     window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = hook;
+  } else if (typeof hook.inject !== 'function') {
+    // Existing hook is missing inject (e.g. a minimal stub from another tool).
+    // Patch it in so React registers properly.
+    var _nextRendererId2 = 0;
+    hook.inject = function(renderer) {
+      var id = ++_nextRendererId2;
+      hook.renderers.set(id, renderer);
+      return id;
+    };
   }
 
   var _prevCommit = hook.onCommitFiberRoot;
