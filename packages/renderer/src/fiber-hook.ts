@@ -12,8 +12,15 @@ export function buildFiberHookScript(artboardId: string): string {
 
   var hook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
   if (!hook) {
-    hook = { renderers: new Map(), _isDisabled: false };
+    var _legacyNextId = 0;
+    hook = {
+      renderers: new Map(), supportsFiber: true, _isDisabled: false,
+      inject: function(r) { var id = ++_legacyNextId; hook.renderers.set(id, r); return id; },
+    };
     window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = hook;
+  } else if (typeof hook.inject !== 'function') {
+    var _legacyNextId2 = 0;
+    hook.inject = function(r) { var id = ++_legacyNextId2; hook.renderers.set(id, r); return id; };
   }
 
   var originalOnCommitFiberRoot = hook.onCommitFiberRoot;
