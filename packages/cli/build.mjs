@@ -24,6 +24,10 @@ const NODE_BUILTINS = [
   'punycode', 'querystring', 'readline', 'repl', 'stream', 'string_decoder',
   'sys', 'timers', 'tls', 'trace_events', 'tty', 'url', 'util', 'v8',
   'vm', 'worker_threads', 'zlib',
+  // typescript uses CJS require() for Node built-ins internally — bundling it
+  // into an ESM output causes "Dynamic require of 'fs' is not supported".
+  // Leave it external so Node resolves it from node_modules at runtime.
+  'typescript',
 ];
 
 // ── html2canvas text-embed plugin ────────────────────────────────────────────
