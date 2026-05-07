@@ -923,28 +923,44 @@ export function buildProxyFiberHookScript(): string {
   //   Attempt 2 (2 s delay) – hook ran before hydration or Suspense deferred.
   function captureExistingTree() {
     // Find any DOM element that React has annotated with a fiber reference.
+    // Priority order covers the most common React root containers:
+    //   - Next.js Pages Router: #__next
+    //   - CRA / Vite:           #root
+    //   - Generic:              #app
+    //   - Next.js App Router:   <html> or <body> (hydrateRoot on document)
+    //   - Fallback DOM scan:    first annotated element anywhere in <body>
     var candidates = [
       document.getElementById('__next'),
       document.getElementById('root'),
       document.getElementById('app'),
+      document.documentElement,   // <html> — App Router hydrateRoot target
       document.body,
     ];
 
-    var fiber = null;
-    for (var ci = 0; ci < candidates.length; ci++) {
-      var el = candidates[ci];
-      if (!el) continue;
+    function getFiber(el) {
+      if (!el) return null;
       var keys = Object.keys(el);
       for (var ki = 0; ki < keys.length; ki++) {
-        if (keys[ki].indexOf('__reactFiber$') === 0) {
-          fiber = el[keys[ki]];
-          break;
-        }
+        if (keys[ki].indexOf('__reactFiber$') === 0) return el[keys[ki]];
       }
+      return null;
+    }
+
+    var fiber = null;
+    for (var ci = 0; ci < candidates.length; ci++) {
+      fiber = getFiber(candidates[ci]);
       if (fiber) break;
     }
 
-    if (!fiber) return; // React not yet mounted on any known container.
+    // Last resort: walk the DOM looking for any annotated element.
+    if (!fiber) {
+      var allEls = document.body ? document.body.querySelectorAll('*') : [];
+      for (var di = 0; di < allEls.length && !fiber; di++) {
+        fiber = getFiber(allEls[di]);
+      }
+    }
+
+    if (!fiber) return; // React not yet mounted anywhere in the document.
 
     // Walk up to the HostRoot (the sentinel fiber React builds the tree from).
     var f = fiber;
@@ -954,8 +970,6 @@ export function buildProxyFiberHookScript(): string {
     nodeMap  = {};
     fiberMap = new WeakMap();
     var tree = serializeFiber(f, '');
-    if (!tree) return; // Nothing serializable yet.
-
     reapplyOverrides();
     post({ type: 'FIBER_TREE_UPDATE', root: tree });
     if (selectedNodeId) updateHighlight();
