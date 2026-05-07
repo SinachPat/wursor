@@ -577,16 +577,30 @@ function EmptyArtboardContent({
   const [editing, setEditing] = useState(false);
   const [urlValue, setUrlValue] = useState('');
   const [saving, setSaving] = useState(false);
+  const [urlError, setUrlError] = useState('');
 
   const save = async () => {
-    const url = urlValue.trim();
-    if (!url) return;
+    const raw = urlValue.trim();
+    if (!raw) return;
+
+    // Validate: must be an absolute http/https URL so the iframe doesn't
+    // accidentally resolve a relative path against the Originmain origin
+    // (which would load the Originmain app inside itself).
+    try {
+      const parsed = new URL(raw);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw new Error('bad protocol');
+    } catch {
+      setUrlError('Enter a valid http:// or https:// URL (e.g. http://localhost:4170)');
+      return;
+    }
+    setUrlError('');
+
     setSaving(true);
     await fetch(`/api/artboards/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        metadata_jsonb: { renderUrl: url, width, height, x: 0, y: 0 },
+        metadata_jsonb: { renderUrl: raw, width, height, x: 0, y: 0 },
       }),
     }).catch(console.error);
     queryClient.invalidateQueries({ queryKey: ['artboards', workspaceId, projectId ?? undefined] });
@@ -620,15 +634,21 @@ function EmptyArtboardContent({
             autoFocus
             type="url"
             value={urlValue}
-            onChange={(e) => setUrlValue(e.target.value)}
+            onChange={(e) => { setUrlValue(e.target.value); setUrlError(''); }}
             placeholder="http://localhost:4170"
             onKeyDown={(e) => { if (e.key === 'Enter') void save(); if (e.key === 'Escape') setEditing(false); e.stopPropagation(); }}
             style={{
-              padding: '7px 10px', borderRadius: 6, border: '1.5px solid #0066FF',
+              padding: '7px 10px', borderRadius: 6,
+              border: `1.5px solid ${urlError ? '#EF4444' : '#0066FF'}`,
               fontSize: 11, fontFamily: 'inherit', width: '100%',
               boxSizing: 'border-box' as const, color: '#0A0A0A', background: '#fff',
             }}
           />
+          {urlError && (
+            <p style={{ margin: 0, fontSize: 10, color: '#EF4444', lineHeight: 1.4, fontFamily: 'inherit' }}>
+              {urlError}
+            </p>
+          )}
           <p style={hintStyle}>
             Use the CLI proxy URL or a preview deployment URL with @originmain/live installed
           </p>

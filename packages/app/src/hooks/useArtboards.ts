@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Artboard, InsertArtboard } from '@originmain/origin-graph';
+import type { Artboard, InsertArtboard, ArtboardType } from '@originmain/origin-graph';
 
 export interface CanvasArtboard {
   id: string;
@@ -11,19 +11,53 @@ export interface CanvasArtboard {
   renderUrl?: string;
   /** Route path appended to renderUrl when rendering a specific screen, e.g. "/dashboard". */
   route?: string;
+  /** Controls which renderer is used: route (default), isolation, or static. */
+  artboard_type?: ArtboardType;
+  /** Isolation artboard: exported component display name. */
+  isolation_component?: string | null;
+  /** Isolation artboard: workspace-relative source file path. */
+  isolation_file?: string | null;
+  /** Isolation artboard: live prop overrides forwarded to the isolation frame. */
+  isolation_props?: Record<string, unknown> | null;
 }
 
 
 function toCanvasArtboard(ab: Artboard): CanvasArtboard | null {
   const meta = ab.metadata_jsonb;
-  const x = typeof meta['x'] === 'number' ? meta['x'] : null;
-  const y = typeof meta['y'] === 'number' ? meta['y'] : null;
-  const width = typeof meta['width'] === 'number' ? meta['width'] : null;
+
+  // x/y: prefer promoted top-level columns (migration 012), fall back to metadata_jsonb.
+  const x = typeof ab.canvas_x === 'number' ? ab.canvas_x
+    : typeof meta['x'] === 'number' ? meta['x'] : null;
+  const y = typeof ab.canvas_y === 'number' ? ab.canvas_y
+    : typeof meta['y'] === 'number' ? meta['y'] : null;
+  // width/height come from metadata_jsonb (top-level DB columns default to 1440/900,
+  // not from the user's intent — metadata_jsonb carries the actual artboard dimensions).
+  const width  = typeof meta['width']  === 'number' ? meta['width']  : null;
   const height = typeof meta['height'] === 'number' ? meta['height'] : null;
+
   if (x === null || y === null || width === null || height === null) return null;
+
   const base: CanvasArtboard = { id: ab.id, label: ab.name, x, y, width, height };
-  if (typeof meta['renderUrl'] === 'string') base.renderUrl = meta['renderUrl'];
+
+  // renderUrl must be an absolute http/https URL — skip relative strings to
+  // avoid loading the Originmain app inside itself when the iframe resolves
+  // against the Originmain origin.
+  if (typeof meta['renderUrl'] === 'string') {
+    const raw = meta['renderUrl'] as string;
+    try {
+      const parsed = new URL(raw);
+      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') base.renderUrl = raw;
+    } catch { /* invalid URL stored in DB — ignore */ }
+  }
+
   if (typeof meta['route'] === 'string' && meta['route']) base.route = meta['route'];
+
+  // Phase 3 isolation artboard fields (top-level DB columns, migration 012).
+  if (ab.artboard_type) base.artboard_type = ab.artboard_type;
+  if (ab.isolation_component !== undefined) base.isolation_component = ab.isolation_component ?? null;
+  if (ab.isolation_file !== undefined) base.isolation_file = ab.isolation_file ?? null;
+  if (ab.isolation_props !== undefined) base.isolation_props = ab.isolation_props as Record<string, unknown> ?? null;
+
   return base;
 }
 
