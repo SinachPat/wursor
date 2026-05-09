@@ -181,37 +181,41 @@ export function buildProxyFiberHookScript(): string {
   // ── React DevTools global hook ────────────────────────────────────────────
   // Must be installed before React evaluates its module body. React checks for
   // __REACT_DEVTOOLS_GLOBAL_HOOK__ exactly once at import time.
+  //
+  // Timing hazard: the React DevTools browser extension injects at
+  // document_start (before HTML parsing), so it can set up a hook stub *before*
+  // our <script> runs. React Fast Refresh (Next.js dev) then destructures
+  // inject from that stub -- capturing undefined -- before React DOM calls it,
+  // producing "Cannot read properties of undefined (reading 'apply')".
+  //
+  // Fix: always replace hook.inject with a robust wrapper that falls back to
+  // our own ID allocation if the previous inject throws or is missing. This
+  // works regardless of whether our script runs before or after React Refresh.
   var hook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
   if (!hook) {
-    // React calls hook.inject(renderer) before it will ever call
-    // onCommitFiberRoot. Without an inject method, React's injectInternals()
-    // try/catch silently bails and our handler is never reached.
-    var _nextRendererId = 0;
-    hook = {
-      renderers:    new Map(),
-      supportsFiber: true,
-      _isDisabled:  false,
-      inject: function(renderer) {
-        var id = ++_nextRendererId;
-        hook.renderers.set(id, renderer);
-        console.log(OM_TAG, 'React registered (new hook), rendererId=' + id);
-        return id;
-      },
-    };
+    hook = { renderers: new Map(), supportsFiber: true, _isDisabled: false };
     window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = hook;
-  } else if (typeof hook.inject !== 'function') {
-    // Existing hook is missing inject (e.g. a minimal stub from another tool).
-    // Patch it in so React registers properly.
-    var _nextRendererId2 = 0;
-    hook.inject = function(renderer) {
-      var id = ++_nextRendererId2;
-      hook.renderers.set(id, renderer);
-      console.log(OM_TAG, 'React registered (patched hook), rendererId=' + id);
-      return id;
-    };
-  } else {
-    console.log(OM_TAG, 'existing hook with inject() found');
   }
+
+  // Capture whatever inject exists right now (could be undefined, the
+  // DevTools extension version, or React Refresh's broken wrapper).
+  var _prevInject   = typeof hook.inject === 'function' ? hook.inject : null;
+  var _omRendererId = 0;
+
+  hook.inject = function(renderer) {
+    var id;
+    // Try the previous inject first (DevTools extension or React Refresh).
+    if (_prevInject) {
+      try { id = _prevInject.apply(this, arguments); } catch (e) { /* broken wrapper — fall through */ }
+    }
+    // If we didn't get a valid numeric ID, allocate our own.
+    if (typeof id !== 'number') {
+      id = ++_omRendererId;
+      if (hook.renderers) hook.renderers.set(id, renderer);
+    }
+    console.log(OM_TAG, 'React registered via inject(), rendererId=' + id);
+    return id;
+  };
 
   var _prevCommit = hook.onCommitFiberRoot;
 
