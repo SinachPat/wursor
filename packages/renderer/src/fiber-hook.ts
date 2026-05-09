@@ -136,6 +136,10 @@ export function buildProxyFiberHookScript(): string {
   } catch (e) { /* sandboxed context — not our iframe */ }
   if (!artboardId) return;
 
+  // ── Diagnostic logging (temporary) ───────────────────────────────────────
+  var OM_TAG = '[Originmain hook ' + artboardId.slice(0, 6) + ']';
+  console.log(OM_TAG, 'script active, artboardId=' + artboardId);
+
   var RENDERER_SOURCE = ${JSON.stringify(RENDERER_SOURCE)};
   var HOST_SOURCE     = ${JSON.stringify(HOST_SOURCE)};
 
@@ -190,6 +194,7 @@ export function buildProxyFiberHookScript(): string {
       inject: function(renderer) {
         var id = ++_nextRendererId;
         hook.renderers.set(id, renderer);
+        console.log(OM_TAG, 'React registered (new hook), rendererId=' + id);
         return id;
       },
     };
@@ -201,13 +206,17 @@ export function buildProxyFiberHookScript(): string {
     hook.inject = function(renderer) {
       var id = ++_nextRendererId2;
       hook.renderers.set(id, renderer);
+      console.log(OM_TAG, 'React registered (patched hook), rendererId=' + id);
       return id;
     };
+  } else {
+    console.log(OM_TAG, 'existing hook with inject() found');
   }
 
   var _prevCommit = hook.onCommitFiberRoot;
 
   hook.onCommitFiberRoot = function(rendererId, root, priorityLevel, didError) {
+    console.log(OM_TAG, 'onCommitFiberRoot fired, rendererId=' + rendererId);
     // Delegate to any pre-existing handler (e.g. React DevTools extension).
     if (typeof _prevCommit === 'function') {
       try { _prevCommit.call(this, rendererId, root, priorityLevel, didError); }
@@ -221,6 +230,7 @@ export function buildProxyFiberHookScript(): string {
       fiberMap = new WeakMap();
 
       var tree = serializeFiber(root.current, '');
+      console.log(OM_TAG, 'tree serialized, posting FIBER_TREE_UPDATE, root=' + (tree ? tree.name : 'null'));
       // H-7 fix: re-tag DOM with data-om-id and reapply the override sheet
       // BEFORE telling the host the tree updated, so the visual is consistent
       // by the time the host repaints its inspector.
@@ -229,6 +239,7 @@ export function buildProxyFiberHookScript(): string {
       // Re-sync the highlight ring after each React commit (layout may shift).
       if (selectedNodeId) updateHighlight();
     } catch (err) {
+      console.error(OM_TAG, 'onCommitFiberRoot error:', err);
       post({ type: 'ERROR', message: String(err) });
     }
   };
@@ -989,12 +1000,16 @@ export function buildProxyFiberHookScript(): string {
       }
     }
 
-    if (!fiber) return; // React not yet mounted anywhere in the document.
+    if (!fiber) {
+      console.log(OM_TAG, 'captureExistingTree: no __reactFiber$ found anywhere in DOM');
+      return;
+    }
 
     // Walk up to the HostRoot (the sentinel fiber React builds the tree from).
     var f = fiber;
     while (f.return) f = f.return;
 
+    console.log(OM_TAG, 'captureExistingTree: found fiber, walking to root, posting tree');
     // Rebuild maps and serialize — identical to what onCommitFiberRoot does.
     nodeMap  = {};
     fiberMap = new WeakMap();
