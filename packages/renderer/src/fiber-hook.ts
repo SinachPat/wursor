@@ -179,45 +179,58 @@ export function buildProxyFiberHookScript(): string {
   }
 
   // ── React DevTools global hook ────────────────────────────────────────────
-  // Must be installed before React evaluates its module body. React checks for
-  // __REACT_DEVTOOLS_GLOBAL_HOOK__ exactly once at import time.
+  // Strategy: completely replace window.__REACT_DEVTOOLS_GLOBAL_HOOK__ with a
+  // fresh, fully-specified hook object. This eliminates all timing hazards:
   //
-  // Timing hazard: the React DevTools browser extension injects at
-  // document_start (before HTML parsing), so it can set up a hook stub *before*
-  // our <script> runs. React Fast Refresh (Next.js dev) then destructures
-  // inject from that stub -- capturing undefined -- before React DOM calls it,
-  // producing "Cannot read properties of undefined (reading 'apply')".
+  //  1. Chrome DevTools extension injects at document_start (before HTML is
+  //     parsed) and installs a stub where hook.inject = undefined. Patching
+  //     that stub still leaves React Refresh free to capture undefined before
+  //     our patch runs. Replacing the object entirely avoids the problem.
   //
-  // Fix: always replace hook.inject with a robust wrapper that falls back to
-  // our own ID allocation if the previous inject throws or is missing. This
-  // works regardless of whether our script runs before or after React Refresh.
-  var hook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
-  if (!hook) {
-    hook = { renderers: new Map(), supportsFiber: true, _isDisabled: false };
-    window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = hook;
-  }
+  //  2. React Refresh (Next.js dev) runs after our <script> (which is at the
+  //     very top of <head>). It captures hook.inject as oldInject. Because
+  //     OUR inject is a proper function that never throws, React Refresh's
+  //     wrapper works, and React successfully sets injectedHook.
+  //
+  //  3. All methods React 19 and React Refresh might call are present as
+  //     no-ops (checkDCE, onScheduleFiberRoot, onPostCommitFiberRoot, etc.)
+  //     so nothing blows up on first access.
+  //
+  //  4. isDisabled=false (not _isDisabled): React Refresh reads isDisabled.
+  //     If truthy, React Refresh skips wrapping inject entirely and React
+  //     never gets tracked.
 
-  // Capture whatever inject exists right now (could be undefined, the
-  // DevTools extension version, or React Refresh's broken wrapper).
-  var _prevInject   = typeof hook.inject === 'function' ? hook.inject : null;
-  var _omRendererId = 0;
+  // Save onCommitFiberRoot from any pre-existing hook (e.g. DevTools extension).
+  var _existingHook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+  var _prevCommit   = (_existingHook && typeof _existingHook.onCommitFiberRoot === 'function')
+    ? _existingHook.onCommitFiberRoot : null;
 
-  hook.inject = function(renderer) {
-    var id;
-    // Try the previous inject first (DevTools extension or React Refresh).
-    if (_prevInject) {
-      try { id = _prevInject.apply(this, arguments); } catch (e) { /* broken wrapper — fall through */ }
-    }
-    // If we didn't get a valid numeric ID, allocate our own.
-    if (typeof id !== 'number') {
-      id = ++_omRendererId;
-      if (hook.renderers) hook.renderers.set(id, renderer);
-    }
-    console.log(OM_TAG, 'React registered via inject(), rendererId=' + id);
-    return id;
+  var _omNextId = 0;
+  var hook = {
+    renderers:             new Map(),
+    supportsFiber:         true,
+    isDisabled:            false,        // React Refresh reads this; must be false
+    checkDCE:              function() {},
+    onScheduleFiberRoot:   function() {},
+    onCommitFiberUnmount:  function() {},
+    onPostCommitFiberRoot: function() {},
+    inject: function(renderer) {
+      // This function MUST NEVER THROW. React 19 wraps the hook.inject() call
+      // in a try/catch and silently discards the hook if it throws, leaving
+      // injectedHook unset so onCommitFiberRoot is never called.
+      try {
+        var id = ++_omNextId;
+        hook.renderers.set(id, renderer);
+        console.log(OM_TAG, 'React registered via inject(), rendererId=' + id);
+        return id;
+      } catch(e) {
+        console.error(OM_TAG, 'inject() threw unexpectedly:', e);
+        return ++_omNextId; // still return a valid ID
+      }
+    },
+    onCommitFiberRoot: null, // assigned below after the object is built
   };
-
-  var _prevCommit = hook.onCommitFiberRoot;
+  window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = hook;
 
   hook.onCommitFiberRoot = function(rendererId, root, priorityLevel, didError) {
     console.log(OM_TAG, 'onCommitFiberRoot fired, rendererId=' + rendererId);
