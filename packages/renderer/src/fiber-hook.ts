@@ -179,91 +179,100 @@ export function buildProxyFiberHookScript(): string {
   }
 
   // ── React DevTools global hook ────────────────────────────────────────────
-  // Two-layer bulletproof strategy:
+  // Strategy: PATCH the hook that window.__REACT_DEVTOOLS_GLOBAL_HOOK__ already
+  // points to, rather than creating a new object.
   //
-  // LAYER 1 — Lock the global: replace window.__REACT_DEVTOOLS_GLOBAL_HOOK__
-  //   with our fresh hook, then make the property non-writable so neither the
-  //   Chrome DevTools extension (which runs at document_start and may
-  //   re-initialize) nor any webpack module can swap it out again.
+  // WHY patching beats replacing:
+  //   The Chrome DevTools extension injects at document_start (before HTML
+  //   parsing) and often locks window.__REACT_DEVTOOLS_GLOBAL_HOOK__ as
+  //   { configurable: false, writable: false }. Any attempt to replace the
+  //   global property silently no-ops. We'd end up with getter/setter on a
+  //   fresh hook object that React and React Refresh never see.
   //
-  // LAYER 2 — Lock inject via getter/setter: define hook.inject as an accessor
-  //   property. GET always returns a working implementation (_omInjectCurrent).
-  //   SET intercepts React Refresh's attempt to wrap inject and re-wraps the
-  //   wrapper with a try-catch fallback, so even if React Refresh captured
-  //   oldInject=undefined from an earlier stub and its wrapper throws at call
-  //   time, we catch the error and fall back to our own ID allocation.
-  //   This handles EVERY timing scenario without relying on script order.
+  // WHAT we patch:
+  //   1. Supplement missing methods (renderers, checkDCE, onScheduleFiberRoot …)
+  //      so every method React 19 and React Refresh might call is present.
+  //   2. Redefine hook.inject as a getter/setter accessor:
+  //      GET → always returns _omInjectCurrent (never undefined, never throws).
+  //      SET → when React Refresh does  hook.inject = wrapper(oldInject),
+  //            our setter wraps the wrapper in try/catch so that even a
+  //            broken wrapper (where oldInject was captured as undefined by an
+  //            earlier DevTools stub) falls back to our own ID allocation.
+  //   3. isDisabled must be false — React Refresh bails out if truthy.
 
-  var _existingHook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
-  var _prevCommit   = (_existingHook && typeof _existingHook.onCommitFiberRoot === 'function')
-    ? _existingHook.onCommitFiberRoot : null;
+  // Get (or lazily create) the global hook.
+  var hook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+  if (!hook) {
+    hook = {};
+    try {
+      window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = hook;
+    } catch(e) { /* locked — nothing we can do; hook is still a valid object */ }
+  }
+
+  // Save any pre-existing onCommitFiberRoot (e.g. from DevTools extension).
+  var _prevCommit = typeof hook.onCommitFiberRoot === 'function'
+    ? hook.onCommitFiberRoot : null;
+
+  // Supplement missing properties (safe to assign even on a locked global —
+  // the global itself is locked, not the hook object's properties).
+  if (!hook.renderers)             hook.renderers             = new Map();
+  if (!hook.supportsFiber)         hook.supportsFiber         = true;
+  if (hook.isDisabled === undefined) hook.isDisabled           = false;
+  if (!hook.checkDCE)              hook.checkDCE              = function() {};
+  if (!hook.onScheduleFiberRoot)   hook.onScheduleFiberRoot   = function() {};
+  if (!hook.onCommitFiberUnmount)  hook.onCommitFiberUnmount  = function() {};
+  if (!hook.onPostCommitFiberRoot) hook.onPostCommitFiberRoot = function() {};
+  if (!hook.onCommitFiberRoot)     hook.onCommitFiberRoot     = null; // set below
+
+  // ── Protect inject with a getter/setter accessor ──────────────────────────
+  // Our getter always returns _omInjectCurrent — a function that never throws.
+  // React Refresh does:
+  //   var oldInject = hook.inject;       // reads our getter → our function
+  //   hook.inject = function(r) {        // triggers our setter
+  //     var id = oldInject.apply(…);     // calls our function (not undefined)
+  //   };
+  // Even if React Refresh ran BEFORE our script and already set hook.inject to
+  // a broken wrapper (where oldInject===undefined), our setter replaces it with
+  // a try-catch-guarded version that falls back on error.
 
   var _omNextId = 0;
-
-  // Base inject implementation — always safe, never throws.
   var _omInjectCurrent = function(renderer) {
     try {
       var id = ++_omNextId;
       hook.renderers.set(id, renderer);
-      console.log(OM_TAG, 'React registered via inject(), rendererId=' + id);
+      console.log(OM_TAG, 'inject() called, rendererId=' + id);
       return id;
     } catch(e) {
       return ++_omNextId;
     }
   };
 
-  var hook = {
-    renderers:             new Map(),
-    supportsFiber:         true,
-    isDisabled:            false,    // React Refresh checks this; must be false
-    checkDCE:              function() {},
-    onScheduleFiberRoot:   function() {},
-    onCommitFiberUnmount:  function() {},
-    onPostCommitFiberRoot: function() {},
-    onCommitFiberRoot:     null,     // assigned below
-    // inject is NOT in the literal — it is defined as a getter/setter below.
-  };
-
-  // Layer 2: protect inject with an accessor property.
-  // React Refresh does: var oldInject = hook.inject; hook.inject = wrapper(oldInject);
-  // Our getter ensures oldInject is NEVER undefined regardless of timing.
-  // Our setter wraps whatever React Refresh installs with a try-catch so that
-  // even a broken wrapper (where oldInject was captured as undefined from an
-  // earlier DevTools stub) falls back gracefully.
-  Object.defineProperty(hook, 'inject', {
-    configurable: true,
-    enumerable:   true,
-    get: function() { return _omInjectCurrent; },
-    set: function(fn) {
-      if (typeof fn !== 'function') return;
-      var wrapped = fn;
-      _omInjectCurrent = function(renderer) {
-        try {
-          return wrapped.apply(this, arguments);
-        } catch(e) {
-          // React Refresh's wrapper tried to call an undefined oldInject.
-          // Fall back to direct ID allocation.
-          console.log(OM_TAG, 'inject() fallback after wrapper error, id=' + (_omNextId + 1));
-          var id = ++_omNextId;
-          hook.renderers.set(id, renderer);
-          return id;
-        }
-      };
-    },
-  });
-
-  // Layer 1: lock the global so nothing can replace our hook after this point.
   try {
-    Object.defineProperty(window, '__REACT_DEVTOOLS_GLOBAL_HOOK__', {
-      configurable: false,
+    Object.defineProperty(hook, 'inject', {
+      configurable: true,
       enumerable:   true,
-      writable:     false,
-      value:        hook,
+      get: function() { return _omInjectCurrent; },
+      set: function(fn) {
+        if (typeof fn !== 'function') return;
+        var wrapped = fn;
+        _omInjectCurrent = function(renderer) {
+          try {
+            return wrapped.apply(this, arguments);
+          } catch(e) {
+            // React Refresh's wrapper tried to call an undefined oldInject — fall back.
+            console.log(OM_TAG, 'inject() fallback after wrapper error, id=' + (_omNextId + 1));
+            var id = ++_omNextId;
+            hook.renderers.set(id, renderer);
+            return id;
+          }
+        };
+      },
     });
   } catch(e) {
-    // Property is already non-configurable (DevTools extension locked it first).
-    // Simple assignment is a best-effort fallback.
-    window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = hook;
+    // inject property itself is non-configurable — overwrite directly.
+    // This is a best-effort last resort; the try-catch in the function body
+    // at least prevents React from seeing an exception from hook.inject().
+    hook.inject = _omInjectCurrent;
   }
 
   hook.onCommitFiberRoot = function(rendererId, root, priorityLevel, didError) {
@@ -1001,73 +1010,81 @@ export function buildProxyFiberHookScript(): string {
     if (routes.length > 0) post({ type: 'ROUTES_DISCOVERED', routes: routes });
   }
 
-  // ── Retroactive fiber capture ─────────────────────────────────────────────
-  // onCommitFiberRoot only fires on FUTURE commits. If React already completed
-  // its first render (hydration) before our hook script was evaluated, we miss
-  // the initial tree entirely and the 4-second static-page timer fires falsely.
+  // ── DOM-driven fiber capture ──────────────────────────────────────────────
+  // React annotates every host DOM element with __reactFiber$xxx and every
+  // root container (including document for App Router's hydrateRoot(document))
+  // with __reactContainer$xxx. We walk these annotations up to the HostRoot
+  // and serialize the tree, exactly as onCommitFiberRoot would.
   //
-  // Fix: scan common React root containers for __reactFiber$ DOM annotations
-  // that React writes onto every host element. Walk the found fiber up to the
-  // HostRoot (fiber.return chain) and serialize it exactly as onCommitFiberRoot
-  // does.  Two attempts cover the two race modes:
-  //   Attempt 1 (immediate) – hook ran after hydration; DOM is populated now.
-  //   Attempt 2 (2 s delay) – hook ran before hydration or Suspense deferred.
+  // This is our PRIMARY mechanism — the React DevTools hook (with all its
+  // browser-extension and React-Refresh timing hazards) is treated as a
+  // secondary signal. Even if the hook integration is completely broken,
+  // polling + MutationObserver will eventually find the tree.
+
+  function getFiberFromEl(el) {
+    if (!el) return null;
+    var keys;
+    try { keys = Object.keys(el); } catch(e) { return null; }
+    var fiberKey = null, containerKey = null;
+    for (var ki = 0; ki < keys.length; ki++) {
+      var k = keys[ki];
+      if (!fiberKey && k.indexOf('__reactFiber$') === 0) fiberKey = k;
+      else if (!containerKey && k.indexOf('__reactContainer$') === 0) containerKey = k;
+    }
+    if (fiberKey) return el[fiberKey];                // direct fiber reference
+    if (containerKey) {                                // FiberRoot — use .current
+      var fr = el[containerKey];
+      return fr && fr.current ? fr.current : null;
+    }
+    return null;
+  }
+
+  // Returns true if a fiber tree was found and posted, false otherwise.
   function captureExistingTree() {
-    // Find any DOM element that React has annotated with a fiber reference.
-    // Priority order covers the most common React root containers:
-    //   - Next.js Pages Router: #__next
-    //   - CRA / Vite:           #root
-    //   - Generic:              #app
-    //   - Next.js App Router:   <html> or <body> (hydrateRoot on document)
-    //   - Fallback DOM scan:    first annotated element anywhere in <body>
+    // Priority candidates: most common React root containers.
     var candidates = [
-      document.getElementById('__next'),
-      document.getElementById('root'),
-      document.getElementById('app'),
-      document.documentElement,   // <html> — App Router hydrateRoot target
-      document.body,
+      document.getElementById('__next'),       // Next.js Pages Router
+      document.getElementById('root'),         // CRA / Vite
+      document.getElementById('app'),          // Generic
+      document,                                 // Next.js App Router: hydrateRoot(document)
+      document.documentElement,                 // <html>
+      document.body,                            // <body>
     ];
 
-    function getFiber(el) {
-      if (!el) return null;
-      var keys = Object.keys(el);
-      for (var ki = 0; ki < keys.length; ki++) {
-        if (keys[ki].indexOf('__reactFiber$') === 0) return el[keys[ki]];
-      }
-      return null;
-    }
-
     var fiber = null;
-    for (var ci = 0; ci < candidates.length; ci++) {
-      fiber = getFiber(candidates[ci]);
-      if (fiber) break;
+    for (var ci = 0; ci < candidates.length && !fiber; ci++) {
+      fiber = getFiberFromEl(candidates[ci]);
     }
 
-    // Last resort: walk the DOM looking for any annotated element.
+    // Fallback: scan every element in <html> for annotations. This catches
+    // any framework whose root container we don't recognise.
     if (!fiber) {
-      var allEls = document.body ? document.body.querySelectorAll('*') : [];
-      for (var di = 0; di < allEls.length && !fiber; di++) {
-        fiber = getFiber(allEls[di]);
+      var root = document.documentElement || document.body;
+      if (root) {
+        var allEls = root.querySelectorAll('*');
+        for (var di = 0; di < allEls.length && !fiber; di++) {
+          fiber = getFiberFromEl(allEls[di]);
+        }
       }
     }
 
-    if (!fiber) {
-      console.log(OM_TAG, 'captureExistingTree: no __reactFiber$ found anywhere in DOM');
-      return;
-    }
+    if (!fiber) return false;
 
     // Walk up to the HostRoot (the sentinel fiber React builds the tree from).
     var f = fiber;
     while (f.return) f = f.return;
 
-    console.log(OM_TAG, 'captureExistingTree: found fiber, walking to root, posting tree');
     // Rebuild maps and serialize — identical to what onCommitFiberRoot does.
     nodeMap  = {};
     fiberMap = new WeakMap();
     var tree = serializeFiber(f, '');
+    if (!tree) return false;
+
+    console.log(OM_TAG, 'captureExistingTree: posted tree, root=' + tree.name);
     reapplyOverrides();
     post({ type: 'FIBER_TREE_UPDATE', root: tree });
     if (selectedNodeId) updateHighlight();
+    return true;
   }
 
   // ── Ready signal (includes root font size for rem→px normalisation) ────────
@@ -1075,14 +1092,63 @@ export function buildProxyFiberHookScript(): string {
     window.getComputedStyle(document.documentElement).getPropertyValue('font-size') || '16'
   ) || 16;
   post({ type: 'READY', rootFontSizePx: rootFontSizePx });
-  // Attempt 1: capture already-mounted React tree immediately (handles the
-  // common case where hydration completed before the hook script ran).
-  captureExistingTree();
+
+  // ── Robust tree discovery: polling + MutationObserver + periodic refresh ──
+  // Don't trust the hook integration. Even if onCommitFiberRoot fires, we want
+  // a fallback for the case where it doesn't (broken DevTools/React Refresh).
+  //
+  //  • Initial backoff schedule:   0, 50, 200, 500, 1s, 2s, 4s, 8s, 12s, 16s
+  //    Stops as soon as a tree is found.
+  //  • MutationObserver on <html>: any DOM change triggers one re-attempt.
+  //  • Once found, periodic 3 s rescans pick up future updates that the hook
+  //    might have missed.
+  var _treeFound = false;
+  var _rescanInterval = null;
+
+  function tryCapture(label) {
+    if (captureExistingTree()) {
+      if (!_treeFound) {
+        _treeFound = true;
+        console.log(OM_TAG, 'tree found via ' + label);
+        // Set up periodic rescans so future React commits are reflected even
+        // if onCommitFiberRoot is silenced by hook breakage.
+        if (!_rescanInterval) {
+          _rescanInterval = setInterval(function() { captureExistingTree(); }, 3000);
+        }
+      }
+      return true;
+    }
+    return false;
+  }
+
+  // Schedule discoverRoutes after the first capture attempts settle.
   setTimeout(discoverRoutes, 800);
-  // Attempt 2: safety-net capture 2 s later for deferred hydration / Suspense.
-  setTimeout(captureExistingTree, 2000);
-  // Re-discover on SPA navigation (Next.js App Router fires popstate on push)
-  window.addEventListener('popstate', function() { setTimeout(discoverRoutes, 100); });
+
+  // Initial polling schedule — geometric backoff up to 16 s.
+  tryCapture('immediate');
+  [50, 200, 500, 1000, 2000, 4000, 8000, 12000, 16000].forEach(function(ms) {
+    setTimeout(function() { if (!_treeFound) tryCapture('poll-' + ms); }, ms);
+  });
+
+  // MutationObserver: trip the moment React first writes to the DOM.
+  try {
+    var _mo = new MutationObserver(function() {
+      if (_treeFound) { _mo.disconnect(); return; }
+      tryCapture('mutation');
+    });
+    _mo.observe(document.documentElement || document.body, {
+      childList: true, subtree: true, attributes: false,
+    });
+    // Disconnect if we still haven't found anything after 30s — at that point
+    // the page is genuinely static or React is too broken to render.
+    setTimeout(function() { try { _mo.disconnect(); } catch(e) {} }, 30000);
+  } catch(e) { /* MutationObserver not available */ }
+
+  // Re-discover on SPA navigation (Next.js App Router fires popstate on push).
+  window.addEventListener('popstate', function() {
+    setTimeout(discoverRoutes, 100);
+    setTimeout(function() { captureExistingTree(); }, 200);
+  });
 })();`;
 }
 
