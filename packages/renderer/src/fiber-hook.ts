@@ -179,58 +179,92 @@ export function buildProxyFiberHookScript(): string {
   }
 
   // ── React DevTools global hook ────────────────────────────────────────────
-  // Strategy: completely replace window.__REACT_DEVTOOLS_GLOBAL_HOOK__ with a
-  // fresh, fully-specified hook object. This eliminates all timing hazards:
+  // Two-layer bulletproof strategy:
   //
-  //  1. Chrome DevTools extension injects at document_start (before HTML is
-  //     parsed) and installs a stub where hook.inject = undefined. Patching
-  //     that stub still leaves React Refresh free to capture undefined before
-  //     our patch runs. Replacing the object entirely avoids the problem.
+  // LAYER 1 — Lock the global: replace window.__REACT_DEVTOOLS_GLOBAL_HOOK__
+  //   with our fresh hook, then make the property non-writable so neither the
+  //   Chrome DevTools extension (which runs at document_start and may
+  //   re-initialize) nor any webpack module can swap it out again.
   //
-  //  2. React Refresh (Next.js dev) runs after our <script> (which is at the
-  //     very top of <head>). It captures hook.inject as oldInject. Because
-  //     OUR inject is a proper function that never throws, React Refresh's
-  //     wrapper works, and React successfully sets injectedHook.
-  //
-  //  3. All methods React 19 and React Refresh might call are present as
-  //     no-ops (checkDCE, onScheduleFiberRoot, onPostCommitFiberRoot, etc.)
-  //     so nothing blows up on first access.
-  //
-  //  4. isDisabled=false (not _isDisabled): React Refresh reads isDisabled.
-  //     If truthy, React Refresh skips wrapping inject entirely and React
-  //     never gets tracked.
+  // LAYER 2 — Lock inject via getter/setter: define hook.inject as an accessor
+  //   property. GET always returns a working implementation (_omInjectCurrent).
+  //   SET intercepts React Refresh's attempt to wrap inject and re-wraps the
+  //   wrapper with a try-catch fallback, so even if React Refresh captured
+  //   oldInject=undefined from an earlier stub and its wrapper throws at call
+  //   time, we catch the error and fall back to our own ID allocation.
+  //   This handles EVERY timing scenario without relying on script order.
 
-  // Save onCommitFiberRoot from any pre-existing hook (e.g. DevTools extension).
   var _existingHook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
   var _prevCommit   = (_existingHook && typeof _existingHook.onCommitFiberRoot === 'function')
     ? _existingHook.onCommitFiberRoot : null;
 
   var _omNextId = 0;
+
+  // Base inject implementation — always safe, never throws.
+  var _omInjectCurrent = function(renderer) {
+    try {
+      var id = ++_omNextId;
+      hook.renderers.set(id, renderer);
+      console.log(OM_TAG, 'React registered via inject(), rendererId=' + id);
+      return id;
+    } catch(e) {
+      return ++_omNextId;
+    }
+  };
+
   var hook = {
     renderers:             new Map(),
     supportsFiber:         true,
-    isDisabled:            false,        // React Refresh reads this; must be false
+    isDisabled:            false,    // React Refresh checks this; must be false
     checkDCE:              function() {},
     onScheduleFiberRoot:   function() {},
     onCommitFiberUnmount:  function() {},
     onPostCommitFiberRoot: function() {},
-    inject: function(renderer) {
-      // This function MUST NEVER THROW. React 19 wraps the hook.inject() call
-      // in a try/catch and silently discards the hook if it throws, leaving
-      // injectedHook unset so onCommitFiberRoot is never called.
-      try {
-        var id = ++_omNextId;
-        hook.renderers.set(id, renderer);
-        console.log(OM_TAG, 'React registered via inject(), rendererId=' + id);
-        return id;
-      } catch(e) {
-        console.error(OM_TAG, 'inject() threw unexpectedly:', e);
-        return ++_omNextId; // still return a valid ID
-      }
-    },
-    onCommitFiberRoot: null, // assigned below after the object is built
+    onCommitFiberRoot:     null,     // assigned below
+    // inject is NOT in the literal — it is defined as a getter/setter below.
   };
-  window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = hook;
+
+  // Layer 2: protect inject with an accessor property.
+  // React Refresh does: var oldInject = hook.inject; hook.inject = wrapper(oldInject);
+  // Our getter ensures oldInject is NEVER undefined regardless of timing.
+  // Our setter wraps whatever React Refresh installs with a try-catch so that
+  // even a broken wrapper (where oldInject was captured as undefined from an
+  // earlier DevTools stub) falls back gracefully.
+  Object.defineProperty(hook, 'inject', {
+    configurable: true,
+    enumerable:   true,
+    get: function() { return _omInjectCurrent; },
+    set: function(fn) {
+      if (typeof fn !== 'function') return;
+      var wrapped = fn;
+      _omInjectCurrent = function(renderer) {
+        try {
+          return wrapped.apply(this, arguments);
+        } catch(e) {
+          // React Refresh's wrapper tried to call an undefined oldInject.
+          // Fall back to direct ID allocation.
+          console.log(OM_TAG, 'inject() fallback after wrapper error, id=' + (_omNextId + 1));
+          var id = ++_omNextId;
+          hook.renderers.set(id, renderer);
+          return id;
+        }
+      };
+    },
+  });
+
+  // Layer 1: lock the global so nothing can replace our hook after this point.
+  try {
+    Object.defineProperty(window, '__REACT_DEVTOOLS_GLOBAL_HOOK__', {
+      configurable: false,
+      enumerable:   true,
+      writable:     false,
+      value:        hook,
+    });
+  } catch(e) {
+    // Property is already non-configurable (DevTools extension locked it first).
+    // Simple assignment is a best-effort fallback.
+    window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = hook;
+  }
 
   hook.onCommitFiberRoot = function(rendererId, root, priorityLevel, didError) {
     console.log(OM_TAG, 'onCommitFiberRoot fired, rendererId=' + rendererId);
