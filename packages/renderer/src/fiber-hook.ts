@@ -124,6 +124,18 @@ export function buildProxyFiberHookScript(): string {
   return `(function() {
   'use strict';
 
+  // ── Idempotency guard ─────────────────────────────────────────────────────
+  // The proxy may inject this script in two positions (after <head> and before
+  // </body>) for redundancy. If the script already ran in this iframe, the
+  // second invocation must be a no-op. We tag a window-level marker on first
+  // execution and bail on subsequent ones.
+  if (window.__OM_FIBER_HOOK_INSTALLED__) return;
+  try {
+    Object.defineProperty(window, '__OM_FIBER_HOOK_INSTALLED__', {
+      value: true, writable: false, configurable: false,
+    });
+  } catch (e) { window.__OM_FIBER_HOOK_INSTALLED__ = true; }
+
   // ── Guard: only activate inside an Originmain iframe ─────────────────────
   if (window.parent === window) return;
 

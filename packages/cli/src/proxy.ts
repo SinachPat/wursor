@@ -14,7 +14,7 @@ import { connect as netConnect }                from 'node:net';
 import type { IncomingMessage, ServerResponse,
               RequestOptions, ClientRequest }   from 'node:http';
 import type { Socket }                          from 'node:net';
-import { injectFiberHook }                      from './inject.js';
+import { injectFiberHook, buildFiberHookExternalScript } from './inject.js';
 import { handleIsolationRequest }               from './isolation-server.js';
 import html2canvasSource                        from 'html2canvas/dist/html2canvas.min.js';
 
@@ -85,6 +85,33 @@ export function startProxy(opts: ProxyOptions): { close: () => void } {
         ...CORS_HEADERS,
       });
       clientRes.end(html2canvasBuf);
+      return;
+    }
+
+    // ── Serve the fiber hook as an EXTERNAL script (not inline) ───────────
+    // We used to inject the hook as an inline <script>...</script> tag, but
+    // inline scripts are blocked by many real-world conditions:
+    //   • CSPs without 'unsafe-inline' (often set by upstream proxies/CDNs)
+    //   • React 19 hydration tearing out unmanaged <head> elements
+    //   • Some browser-extension content filters
+    // Serving the script same-origin from the proxy bypasses every one of
+    // these because:
+    //   • script-src 'self' is allowed by virtually every CSP
+    //   • React doesn't reconcile the content of external <script src="..."> tags
+    //   • The script body comes from a separate HTTP request, so HTML caching
+    //     of the page doesn't pin a stale script body.
+    if (clientReq.url?.startsWith('/__om_fiber_hook__.js')) {
+      const script = buildFiberHookExternalScript(opts.indexUrl);
+      const buf    = Buffer.from(script, 'utf-8');
+      clientRes.writeHead(200, {
+        'content-type':   'application/javascript; charset=utf-8',
+        'content-length': String(buf.byteLength),
+        // Don't cache — the proxy may be restarted with different indexUrl
+        // and we never want a stale bundle pinned in the iframe.
+        'cache-control':  'no-store, no-cache, must-revalidate',
+        ...CORS_HEADERS,
+      });
+      clientRes.end(buf);
       return;
     }
 
@@ -173,6 +200,14 @@ export function startProxy(opts: ProxyOptions): { close: () => void } {
         // Strip Content-Encoding — we decode to UTF-8, so the encoding header
         // would be incorrect after injection.
         delete resHeaders['content-encoding'];
+
+        // Force fresh fetches every time. Without this, browsers (and proxies)
+        // can pin an injected HTML response in cache, so the iframe loads an
+        // older version of our injected <script> tag — even after the CLI is
+        // rebuilt and restarted. no-store is the strongest such directive.
+        resHeaders['cache-control'] = 'no-store, no-cache, must-revalidate';
+        delete resHeaders['etag'];
+        delete resHeaders['last-modified'];
 
         const chunks: Buffer[] = [];
 
