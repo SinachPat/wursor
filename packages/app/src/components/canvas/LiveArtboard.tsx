@@ -103,6 +103,23 @@ export function LiveArtboard({
   // ── Handle messages from the renderer iframe ──────────────────────────────
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
+      // INIT handshake: the iframe asks us "who am I?". We match by event.source
+      // (the iframe's window) to confirm the request came from OUR iframe, then
+      // reply with this artboard's ID. This is the cross-origin-safe replacement
+      // for the iframe element's name= attribute (which Chrome strips on cross-
+      // origin loads as a Spectre mitigation).
+      const data = event.data as { __om_init_request?: boolean } | null;
+      if (data && data.__om_init_request === true) {
+        const iframe = iframeRef.current;
+        if (iframe && iframe.contentWindow === event.source) {
+          iframe.contentWindow.postMessage(
+            { __om_init_response: true, artboardId: id },
+            '*',
+          );
+        }
+        return;
+      }
+
       if (!isRendererEnvelope(event.data)) return;
       if (event.data.artboardId !== id) return;
 
@@ -244,12 +261,16 @@ export function LiveArtboard({
   return (
     <iframe
       ref={iframeRef}
-      // The name attribute carries the artboard ID to the fiber hook.
-      // The hook reads window.name to tag postMessage envelopes and to
-      // guard against activating outside Originmain iframes.
-      // Format: "om:<artboardId>"
+      // The name= attribute is a legacy fallback. Chrome 88+ strips window.name
+      // when an iframe loads cross-origin (Spectre mitigation), so we ALSO
+      // append the artboard ID as a URL fragment (#__om_artboard=...) which:
+      //   • is not sent to the target server
+      //   • survives same-origin SPA navigations
+      //   • is readable by the fiber hook synchronously via location.hash
+      // The fiber hook also implements a postMessage handshake as a final
+      // fallback — see fiber-hook.ts.
       name={`om:${id}`}
-      src={src}
+      src={src + (src.includes('#') ? '&' : '#') + '__om_artboard=' + encodeURIComponent(id)}
       title={`artboard-${id}`}
       // Security: allow-scripts required for React; allow-same-origin required
       // for postMessage origin validation. Do NOT add allow-top-navigation or

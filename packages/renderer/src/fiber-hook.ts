@@ -127,18 +127,45 @@ export function buildProxyFiberHookScript(): string {
   // ── Guard: only activate inside an Originmain iframe ─────────────────────
   if (window.parent === window) return;
 
-  var NAME_PREFIX = 'om:';
-  var artboardId  = '';
-  try {
-    if (typeof window.name === 'string' && window.name.indexOf(NAME_PREFIX) === 0) {
-      artboardId = window.name.slice(NAME_PREFIX.length);
-    }
-  } catch (e) { /* sandboxed context — not our iframe */ }
-  if (!artboardId) return;
+  // ── Resolve the artboard ID ──────────────────────────────────────────────
+  // Chrome 88+ clears window.name on cross-origin iframe loads (Spectre / side-
+  // channel mitigation), so we cannot rely on the iframe element's name=
+  // attribute alone. We try four sources in priority order:
+  //
+  //   1. URL fragment   #__om_artboard=xxx  (set by LiveArtboard on the src URL)
+  //   2. window.name    om:xxx              (legacy; works for same-origin)
+  //   3. sessionStorage __om_artboard_id__  (preserved across navigations)
+  //   4. postMessage handshake to the parent (last-resort, async)
 
-  // ── Diagnostic logging (temporary) ───────────────────────────────────────
-  var OM_TAG = '[Originmain hook ' + artboardId.slice(0, 6) + ']';
-  console.log(OM_TAG, 'script active, artboardId=' + artboardId);
+  function tryFragment() {
+    try {
+      var m = (window.location.hash || '').match(/__om_artboard=([^&]+)/);
+      return m ? decodeURIComponent(m[1]) : null;
+    } catch(e) { return null; }
+  }
+  function tryWindowName() {
+    try {
+      if (typeof window.name === 'string' && window.name.indexOf('om:') === 0) {
+        return window.name.slice(3);
+      }
+    } catch(e) {}
+    return null;
+  }
+  function trySessionStorage() {
+    try { return sessionStorage.getItem('__om_artboard_id__'); } catch(e) { return null; }
+  }
+  function persistArtboardId(id) {
+    try { sessionStorage.setItem('__om_artboard_id__', id); } catch(e) {}
+  }
+
+  var artboardId = tryFragment() || tryWindowName() || trySessionStorage();
+
+  // Diagnostic tag uses 'pending' before the ID is known so console messages
+  // are still readable during the handshake window.
+  var OM_TAG = '[Originmain hook ' + (artboardId ? artboardId.slice(0, 6) : 'pending') + ']';
+  console.log(OM_TAG, 'script active, artboardId=' + (artboardId || '(awaiting handshake)'));
+
+  if (artboardId) persistArtboardId(artboardId);
 
   var RENDERER_SOURCE = ${JSON.stringify(RENDERER_SOURCE)};
   var HOST_SOURCE     = ${JSON.stringify(HOST_SOURCE)};
@@ -170,7 +197,9 @@ export function buildProxyFiberHookScript(): string {
   var _html2canvasLoading = null;   // cached Promise<html2canvas> — only inject script once
 
   // ── postMessage helper ────────────────────────────────────────────────────
+  // No-op until artboardId is known (handshake may still be pending).
   function post(msg) {
+    if (!artboardId) return;
     try {
       window.parent.postMessage(
         { source: RENDERER_SOURCE, artboardId: artboardId, message: msg }, '*'
@@ -676,6 +705,20 @@ export function buildProxyFiberHookScript(): string {
   window.addEventListener('message', function(event) {
     var data = event.data;
     if (!data || typeof data !== 'object') return;
+
+    // INIT_RESPONSE handshake — handled BEFORE the artboardId match because
+    // it is what teaches us our artboardId in the first place.
+    if (data.__om_init_response && typeof data.artboardId === 'string') {
+      if (!artboardId) {
+        artboardId = data.artboardId;
+        persistArtboardId(artboardId);
+        OM_TAG = '[Originmain hook ' + artboardId.slice(0, 6) + ']';
+        console.log(OM_TAG, 'received artboardId via handshake');
+        if (typeof startMainLoop === 'function') startMainLoop();
+      }
+      return;
+    }
+
     if (data.source !== HOST_SOURCE)    return;
     if (data.artboardId !== artboardId) return;
     var msg = data.message;
@@ -1087,31 +1130,18 @@ export function buildProxyFiberHookScript(): string {
     return true;
   }
 
-  // ── Ready signal (includes root font size for rem→px normalisation) ────────
-  var rootFontSizePx = parseFloat(
-    window.getComputedStyle(document.documentElement).getPropertyValue('font-size') || '16'
-  ) || 16;
-  post({ type: 'READY', rootFontSizePx: rootFontSizePx });
-
-  // ── Robust tree discovery: polling + MutationObserver + periodic refresh ──
-  // Don't trust the hook integration. Even if onCommitFiberRoot fires, we want
-  // a fallback for the case where it doesn't (broken DevTools/React Refresh).
-  //
-  //  • Initial backoff schedule:   0, 50, 200, 500, 1s, 2s, 4s, 8s, 12s, 16s
-  //    Stops as soon as a tree is found.
-  //  • MutationObserver on <html>: any DOM change triggers one re-attempt.
-  //  • Once found, periodic 3 s rescans pick up future updates that the hook
-  //    might have missed.
+  // ── Main loop: only runs once we know our artboardId ──────────────────────
+  // Posts READY, kicks off polling/MutationObserver discovery, schedules
+  // route discovery, and wires up SPA navigation handlers.
   var _treeFound = false;
   var _rescanInterval = null;
+  var _mainLoopStarted = false;
 
   function tryCapture(label) {
     if (captureExistingTree()) {
       if (!_treeFound) {
         _treeFound = true;
         console.log(OM_TAG, 'tree found via ' + label);
-        // Set up periodic rescans so future React commits are reflected even
-        // if onCommitFiberRoot is silenced by hook breakage.
         if (!_rescanInterval) {
           _rescanInterval = setInterval(function() { captureExistingTree(); }, 3000);
         }
@@ -1121,34 +1151,62 @@ export function buildProxyFiberHookScript(): string {
     return false;
   }
 
-  // Schedule discoverRoutes after the first capture attempts settle.
-  setTimeout(discoverRoutes, 800);
+  function startMainLoop() {
+    if (_mainLoopStarted) return;
+    _mainLoopStarted = true;
 
-  // Initial polling schedule — geometric backoff up to 16 s.
-  tryCapture('immediate');
-  [50, 200, 500, 1000, 2000, 4000, 8000, 12000, 16000].forEach(function(ms) {
-    setTimeout(function() { if (!_treeFound) tryCapture('poll-' + ms); }, ms);
-  });
+    var rootFontSizePx = parseFloat(
+      window.getComputedStyle(document.documentElement).getPropertyValue('font-size') || '16'
+    ) || 16;
+    post({ type: 'READY', rootFontSizePx: rootFontSizePx });
 
-  // MutationObserver: trip the moment React first writes to the DOM.
-  try {
-    var _mo = new MutationObserver(function() {
-      if (_treeFound) { _mo.disconnect(); return; }
-      tryCapture('mutation');
+    setTimeout(discoverRoutes, 800);
+
+    // Initial polling — geometric backoff up to 16 s. Stops on first success.
+    tryCapture('immediate');
+    [50, 200, 500, 1000, 2000, 4000, 8000, 12000, 16000].forEach(function(ms) {
+      setTimeout(function() { if (!_treeFound) tryCapture('poll-' + ms); }, ms);
     });
-    _mo.observe(document.documentElement || document.body, {
-      childList: true, subtree: true, attributes: false,
-    });
-    // Disconnect if we still haven't found anything after 30s — at that point
-    // the page is genuinely static or React is too broken to render.
-    setTimeout(function() { try { _mo.disconnect(); } catch(e) {} }, 30000);
-  } catch(e) { /* MutationObserver not available */ }
 
-  // Re-discover on SPA navigation (Next.js App Router fires popstate on push).
-  window.addEventListener('popstate', function() {
-    setTimeout(discoverRoutes, 100);
-    setTimeout(function() { captureExistingTree(); }, 200);
-  });
+    // MutationObserver — fires the moment React writes to the DOM.
+    try {
+      var _mo = new MutationObserver(function() {
+        if (_treeFound) { _mo.disconnect(); return; }
+        tryCapture('mutation');
+      });
+      _mo.observe(document.documentElement || document.body, {
+        childList: true, subtree: true, attributes: false,
+      });
+      setTimeout(function() { try { _mo.disconnect(); } catch(e) {} }, 30000);
+    } catch(e) { /* MutationObserver not available */ }
+
+    window.addEventListener('popstate', function() {
+      setTimeout(discoverRoutes, 100);
+      setTimeout(function() { captureExistingTree(); }, 200);
+    });
+  }
+
+  // Either start immediately (we know our ID) or run the handshake first.
+  if (artboardId) {
+    startMainLoop();
+  } else {
+    // Handshake: ask the parent who we are. Retry every 250 ms until we get a
+    // response (the parent's message listener may not be wired up yet on the
+    // first iframe-load tick) or until 30 s elapses.
+    console.log(OM_TAG, 'no artboardId from URL/window.name/storage — initiating handshake');
+    var _hsInterval = setInterval(function() {
+      if (artboardId) { clearInterval(_hsInterval); return; }
+      try { window.parent.postMessage({ __om_init_request: true }, '*'); } catch(e) {}
+    }, 250);
+    // First request immediately.
+    try { window.parent.postMessage({ __om_init_request: true }, '*'); } catch(e) {}
+    setTimeout(function() {
+      clearInterval(_hsInterval);
+      if (!artboardId) {
+        console.warn(OM_TAG, 'never received artboardId — page will not be inspectable');
+      }
+    }, 30000);
+  }
 })();`;
 }
 
