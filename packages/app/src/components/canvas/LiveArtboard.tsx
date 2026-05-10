@@ -110,12 +110,9 @@ export function LiveArtboard({
       // origin loads as a Spectre mitigation).
       const data = event.data as { __om_init_request?: boolean } | null;
       if (data && data.__om_init_request === true) {
-        const iframe = iframeRef.current;
-        if (iframe && iframe.contentWindow === event.source) {
-          iframe.contentWindow.postMessage(
-            { __om_init_response: true, artboardId: id },
-            '*',
-          );
+        const win = iframeRef.current?.contentWindow;
+        if (win && win === event.source) {
+          win.postMessage({ __om_init_response: true, artboardId: id }, '*');
         }
         return;
       }
