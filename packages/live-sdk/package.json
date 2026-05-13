@@ -5,13 +5,15 @@
   "description": "Originmain live rendering SDK — installs fiber hook for component inspection. Import before React.",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./dist/index.js"
   },
-  "files": ["src", "README.md"],
+  "files": ["dist", "README.md"],
   "scripts": {
+    "build": "node build.mjs",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "esbuild": "^0.25.0",
     "typescript": "^5.5.0"
   },
   "keywords": ["originmain", "react", "devtools", "fiber", "design-engineering"],

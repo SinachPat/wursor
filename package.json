@@ -8,6 +8,7 @@
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run --coverage",
     "build": "pnpm --filter @originmain/app run build",
+    "sdk:build": "pnpm --filter @originmain/live run build && pnpm --filter @originmain/next run build",
     "dev": "pnpm --filter @originmain/app run dev",
     "cli:build": "pnpm --filter @originmain/cli run build",
     "cli:dev": "node packages/cli/dist/cli.js dev",

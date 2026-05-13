@@ -492,7 +492,7 @@ export function Artboard({
                   onSnapshotReady={(dataUrl, nodeId) => setElementSnapshot(id, nodeId, dataUrl)}
                 />
 
-                {/* Static-page banner — shown when the proxy serves a non-React page */}
+                {/* Static-page banner — shown when no React commits arrive after load */}
                 {isStaticPage && (
                   <div style={{
                     position: 'absolute', bottom: 0, left: 0, right: 0,
@@ -505,7 +505,9 @@ export function Artboard({
                       fontFamily: "'JetBrains Mono', monospace", fontSize: '0.5875rem',
                       color: '#1C1917', letterSpacing: '-0.01em',
                     }}>
-                      Static HTML page — no React components detected. Navigate to a React route to enable inspection.
+                      No React detected — add{' '}
+                      <strong>import &quot;@originmain/live&quot;</strong>
+                      {' '}before React in your app, then redeploy.
                     </span>
                   </div>
                 )}

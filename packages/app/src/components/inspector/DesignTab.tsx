@@ -9,6 +9,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Badge } from '@fluentui/react-components';
 import { useCanvas } from '@/store/canvas';
 import { useCanvasTheme } from '@/store/canvasTheme';
+import { useHistory } from '@/store/history';
 import { useDlf } from '@/hooks/useDlf';
 import { checkComponentConstraints } from '@originmain/design-language';
 import type { Violation } from '@originmain/design-language';
@@ -92,11 +93,13 @@ export function DesignTab({
   const {
     patchStyleEdit,
     patchChildrenStyleEdit,
+    setComponentStyles,
     indexerStatus,
     selectedComponentHasDirectText,
     selectedComponentHasParagraphChildren,
     setActiveViolations,
   } = useCanvas();
+  const { pushEdit } = useHistory();
   const { dlf } = useDlf(workspaceId);
 
   // Re-run constraint checks whenever selected component or active DLF changes.
@@ -149,9 +152,35 @@ export function DesignTab({
     );
   }
 
+  // ── patch: design panel → live artboard + history + optimistic panel refresh ──
+  // Three things happen on every edit:
+  //   1. patchStyleEdit   → PATCH_ELEMENT_STYLE → SDK → inline style on DOM element
+  //   2. setComponentStyles (optimistic) → panel inputs immediately show the new
+  //      value without waiting for the next REQUEST_ELEMENT_STYLES round-trip
+  //   3. pushEdit → history store → Diff tab tracks it → code export works
   const patch = (prop: string, val: string) => {
     if (!artboardId || !componentId) return;
+
+    // 1. Send to iframe.
     patchStyleEdit(artboardId, componentId, prop, val);
+
+    // 2. Optimistically reflect the change in the design panel immediately.
+    if (styles) {
+      setComponentStyles({ ...styles, [prop]: val });
+    }
+
+    // 3. Push to history so the Diff tab can generate a code patch.
+    pushEdit(artboardId, {
+      componentId,
+      componentName: componentData?.name ?? componentId,
+      changes: [{
+        key:        prop,
+        before:     styles?.[prop] ?? '',
+        after:      val,
+        changeType: 'modified',
+      }],
+      timestamp: Date.now(),
+    });
   };
 
   const patchChildren = (selector: string, prop: string, val: string) => {

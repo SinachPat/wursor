@@ -206,6 +206,9 @@ export function LiveArtboard({
   const removeElementEvent = useCanvas((s) => s.removeElementEvent);
   const clearRemoveElement = useCanvas((s) => s.clearRemoveElement);
 
+  // Ref so the refresh timer can be cancelled when a faster patch arrives.
+  const styleRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     const mine = styleEditQueue.filter((e) => e.artboardId === id);
     if (mine.length === 0 || !isReadyRef.current) return;
@@ -213,6 +216,17 @@ export function LiveArtboard({
       sendMessage('PATCH_ELEMENT_STYLE', { nodeId: e.nodeId, property: e.property, value: e.value });
     }
     clearStyleEdits(id);
+
+    // Refresh the design panel after the browser has applied the inline styles.
+    // We debounce at 120 ms so rapid dragging (color picker, resize) only fires
+    // one REQUEST_ELEMENT_STYLES at the end of the gesture, not on every event.
+    if (styleRefreshTimerRef.current) clearTimeout(styleRefreshTimerRef.current);
+    styleRefreshTimerRef.current = setTimeout(() => {
+      const nodeId = mine[mine.length - 1]?.nodeId;
+      if (nodeId && isReadyRef.current) {
+        sendMessage('REQUEST_ELEMENT_STYLES', { nodeId });
+      }
+    }, 120);
   }, [id, styleEditQueue, sendMessage, clearStyleEdits]);
 
   // ── Children style edit queue (PATCH_CHILDREN_STYLE — paragraph spacing etc.) ──

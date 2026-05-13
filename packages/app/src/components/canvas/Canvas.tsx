@@ -472,9 +472,10 @@ export function Canvas() {
 }
 
 /* ── URL onboarding overlay ───────────────────────────────── */
-// Shown when the canvas has no artboards. Lets the user paste their CLI proxy
-// URL to auto-create the first artboard; route discovery will then fire and
-// populate the remaining pages automatically.
+// Shown when the canvas has no artboards. Lets the user paste their app URL
+// (Vercel, Netlify, or any deployment where @originmain/live is installed).
+// Route discovery fires after the first React commit and populates remaining
+// pages automatically.
 function UrlOnboardingOverlay({
   workspaceId,
   projectId,
@@ -547,18 +548,30 @@ function UrlOnboardingOverlay({
             Connect your app
           </div>
           <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '0.7rem', color: 'rgba(255,255,255,0.35)', lineHeight: 1.5 }}>
-            Paste the CLI proxy URL — all your app&apos;s pages will be auto-rendered as artboards
+            Paste your app URL — all your pages will be auto-rendered as artboards
           </div>
         </div>
 
-        {/* CLI hint */}
-        <div style={{
-          width: '100%', padding: '6px 10px',
-          background: 'rgba(51,133,255,0.08)', border: '1px solid rgba(51,133,255,0.18)',
-          borderRadius: 6, fontFamily: "'JetBrains Mono', monospace",
-          fontSize: '0.5625rem', color: 'rgba(51,133,255,0.75)', letterSpacing: '-0.01em',
-        }}>
-          npx @originmain/cli dev --target http://localhost:3000
+        {/* SDK install hint */}
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{
+            padding: '6px 10px',
+            background: 'rgba(51,133,255,0.08)', border: '1px solid rgba(51,133,255,0.18)',
+            borderRadius: 6, fontFamily: "'JetBrains Mono', monospace",
+            fontSize: '0.5625rem', color: 'rgba(51,133,255,0.75)', letterSpacing: '-0.01em',
+          }}>
+            npm install @originmain/live
+          </div>
+          <div style={{
+            padding: '6px 10px',
+            background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: 6, fontFamily: "'JetBrains Mono', monospace",
+            fontSize: '0.5625rem', color: 'rgba(255,255,255,0.35)', letterSpacing: '-0.01em',
+          }}>
+            {'// layout.tsx — must be before React'}
+            <br />
+            {'import "@originmain/live";'}
+          </div>
         </div>
 
         {/* URL input */}
@@ -569,7 +582,7 @@ function UrlOnboardingOverlay({
               value={url}
               onChange={e => { setUrl(e.target.value); setErrorMsg(''); }}
               onKeyDown={e => { if (e.key === 'Enter') void handleConnect(); e.stopPropagation(); }}
-              placeholder="http://localhost:4170"
+              placeholder="https://your-app.vercel.app"
               style={{
                 flex: 1, background: 'rgba(255,255,255,0.05)',
                 border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6,

@@ -1,0 +1,34 @@
+{
+  "name": "@originmain/next",
+  "version": "0.0.1",
+  "private": false,
+  "description": "Originmain Next.js plugin — wraps next.config.js to auto-inject the live SDK before React loads.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types":   "./dist/index.d.ts",
+      "import":  "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@originmain/live": "workspace:*"
+  },
+  "peerDependencies": {
+    "next": ">=14.0.0"
+  },
+  "peerDependenciesMeta": {
+    "next": { "optional": false }
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "typescript": "^5.5.0"
+  },
+  "keywords": ["originmain", "next", "nextjs", "react", "plugin"],
+  "license": "MIT"
+}
