@@ -209,6 +209,11 @@ The SDK reads it in priority order:
 | `@originmain/next` build plugin | `packages/next/src/index.ts` | `withOriginmain()` — webpack entry prepend. Idempotent. |
 | `@originmain/next` build step | `packages/next/build.mjs` | esbuild → ESM + CJS; tsc → `dist/index.d.ts` type declarations. |
 | Root `sdk:build` script | `package.json` | `pnpm sdk:build` builds both SDK packages in order. |
+| SDK token auth | `packages/app/src/lib/sdk-auth.ts` | `issueSdkToken()` / `verifySdkToken()` — HMAC-SHA256, 90-day TTL, project-scoped. |
+| SDK bridge registry | `packages/app/src/lib/sdk-bridge-registry.ts` | In-process SSE sink Map — pushToCanvas / pushToSdk. |
+| SDK bridge fiber events route | `packages/app/src/app/api/sdk/[projectId]/route.ts` | GET (canvas SSE) + POST (SDK pushes fiber data). |
+| SDK bridge commands route | `packages/app/src/app/api/sdk/[projectId]/commands/route.ts` | GET (SDK SSE) + POST (canvas pushes commands). |
+| SDK token issuance route | `packages/app/src/app/api/sdk/token/route.ts` | POST: canvas issues a project-scoped token for `@originmain/dev`. |
 | LiveArtboard postMessage handshake | `packages/app/src/components/canvas/LiveArtboard.tsx` | Responds to `__om_init_request` from SDK |
 | LiveArtboard URL fragment injection | `packages/app/src/components/canvas/LiveArtboard.tsx` | Appends `#__om_artboard=<id>` to all iframe src URLs |
 | Style refresh after design panel edit | `packages/app/src/components/canvas/LiveArtboard.tsx` | 120ms debounced `REQUEST_ELEMENT_STYLES` after queue drains |
@@ -225,6 +230,7 @@ The SDK reads it in priority order:
 | `@originmain/live` publishing | `packages/live-sdk/package.json` | Build complete. `"private": false`. **Not yet `npm publish`-ed** | Run `pnpm sdk:build && cd packages/live-sdk && npm publish` |
 | `@originmain/next` publishing | `packages/next/package.json` | Build complete. `"private": false`. **Not yet `npm publish`-ed** | Same (depends on live being published first) |
 | CLI proxy deprecation | `packages/cli/` | Still exists and still works | Can delete once SDK is published and users migrate |
+| SDK bridge persistent pub/sub | `packages/app/src/lib/sdk-bridge-registry.ts` | In-process Maps (works for local dev / single server) | For Vercel serverless: replace with Supabase Realtime or Redis |
 
 ### ❌ Not Built
 
@@ -442,14 +448,18 @@ Priority order for next implementation sprint:
 - [ ] `npm publish` `@originmain/live` — ready to publish, command: `cd packages/live-sdk && npm publish`
 - [ ] `npm publish` `@originmain/next` — depends on live being published first
 
-### Priority 2 — WebSocket Bridge (unblocks local dev)
+### Priority 2 — WebSocket Bridge (unblocks local dev) ✅ DONE (SSE transport)
 
-- [ ] `packages/app/src/app/api/sdk/[projectId]/route.ts`
-  - Accept WSS upgrade from `@originmain/dev`
-  - Authenticate via `Authorization: Bearer <sdk-token>` header
-  - Pair with the canvas session for the same projectId
-  - Bidirectional message routing
-  - Handle reconnect / heartbeat
+> Implemented as SSE (bidirectional via two channels) rather than raw WebSocket
+> to be compatible with Next.js App Router and Vercel's serverless runtime.
+> Functionally equivalent — real WebSocket can replace SSE in a future iteration
+> without changing the client API.
+
+- [x] SDK token auth (`packages/app/src/lib/sdk-auth.ts`)
+- [x] In-process SSE registry (`packages/app/src/lib/sdk-bridge-registry.ts`)
+- [x] Fiber events channel: `GET` (canvas SSE) + `POST` (SDK → bridge) — `packages/app/src/app/api/sdk/[projectId]/route.ts`
+- [x] Commands channel: `GET` (SDK SSE) + `POST` (canvas → bridge) — `packages/app/src/app/api/sdk/[projectId]/commands/route.ts`
+- [x] Token issuance: `POST /api/sdk/token` — `packages/app/src/app/api/sdk/token/route.ts`
 
 ### Priority 3 — `@originmain/dev` package (file-write, local dev)
 
