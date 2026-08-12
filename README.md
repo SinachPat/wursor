@@ -1,6 +1,6 @@
 # Wordbench
 
-**Working title.** Agentic WordPress development environment — Cursor-depth tooling, WordPress-native runtime.
+**Working title.** Agentic WordPress development environment — code, live site, WP-CLI, and shipping in one loop.
 
 > This repository previously contained **Originmain** (AI design-engineering canvas). That codebase was removed in the product pivot of August 2026.
 
