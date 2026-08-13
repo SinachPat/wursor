@@ -1,4 +1,4 @@
-# Wordbench
+# Wursor
 
 **Working title.** Agentic WordPress development environment — code, live site, WP-CLI, and shipping in one loop.
 
@@ -7,6 +7,7 @@
 ## Start here
 
 - Full product spec: [PRD.md](./PRD.md)
+- Build guide (TDD, sprints, CI): [IMPLEMENTATION.md](./IMPLEMENTATION.md)
 
 ## Status
 

@@ -1,6 +1,6 @@
 # Product Requirements Document
 
-**Wordbench**
+**Wursor**
 
 The Agentic WordPress Development Environment
 
@@ -8,23 +8,23 @@ The Agentic WordPress Development Environment
 
 | Field | Value |
 | :--- | :--- |
-| **Version** | 1.1 |
-| **Date** | August 12, 2026 |
+| **Version** | 1.2 |
+| **Date** | August 13, 2026 |
 | **Author** | Patrick (Product Lead) |
-| **Status** | Draft — Internal |
-| **Repo** | SinachPat/originmain (pivoting; rename TBD) |
+| **Status** | Draft — Internal (key decisions locked; Phase 0) |
+| **Repo** | SinachPat/wursor (renamed from originmain) |
 | **Classification** | Confidential |
-| **Supersedes** | v1.0 (removed editor-clone framing) |
+| **Supersedes** | v1.1 (renamed to Wursor; locked key decisions) |
 
 ---
 
 ## 1. Executive Summary
 
-Wordbench is a development environment built for people who ship on WordPress. It combines an AI agent that can plan and edit real project code with a live WordPress runtime, WP-CLI, database awareness, and preview — so building a theme, plugin, or block is not split across five apps and a hope that the model "knows WordPress."
+Wursor is a development environment built for people who ship on WordPress. It combines an AI agent that can plan and edit real project code with a live WordPress runtime, WP-CLI, database awareness, and preview — so building a theme, plugin, or block is not split across five apps and a hope that the model "knows WordPress."
 
 WordPress work is not generic app development. The product surface is a CMS platform with themes, plugins, hooks, a block editor, content in MySQL, and a long tail of agency and product workflows. Today's stack forces builders to keep that reality in their head while jumping between an editor, a local site tool, wp-admin, a terminal for WP-CLI, and a database client.
 
-Wordbench makes that reality the environment:
+Wursor makes that reality the environment:
 
 - A **site you can boot, browse, reset, and inspect** sits beside the code.
 - The agent is taught **WordPress semantics** — template hierarchy, hooks, `block.json`, capabilities, text domains — not only PHP syntax.
@@ -77,18 +77,18 @@ WordPress sites are high-value targets. An agent that can edit `wp-config.php`, 
 
 ## 3. Vision & Opportunity
 
-**Vision:** Open a WordPress project in Wordbench and you get a workspace that already understands the shape of the project, can start the site, and can take a job like "add a pricing block that matches our patterns and verify it on /pricing" through edit → CLI → preview → review in one place.
+**Vision:** Open a WordPress project in Wursor and you get a workspace that already understands the shape of the project, can start the site, and can take a job like "add a pricing block that matches our patterns and verify it on /pricing" through edit → CLI → preview → review in one place.
 
-Wordbench sits at the intersection of:
+Wursor sits at the intersection of:
 
-| Category | What exists | What Wordbench adds |
+| Category | What exists | What Wursor adds |
 | :--- | :--- | :--- |
 | AI-assisted coding | General editors and agents | WP-native tools, playbooks, and site loop |
 | Local WP environments | Local, DDEV, wp-env | Runtime embedded and controllable by the agent |
 | In-admin AI helpers | Host and plugin copilots | Real engineering workspace (Git, diffs, tests), not post drafting |
 | Block / theme tooling | `@wordpress/scripts`, theme.json editors | Unified with agent + live preview |
 
-**Positioning:** Wordbench is the agentic **WordPress workshop** — not a generic coding assistant with a WordPress sticker, and not an AI writing widget inside wp-admin.
+**Positioning:** Wursor is the agentic **WordPress workshop** — not a generic coding assistant with a WordPress sticker, and not an AI writing widget inside wp-admin.
 
 ---
 
@@ -124,7 +124,7 @@ Scopes builds, reviews proposed changes, cares about migration plans and staging
 2. **Code and state are both first-class** — File diffs and explicit State Diffs; no silent DB mutation.
 3. **WordPress semantics over generic PHP** — Prefer platform APIs, hooks, and patterns a senior WP engineer would choose.
 4. **Safe by default** — Capability-scoped tools; production gated; secrets redacted; destructive ops require confirmation.
-5. **Preview is proof** — Prefer screenshots, HTTP checks, or editor verification over "trust me."
+5. **Preview is proof** — The agent cannot mark a task "done" without a verify step (screenshot, HTTP check, or editor verification). Users may dismiss the proof; the agent may not skip producing it.
 6. **Git records code; scripts record state** — Migrations and WP-CLI plans are reviewable artifacts.
 7. **Opinionated for WordPress** — Defaults follow WPCS, wp-env, and block-era workflows; escape hatches exist but are not the center.
 
@@ -140,6 +140,8 @@ A **Workspace** binds:
 - A **site runtime** (wp-env by default; Docker / Local / DDEV import paths)
 - Environment config (local / staging / production endpoints and a credentials vault)
 
+> **v1 scope (locked):** wp-env is the *only* supported runtime in v1. Local / DDEV / Bedrock import is P1 (§7.2.6). The runtime manager is still abstraction-bound (§8.1) so adding those backends later does not require a redesign.
+
 ### 6.2 WordPress Knowledge Graph
 
 Indexed understanding of:
@@ -152,17 +154,30 @@ Indexed understanding of:
 - `theme.json` tokens and style variations
 - Template hierarchy for key routes
 
+**Build source (locked):** two passes. (1) *Static* — scan of `*.php`, `block.json`, `theme.json`, and plugin/theme headers at project open, refreshed on file-save and on git checkout. (2) *Runtime* — when the site is up, enrich via WP-CLI (`wp plugin list`, `wp theme list`, `wp post-type list`, `wp rewrite list`) with the *actual* active theme, active plugins, registered CPTs/taxonomies, and REST routes.
+
+**Freshness model:** every graph node carries a source stamp (static vs runtime) and timestamp. Both the agent context and the UI surface staleness explicitly (e.g., "active theme — static scan, site not loaded"). Full re-index runs on project open and on every `site.browse` boot; incremental updates follow file-save events. Runtime nodes are re-verified each time the site boots.
+
 ### 6.3 The build loop
 
 Plan → edit files → run WP-CLI / tests → refresh preview → read logs → revise. Every step uses WordPress-aware tools.
 
 ### 6.4 State Diffs
 
-When a task needs content or options changes, Wordbench proposes a **State Diff**: WP-CLI commands and/or a migration script to review, apply, and commit — not an invisible database tweak.
+When a task needs content or options changes, Wursor proposes a **State Diff**: WP-CLI commands and/or a migration script — never an invisible database tweak. The lifecycle is explicit:
+
+1. **Create** — the agent generates a candidate diff (WP-CLI commands, SQL statements, or a PHP migration), each step annotated with intent and blast radius.
+2. **Review** — shown in the State tab; every step expands to full text and effect; nothing runs without review.
+3. **Stage** — approved steps form a numbered plan; steps can be reordered or dropped.
+4. **Apply** — executes against the local environment by default; each step streams output and marks pass/fail.
+5. **Verify** — the agent re-checks the site (option read-back, URL load, screenshot) before the diff counts as applied.
+6. **Commit** — migration-style state scripts commit to the repo as `db/` migrations; pure WP-CLI plans persist as reviewable `.state-diff.json` artifacts under `.wursor/state-diffs/`.
+
+**Rollback (locked):** destructive steps must declare an inverse at create time (e.g., `wp option delete` paired with the prior value) or an explicit "manual backup required" acknowledgment; Wursor refuses to stage a destructive step without one.
 
 ### 6.5 Rules & Playbooks
 
-Project guidance lives in `WORDPRESS.md` / `.wordbench/rules` (standards, banned patterns, deploy checklists). **Playbooks** are reusable workflows: scaffold a dynamic block, spin a child theme, register a CPT, harden a plugin release.
+Project guidance lives in `WORDPRESS.md` / `.wursor/rules` (standards, banned patterns, deploy checklists). **Playbooks** are reusable workflows: scaffold a dynamic block, spin a child theme, register a CPT, harden a plugin release.
 
 ### 6.6 Environments
 
@@ -184,7 +199,7 @@ Project guidance lives in `WORDPRESS.md` / `.wordbench/rules` (standards, banned
 - Multi-file agent runs with reviewable patches
 - Integrated terminal
 - Git status, diff review, commit assist
-- Project rules (`WORDPRESS.md`, `.wordbench/rules`)
+- Project rules (`WORDPRESS.md`, `.wursor/rules`)
 
 #### 7.1.2 WordPress project intelligence
 - Detect project shape: classic theme, block theme, single plugin, `wp-content` tree, Bedrock/Composer
@@ -193,9 +208,10 @@ Project guidance lives in `WORDPRESS.md` / `.wordbench/rules` (standards, banned
 - Template hierarchy and `block.json` awareness
 
 #### 7.1.3 Embedded local site runtime
-- Start/stop/reset via **wp-env** (default), with documented Docker compose escape hatch
+- Start/stop/reset via **wp-env** — the only supported runtime in v1 (the emitted Docker compose file is for debugging, not an alternative surface)
 - Embedded preview (front end + wp-admin)
 - Log tail (PHP / web server; Query Monitor later)
+- Runtime manager is abstraction-bound (§8.1); Local / DDEV import (P1) plugs in behind the same interface
 
 #### 7.1.4 WP-CLI as an agent tool
 - Allowlisted WP-CLI runner
@@ -208,14 +224,22 @@ Project guidance lives in `WORDPRESS.md` / `.wordbench/rules` (standards, banned
 - Redact secrets from `.env` / `wp-config` in agent context; scan on apply
 
 #### 7.1.6 Preview verification
-- Optional verify step: load URLs, screenshot, basic error sniff
+- Verify runs by default on every agent task and is required before the agent marks a task "done" (Principle 5); users may dismiss the proof, the agent cannot skip producing it
+- Verify step: load URLs, screenshot, HTTP status + basic error sniff (PHP error log, 500s)
 - For block tasks: open editor routes and confirm the block can be inserted (lightweight P0)
+- Failures surface explicitly — "verify failed: /pricing returned 500" with the log excerpt — never a silent retry
 
 #### 7.1.7 Scaffolding playbooks
 - Plugin (headers, text domain, optional Composer/PHPUnit)
 - Static / dynamic block (`@wordpress/scripts`)
 - Child theme
 - CPT + REST + minimal admin UI
+
+#### 7.1.8 First-run experience
+- Install: single signed app bundle (macOS + Windows; Linux best-effort); no Docker prompt before first project open
+- First open: guided "open a project" with three paths — a WordPress repo (auto-detects wp-env config), a plain theme/plugin folder, or a built-in sample project
+- Dependency check: Docker / wp-env detection with one-click install guidance and a diagnostic panel — a dead end is not an option
+- First preview target: ≤ 10 minutes p50 from install to a live preview (§11)
 
 ### 7.2 P1 — Follow-on
 
@@ -263,21 +287,31 @@ Project guidance lives in `WORDPRESS.md` / `.wordbench/rules` (standards, banned
 
 ### 8.1 Layers
 
+> **Shell decision (locked):** Desktop Electron app wrapping Code-OSS (VS Code's open-source editor core). Chosen because Wursor needs direct filesystem access, Docker socket control, embedded iframe preview, and native OS integration — a web IDE would require a local daemon layer that adds complexity with no benefit. The editor core is extended with Wursor panels and custom views, not abstracted from.
+
 | Layer | Responsibility |
 | :--- | :--- |
-| **Workspace shell** | Files, agent chat, terminal, git, preview layout |
+| **Workspace shell** | Electron window, Code-OSS editor core, custom Wursor panels (preview, diff, state), terminal, git |
 | **WP language services** | PHP/JS, stubs, `block.json`, `theme.json` schemas |
-| **Site runtime manager** | wp-env/Docker lifecycle, ports, credentials |
-| **Agent tool bus** | Files, WP-CLI, HTTP preview, DB read, linters |
-| **Knowledge index** | Code index + WP graph |
+| **Site runtime manager** | wp-env/Docker lifecycle, ports, credentials (abstraction-bound for future backends) |
+| **Agent tool bus** | Files, WP-CLI, HTTP preview, DB read, linters (tool-calling interface, one schema per tool) |
+| **Knowledge index** | Code index + WP graph (static scan + runtime enrichment) |
 | **Policy engine** | Permissions, environment gates, secret redaction |
-| **Preview / verify** | Embedded browser, screenshots, checks |
+| **Preview / verify** | Embedded browser, screenshots, HTTP checks, error sniff |
 | **Connectors** | GitHub, staging hosts, optional design tools |
 
+### 8.1.1 Agent substrate (locked)
+
+- **Model:** Anthropic Claude (current best-in-class agentic coding); BYO API key at launch
+- **Routing:** All agent traffic goes through the user's own API key — no Wursor-hosted model tier in v1
+- **Tool-calling protocol:** Every agent tool (§8.3) is a single tool schema, not a prompt chain. The agent calls tools; the tool bus executes against the local environment
+- **Fallback:** If the model is unreachable or returns an error, the agent panel shows a clear "Model unavailable" state with the raw error, logs, and a retry button. The workspace shell (editing, terminal, preview) remains fully functional
+- **P1 upsell:** Optional Wursor-hosted routing tier for users who prefer a managed key or bundled tokens
+
 ### 8.2 Default local stack
-- **wp-env** for local + CI parity  
-- MySQL as default; optional ultralight SQLite path for demos only  
-- Node LTS for block builds  
+- **wp-env** for local + CI parity (sole runtime in v1; runtime manager abstraction-bound for future backends)
+- MySQL as default; optional ultralight SQLite path for demos only
+- Node LTS for block builds
 
 ### 8.3 Initial agent tools
 - `fs.read` / `fs.write` / `fs.apply_patch`
@@ -296,6 +330,18 @@ Project guidance lives in `WORDPRESS.md` / `.wordbench/rules` (standards, banned
 5. Load /pricing and editor insert path; capture proof.
 6. Present file diffs (+ State Diff if any); user accepts.
 
+### 8.5 Error & offline states
+
+| State | What Wursor does |
+| :--- | :--- |
+| **Docker not installed** | Detect at project open; show diagnostic panel with one-click install guide; app remains usable for file editing and git |
+| **wp-env not found** | Offer to install via npm; fall back to npx |
+| **Site won't boot** | Stream logs live; highlight the first error; offer "reset" and "last known good config" |
+| **Model unreachable** | Show raw error + retry; workspace shell stays fully functional |
+| **API key invalid / expired** | Prompt for key update inline; no data loss |
+| **Network offline** | Cache last-known graph state; agent panel shows "offline" warning; local site and editing unaffected |
+| **File permission denied** | Surface the OS-level error; no silent fallback to a different path |
+
 ---
 
 ## 9. UX Notes
@@ -310,14 +356,14 @@ Project guidance lives in `WORDPRESS.md` / `.wordbench/rules` (standards, banned
 
 ## 10. Competitive Landscape
 
-| Product type | Strength | Gap Wordbench fills |
+| Product type | Strength | Gap Wursor fills |
 | :--- | :--- | :--- |
 | General AI code editors | Strong general coding agents | No WordPress runtime loop or WP semantics |
 | Classic PHP IDEs | Deep PHP tooling | Weak agent-native site loop |
 | Local WP apps | Easy site spin-up | Not an engineering agent workspace |
 | wp-env / DDEV | Solid runtimes | CLI-centric; no integrated agent UX |
 | Host / plugin AI | Handy in wp-admin | Content-oriented; not Git/theme/plugin shipping |
-| Page builders | Fast visual pages | Different paradigm; not Wordbench's v1 center |
+| Page builders | Fast visual pages | Different paradigm; not Wursor's v1 center |
 
 **Moat:** WP knowledge graph + controllable runtime + policy-aware tools + verify-via-preview, packaged as playbooks agencies and plugin teams repeat weekly.
 
@@ -325,13 +371,15 @@ Project guidance lives in `WORDPRESS.md` / `.wordbench/rules` (standards, banned
 
 ## 11. Metrics & Success Criteria
 
-| Metric | 6-month target | Notes |
-| :--- | :--- | :--- |
-| Time to first local preview from new workspace | ≤ 10 min p50 | Including deps |
-| Accepted agent runs on P0 playbooks (little rework) | ≥ 60% | Block, child theme, CPT |
-| Verify step catches issues before accept | ≥ 30% of failing tasks | Loop quality signal |
-| Trial → weekly habit by week 4 | ≥ 40% | Retention |
-| Paying seats | TBD with pricing | Agency teams primary |
+| Metric | Baseline | 6-month target | Owner | How we measure |
+| :--- | :--- | :--- | :--- | :--- |
+| Time to first local preview from new workspace | TBD (Phase 0 spike) | ≤ 10 min p50 | Eng lead | In-app timer from project open to first rendered preview |
+| Accepted agent runs on P0 playbooks (little rework) | TBD (alpha 1) | ≥ 60% | PM | Per-playbook accept/reject event, tagged by playbook |
+| Verify step catches issues before accept | TBD (alpha 1) | ≥ 30% of failing tasks | PM | Verify-fail event before accept, per task |
+| Trial → weekly habit by week 4 | TBD | ≥ 40% | PM | Weekly active usage per trial cohort |
+| Paying seats | n/a | TBD with pricing | GTM | Billing records |
+
+**Measurement plan:** all metrics instrumented from first alpha build (Phase 2). Every metric is a dashboarded event, not a manual tally. Baselines are collected during closed alpha (10–20 agencies / plugin teams) and reviewed as Phase 2 exit criteria.
 
 Qualitative bar: experienced WordPress engineers say it behaves like someone who has shipped WP for years.
 
@@ -345,19 +393,23 @@ Qualitative bar: experienced WordPress engineers say it behaves like someone who
 - Spike: wp-env control plane + agent tool bus  
 
 ### Phase 1 — Foundation (weeks 1–8)
-- Workspace shell (implementation vehicle TBD: desktop vs web; prefer proven editor foundations over greenfield chrome)  
-- Project open + WP detection  
-- wp-env lifecycle + preview  
-- Agent chat + diffs + rules  
-- WP-CLI tool + permission engine  
-- P0 playbooks  
+- Ship Electron shell on Code-OSS (reused editor core; no greenfield chrome)
+- Project open + WP detection
+- wp-env lifecycle + preview
+- Agent chat + diffs + rules
+- WP-CLI tool + permission engine
+- P0 playbooks
+
+**Exit criteria:** a new user on a clean machine (no Docker, no wp-env) reaches a live preview of a WordPress repo in ≤ 10 minutes, and a P0 playbook (dynamic block) completes with a verified preview + accepted diff.
 
 ### Phase 2 — Intelligence (weeks 9–16)
-- Knowledge graph v1  
-- WPCS / tests in the loop  
-- State Diffs + read-only DB introspection  
-- Careful staging pull  
-- Closed alpha (10–20 agencies / plugin teams)  
+- Knowledge graph v1 (static + runtime passes)
+- WPCS / tests in the loop
+- State Diffs + read-only DB introspection
+- Careful staging pull
+- Closed alpha (10–20 agencies / plugin teams)
+
+**Exit criteria:** all §11 baselines collected and reviewed; knowledge graph staleness surfaced in UI; State Diff create→rollback loop demoed on a destructive option change.
 
 ### Phase 3 — Professional (weeks 17–28)
 - Block / FSE workshop  
@@ -375,35 +427,48 @@ Qualitative bar: experienced WordPress engineers say it behaves like someone who
 
 | Risk | Impact | Mitigation |
 | :--- | :--- | :--- |
-| Building a full workspace is large | High | Reuse a mature editor foundation; invest in WP runtime + tools |
-| Local Docker/wp-env pain (esp. Windows) | High | Diagnostics first; early Local/DDEV import |
-| Agent harms a site | High | Permission tiers; local-default; production lock; State Diffs |
+| Building a full workspace is large | High | Electron shell on Code-OSS (reused editor core, not greenfield); WP runtime + tools get the focus |
+| Local Docker/wp-env pain (esp. Windows) | High | Diagnostics-first first-run; installer guides; early Local/DDEV import (P1) |
+| Agent harms a site | High | Permission tiers; local-default; production lock; State Diffs with rollback |
 | "Prompts in my current editor are enough" | Medium | Demo the site loop and playbooks general setups fail |
 | Legacy PHP / chaotic themes | Medium | Stubs, WPCS, honest limits; playbooks for clean paths first |
-| Repo still named originmain | Low | Rename after name lock |
+| Repo still named originmain | Resolved | Repo renamed to SinachPat/wursor |
 | Trademark / "WordPress" in marketing | Medium | Follow WordPress Foundation trademark rules |
+| LLM provider outage / model churn | Medium | BYO-key model; workspace shell stays usable offline; P1 hosted routing tier |
+| Docker Desktop licensing for commercial use | Low | Document; wp-env alternatives; Rancher Desktop path |
 
 ---
 
-## 14. Open Questions (Phase 0)
+## 14. Decisions & Open Questions (Phase 0)
 
-1. **Shell:** desktop vs browser-first; which editor foundation to adopt?  
-2. **Name:** keep **Wordbench** or replace before public use?  
-3. **Repo rename** away from `originmain`?  
-4. **Pricing:** seat vs workspace vs hosted-runtime usage?  
-5. **Roots/Bedrock/Trellis** support depth for v1?  
-6. **Models:** BYO keys vs hosted; default routing?  
+### Resolved (locked)
+
+1. **Shell:** Electron desktop app on Code-OSS (VS Code's open-source editor core). Native filesystem, Docker socket, embedded preview, offline-capable.
+2. **Name:** Wursor (locked in v1.2; no further rename planned).
+3. **Repo:** renamed to `SinachPat/wursor`.
+4. **Pricing:** seat-based ($X/dev/month, free tier with per-seat limits); agency teams primary. Final $X set during Phase 3 paid beta.
+5. **Roots/Bedrock/Trellis support:** P1 (not v1). wp-env covers the launch segment; runtime manager is abstraction-bound for later import.
+6. **Models:** Claude via BYO API key (v1); optional Wursor-hosted routing tier (P1 upsell). No local model support in v1.
+7. **Runtime backends:** wp-env only in v1; Local / DDEV import is P1.
+
+### Remaining (genuinely open)
+
+All Phase 0 questions are resolved above. New questions will be documented per phase and resolved before the next phase begins.
 
 ---
 
 ## 15. Appendices
 
 ### A. Glossary
-- **State Diff** — Reviewable WP-CLI / SQL / content mutation plan  
-- **Playbook** — Reusable agent workflow with tools and checks  
-- **WP Knowledge Graph** — Map of themes, plugins, blocks, hooks, REST  
-- **FSE** — Full Site Editing (block themes)  
-- **wp-env** — `@wordpress/env` local environment  
+- **Workspace** — Project + site runtime + environment config bound together
+- **State Diff** — Reviewable WP-CLI / SQL / content mutation plan with a create→review→apply→rollback lifecycle
+- **Playbook** — Reusable agent workflow with tools and checks
+- **WP Knowledge Graph** — Map of themes, plugins, blocks, hooks, REST (static scan + runtime enrichment)
+- **Runtime** — The site execution environment (wp-env in v1)
+- **Environment** — A target (local / staging / production) with endpoints and policy
+- **Verify** — The proof step (screenshot / HTTP check / editor confirmation) required before a task is "done"
+- **FSE** — Full Site Editing (block themes)
+- **wp-env** — `@wordpress/env` local environment
 
 ### B. P0 playbook sketches
 1. **Dynamic block** — detect build → scaffold → register → build → verify in editor → diff  
@@ -411,14 +476,24 @@ Qualitative bar: experienced WordPress engineers say it behaves like someone who
 3. **CPT** — register → flush rewrites → seed via WP-CLI → REST check → diff  
 
 ### C. Non-goals (v1)
-- Replacing wp-admin for authors  
-- Unattended production hotfixes  
-- Competing with Elementor-class page builders as the core offer  
-- Equal-class support for every legacy builder shortcode ecosystem on day one  
+- Replacing wp-admin for authors
+- Unattended production hotfixes
+- Competing with Elementor-class page builders as the core offer
+- Equal-class support for every legacy builder shortcode ecosystem on day one
+- A public extension/plugin API — connectors are internal; third-party integration ships after platform phase
+- Local / DDEV / Bedrock imports — P1 (§7.2.6)
+- Managed/hosted model tier — P1 upsell
+- **Accessibility certification (WCAG) or i18n / localization** — v1 is English-only with no formal accessibility conformance target. Basic keyboard navigation and screen reader support for the workspace shell are built in via Code-OSS; custom Wursor panels target standard web accessibility practices but will not be audited until Phase 3.
+
+### C.1 Wursor's own test strategy
+- **Unit + integration tests** for the agent tool bus (each tool schema), the permission engine, and the State Diff lifecycle
+- **Fixture-based WP repos** in CI (wp-env in GitHub Actions) to test detection, indexing, and playbooks without a live install
+- **E2E smoke** on the Electron shell: open → detect → boot → preview → verify
+- **Release gates:** CI runs unit + integration on every PR; e2e before each release
 
 ### D. One-liner
-**Wordbench is the agentic workshop for WordPress — code, WP-CLI, data, and a live site in one loop.**
+**Wursor is the agentic workshop for WordPress — code, WP-CLI, data, and a live site in one loop.**
 
 ---
 
-*End of PRD v1.1 — Wordbench*
+*End of PRD v1.2 — Wursor*
