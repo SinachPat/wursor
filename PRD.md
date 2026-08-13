@@ -8,13 +8,13 @@ The Agentic WordPress Development Environment
 
 | Field | Value |
 | :--- | :--- |
-| **Version** | 1.2 |
+| **Version** | 1.3 |
 | **Date** | August 13, 2026 |
 | **Author** | Patrick (Product Lead) |
 | **Status** | Draft — Internal (key decisions locked; Phase 0) |
 | **Repo** | SinachPat/wursor (renamed from originmain) |
 | **Classification** | Confidential |
-| **Supersedes** | v1.1 (renamed to Wursor; locked key decisions) |
+| **Supersedes** | v1.2 (shell → Tauri/Monaco; model → Grok) |
 
 ---
 
@@ -287,22 +287,26 @@ Project guidance lives in `WORDPRESS.md` / `.wursor/rules` (standards, banned pa
 
 ### 8.1 Layers
 
-> **Shell decision (locked):** Desktop Electron app wrapping Code-OSS (VS Code's open-source editor core). Chosen because Wursor needs direct filesystem access, Docker socket control, embedded iframe preview, and native OS integration — a web IDE would require a local daemon layer that adds complexity with no benefit. The editor core is extended with Wursor panels and custom views, not abstracted from.
+> **Shell decision (locked):** Native desktop app built on **Tauri + Monaco Editor**. Tauri (Rust shell, system webview) gives fast startup (~0.3–0.8s), low memory (100–200MB), and native filesystem/Docker/process access. Monaco Editor is the same editor component that powers VS Code — editing, language services, and diff views without Electron's Chromium overhead. Rust owns the tool bus, knowledge graph parser, permission engine, and runtime manager; the webview renders the editor and Wursor panels (TypeScript/HTML).
+>
+> **Why not Electron + Code-OSS:** Electron ships an entire Chromium per app (500MB–1GB memory, 2–6s startup) — a constant quality-of-life cost for a daily-driver dev tool. Tauri uses the OS webview, which is already resident.
+>
+> **Why not Zed:** immature ecosystem, no Monaco/VS Code editor quality, and its agent story is not Claude/Grok-style tool-calling. The product is the WP+agent loop, not the editor.
 
 | Layer | Responsibility |
 | :--- | :--- |
-| **Workspace shell** | Electron window, Code-OSS editor core, custom Wursor panels (preview, diff, state), terminal, git |
-| **WP language services** | PHP/JS, stubs, `block.json`, `theme.json` schemas |
-| **Site runtime manager** | wp-env/Docker lifecycle, ports, credentials (abstraction-bound for future backends) |
-| **Agent tool bus** | Files, WP-CLI, HTTP preview, DB read, linters (tool-calling interface, one schema per tool) |
-| **Knowledge index** | Code index + WP graph (static scan + runtime enrichment) |
-| **Policy engine** | Permissions, environment gates, secret redaction |
-| **Preview / verify** | Embedded browser, screenshots, HTTP checks, error sniff |
+| **Workspace shell** | Tauri window, Monaco Editor, Wursor panels (preview, diff, state, chat), terminal |
+| **WP language services** | PHP/JS, stubs, `block.json`, `theme.json` schemas (Monaco language services + WP stubs) |
+| **Site runtime manager** | wp-env/Docker lifecycle, ports, credentials (Rust; abstraction-bound for future backends) |
+| **Agent tool bus** | Files, WP-CLI, HTTP preview, DB read, linters (Rust; one tool schema per tool) |
+| **Knowledge index** | Code index + WP graph (Rust parser; static scan + runtime enrichment) |
+| **Policy engine** | Permissions, environment gates, secret redaction (Rust) |
+| **Preview / verify** | Embedded webview, screenshots, HTTP checks, error sniff |
 | **Connectors** | GitHub, staging hosts, optional design tools |
 
 ### 8.1.1 Agent substrate (locked)
 
-- **Model:** Anthropic Claude (current best-in-class agentic coding); BYO API key at launch
+- **Model:** Grok (xAI) — agentic coding model; BYO API key at launch
 - **Routing:** All agent traffic goes through the user's own API key — no Wursor-hosted model tier in v1
 - **Tool-calling protocol:** Every agent tool (§8.3) is a single tool schema, not a prompt chain. The agent calls tools; the tool bus executes against the local environment
 - **Fallback:** If the model is unreachable or returns an error, the agent panel shows a clear "Model unavailable" state with the raw error, logs, and a retry button. The workspace shell (editing, terminal, preview) remains fully functional
@@ -393,7 +397,7 @@ Qualitative bar: experienced WordPress engineers say it behaves like someone who
 - Spike: wp-env control plane + agent tool bus  
 
 ### Phase 1 — Foundation (weeks 1–8)
-- Ship Electron shell on Code-OSS (reused editor core; no greenfield chrome)
+- Ship Tauri shell on Monaco Editor (reused editor component; no greenfield chrome)
 - Project open + WP detection
 - wp-env lifecycle + preview
 - Agent chat + diffs + rules
@@ -427,7 +431,7 @@ Qualitative bar: experienced WordPress engineers say it behaves like someone who
 
 | Risk | Impact | Mitigation |
 | :--- | :--- | :--- |
-| Building a full workspace is large | High | Electron shell on Code-OSS (reused editor core, not greenfield); WP runtime + tools get the focus |
+| Building a full workspace is large | High | Tauri + Monaco (reused editor component, no greenfield editor); WP runtime + tools get the focus |
 | Local Docker/wp-env pain (esp. Windows) | High | Diagnostics-first first-run; installer guides; early Local/DDEV import (P1) |
 | Agent harms a site | High | Permission tiers; local-default; production lock; State Diffs with rollback |
 | "Prompts in my current editor are enough" | Medium | Demo the site loop and playbooks general setups fail |
@@ -443,12 +447,12 @@ Qualitative bar: experienced WordPress engineers say it behaves like someone who
 
 ### Resolved (locked)
 
-1. **Shell:** Electron desktop app on Code-OSS (VS Code's open-source editor core). Native filesystem, Docker socket, embedded preview, offline-capable.
+1. **Shell:** Native desktop app on Tauri (Rust shell, system webview) + Monaco Editor (the editor core that powers VS Code). Fast startup (~0.3–0.8s), low memory (100–200MB), native filesystem/Docker/process access, offline-capable. Rust backend; webview UI in TypeScript.
 2. **Name:** Wursor (locked in v1.2; no further rename planned).
 3. **Repo:** renamed to `SinachPat/wursor`.
 4. **Pricing:** seat-based ($X/dev/month, free tier with per-seat limits); agency teams primary. Final $X set during Phase 3 paid beta.
 5. **Roots/Bedrock/Trellis support:** P1 (not v1). wp-env covers the launch segment; runtime manager is abstraction-bound for later import.
-6. **Models:** Claude via BYO API key (v1); optional Wursor-hosted routing tier (P1 upsell). No local model support in v1.
+6. **Models:** Grok (xAI) via BYO API key (v1); optional Wursor-hosted routing tier (P1 upsell). No local model support in v1.
 7. **Runtime backends:** wp-env only in v1; Local / DDEV import is P1.
 
 ### Remaining (genuinely open)
@@ -483,17 +487,17 @@ All Phase 0 questions are resolved above. New questions will be documented per p
 - A public extension/plugin API — connectors are internal; third-party integration ships after platform phase
 - Local / DDEV / Bedrock imports — P1 (§7.2.6)
 - Managed/hosted model tier — P1 upsell
-- **Accessibility certification (WCAG) or i18n / localization** — v1 is English-only with no formal accessibility conformance target. Basic keyboard navigation and screen reader support for the workspace shell are built in via Code-OSS; custom Wursor panels target standard web accessibility practices but will not be audited until Phase 3.
+- **Accessibility certification (WCAG) or i18n / localization** — v1 is English-only with no formal accessibility conformance target. Basic keyboard navigation and screen reader support come from Monaco and the webview's standard web accessibility practices; custom Wursor panels will not be audited until Phase 3.
 
 ### C.1 Wursor's own test strategy
 - **Unit + integration tests** for the agent tool bus (each tool schema), the permission engine, and the State Diff lifecycle
 - **Fixture-based WP repos** in CI (wp-env in GitHub Actions) to test detection, indexing, and playbooks without a live install
-- **E2E smoke** on the Electron shell: open → detect → boot → preview → verify
-- **Release gates:** CI runs unit + integration on every PR; e2e before each release
+- **E2E smoke** on the Tauri shell: open → detect → boot → preview → verify
+- **Release gates:** CI runs Rust + webview tests on every PR; e2e before each release
 
 ### D. One-liner
 **Wursor is the agentic workshop for WordPress — code, WP-CLI, data, and a live site in one loop.**
 
 ---
 
-*End of PRD v1.2 — Wursor*
+*End of PRD v1.3 — Wursor*

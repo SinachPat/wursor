@@ -1,7 +1,7 @@
 # Implementation Guide — Wursor v1
 
-**Version:** 1.0  
-**Source:** [PRD.md](./PRD.md) v1.2  
+**Version:** 1.1  
+**Source:** [PRD.md](./PRD.md) v1.3  
 **Method:** Test-driven development (TDD) — every module is written against its tests before its implementation.
 
 ---
@@ -12,14 +12,14 @@
 2. [Project Structure](#2-project-structure)
 3. [Build Phases](#3-build-phases)
 4. [Phase 1 — Foundation (Weeks 1–8)](#4-phase-1--foundation-weeks-18)
-   - [Sprint 1: Electron shell + project scaffold](#sprint-1-electron-shell--project-scaffold)
-   - [Sprint 2: wp-env runtime manager](#sprint-2-wp-env-runtime-manager)
-   - [Sprint 3: Agent tool bus](#sprint-3-agent-tool-bus)
-   - [Sprint 4: Agent chat + diff review](#sprint-4-agent-chat--diff-review)
-   - [Sprint 5: WP-CLI tool + permission engine](#sprint-5-wp-cli-tool--permission-engine)
-   - [Sprint 6: P0 playbooks + first-run](#sprint-6-p0-playbooks--first-run)
-   - [Sprint 7: Integration + exit criteria](#sprint-7-integration--exit-criteria)
-   - [Sprint 8: Polish + alpha readiness](#sprint-8-polish--alpha-readiness)
+   - [Sprint 1: Tauri shell + Monaco Editor + project scaffold](#sprint-1)
+   - [Sprint 2: Rust tool bus](#sprint-2)
+   - [Sprint 3: wp-env runtime manager](#sprint-3)
+   - [Sprint 4: Agent chat + diff review](#sprint-4)
+   - [Sprint 5: Permission engine + WP-CLI](#sprint-5)
+   - [Sprint 6: P0 playbooks + first-run](#sprint-6)
+   - [Sprint 7: Integration + exit criteria](#sprint-7)
+   - [Sprint 8: Polish + alpha readiness](#sprint-8)
 5. [Phase 2 — Intelligence (Weeks 9–16)](#5-phase-2--intelligence-weeks-916)
 6. [TDD Rules](#6-tdd-rules)
 7. [CI/CD Pipeline](#7-cicd-pipeline)
@@ -30,40 +30,46 @@
 ## 1. Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────┐
-│  Electron Shell (Code-OSS core)                      │
-│  ┌──────────────┐ ┌──────────┐ ┌──────────────────┐ │
-│  │ Editor pane   │ │ Terminal │ │ Wursor panels    │ │
-│  │ (Code-OSS)    │ │ (xterm)  │ │ preview, diff,   │ │
-│  │               │ │          │ │ state, chat      │ │
-│  └──────┬───────┘ └────┬─────┘ └────────┬─────────┘ │
-└─────────┼──────────────┼────────────────┼───────────┘
-          │              │                │
-          ▼              ▼                ▼
-┌─────────────────────────────────────────────────────┐
-│  Agent Tool Bus (Node.js process)                     │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌─────────┐ │
-│  │ fs       │ │ wpcli    │ │ site     │ │ db      │ │
-│  │ tools    │ │ runner   │ │ runtime  │ │ query   │ │
-│  └──────────┘ └──────────┘ └──────────┘ └─────────┘ │
-│  ┌──────────┐ ┌──────────┐ ┌──────────────────────┐ │
-│  │ lint     │ │ index    │ │ permission engine    │ │
-│  │ tools    │ │ search   │ │ + secret redaction   │ │
-│  └──────────┘ └──────────┘ └──────────────────────┘ │
-└─────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│  Tauri Shell (Rust native process)                        │
+│  ┌──────────────────────┐  ┌───────────────────────────┐ │
+│  │  System Webview (TS)  │  │  Rust Backend             │ │
+│  │  ┌────────────────┐  │  │  ┌─────────────────────┐ │ │
+│  │  │ Monaco Editor  │  │  │  │ Tool bus (spawn,    │ │ │
+│  │  │ (editor core)  │  │  │  │ exec, stream)       │ │ │
+│  │  ├────────────────┤  │  │  ├─────────────────────┤ │ │
+│  │  │ Wursor panels  │  │  │  │ Knowledge graph     │ │ │
+│  │  │ - preview      │  │  │  │ parser (PHP/JSON    │ │ │
+│  │  │ - diff         │  │  │  │ scan, 10k files     │ │ │
+│  │  │ - state diff   │  │  │  │ in ~200ms)          │ │ │
+│  │  │ - chat         │  │  │  ├─────────────────────┤ │ │
+│  │  │ - status bar   │  │  │  │ Permission engine   │ │ │
+│  │  └────────────────┘  │  │  │ + secret redaction  │ │ │
+│  │  Web frontend        │  │  ├─────────────────────┤ │ │
+│  │  (TypeScript/HTML)   │  │  │ Runtime manager     │ │ │
+│  └──────────────────────┘  │  │ (Docker socket,     │ │ │
+│                             │  │  wp-env lifecycle)  │ │ │
+│                             │  ├─────────────────────┤ │ │
+│                             │  │ State Diff engine   │ │ │
+│                             │  │ (create, evaluate,  │ │ │
+│                             │  │  rollback, persist) │ │ │
+│                             │  └─────────────────────┘ │ │
+│                             └───────────────────────────┘ │
+└───────────────────────────────────────────────────────────┘
           │
           ▼
-┌─────────────────────────────────────────────────────┐
-│  Site Runtime (wp-env / Docker)                       │
-│  WordPress + MySQL + WP-CLI                           │
-└─────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│  Site Runtime (wp-env / Docker)                            │
+│  WordPress + MySQL + WP-CLI                                │
+└──────────────────────────────────────────────────────────┘
 ```
 
 **Key structural decisions:**
-- **Monorepo** with `packages/` directories — one package per layer
-- Each package has its own `__tests__/` directory and `vitest.config.ts`
+- **Monorepo** with a `crates/` directory for Rust packages and a `webview/` directory for the TypeScript frontend
+- Rust crates communicate via `tauri::command` IPC to the webview
+- Each Rust crate has its own `tests/` directory (integration) and inline `#[cfg(test)]` unit tests
 - Integration tests use fixture-based WordPress repos in CI
-- E2E tests use Playwright against the Electron shell
+- E2E tests use Playwright against the Tauri webview
 
 ---
 
@@ -71,697 +77,840 @@
 
 ```
 wursor/
-├── electron/                    # Electron shell + main process
+├── src-tauri/                    # Tauri Rust backend
 │   ├── src/
-│   │   ├── main.ts              # Electron main process entry
-│   │   ├── preload.ts           # Context bridge
-│   │   ├── windows/
-│   │   │   ├── main-window.ts   # Main window factory
-│   │   │   └── preview-window.ts# Preview webview
-│   │   ├── ipc/                 # IPC handlers
-│   │   │   ├── filesystem.ts    # File read/write via IPC
-│   │   │   ├── docker.ts        # Docker socket access
-│   │   │   └── shell.ts         # Terminal spawn
-│   │   └── menu.ts              # Application menu
+│   │   ├── main.rs               # Tauri app entry
+│   │   ├── lib.rs                # Plugin registration
+│   │   ├── commands/             # #[tauri::command] IPC handlers
+│   │   │   ├── fs.rs             # File read/write
+│   │   │   ├── project.rs        # Project open/detect
+│   │   │   ├── runtime.rs        # wp-env start/stop/status
+│   │   │   ├── tools.rs          # Tool bus dispatch
+│   │   │   ├── permissions.rs    # Policy query
+│   │   │   └── verify.rs         # Screenshot/HTTP check
+│   │   ├── tool-bus/
+│   │   │   ├── mod.rs            # Tool registry
+│   │   │   ├── registry.rs       # Name → {schema, handler, category}
+│   │   │   ├── tools/
+│   │   │   │   ├── fs.rs         # fs.read, fs.write, fs.apply_patch
+│   │   │   │   ├── wpcli.rs      # wpcli.run (categorized)
+│   │   │   │   ├── site.rs       # site.browse, site.screenshot, site.request
+│   │   │   │   ├── db.rs         # db.query (read-only)
+│   │   │   │   ├── lint.rs       # lint.phpcs
+│   │   │   │   ├── test_runner.rs# test.phpunit
+│   │   │   │   └── index.rs      # index.search, index.graph_lookup (stub)
+│   │   │   └── executor.rs       # Shell spawn, timeout, stream
+│   │   ├── knowledge-index/
+│   │   │   ├── mod.rs
+│   │   │   ├── scanner.rs        # Static PHP/JSON scan (Rust-native parser)
+│   │   │   ├── enricher.rs       # WP-CLI runtime enrichment
+│   │   │   ├── graph.rs          # Node, edge, store
+│   │   │   ├── freshness.rs      # Staleness tracking
+│   │   │   └── queries.rs        # Graph query API
+│   │   ├── state-diff/
+│   │   │   ├── mod.rs
+│   │   │   ├── lifecycle.rs      # create → review → stage → apply → verify → commit
+│   │   │   ├── evaluator.rs      # Blast radius, intent
+│   │   │   ├── rollback.rs       # Inverse generation
+│   │   │   └── serializer.rs     # .state-diff.json format
+│   │   ├── runtime-manager/
+│   │   │   ├── mod.rs
+│   │   │   ├── interface.rs      # RuntimeAdapter trait
+│   │   │   ├── adapters/
+│   │   │   │   └── wp_env.rs     # wp-env adapter (v1 only)
+│   │   │   ├── lifecycle.rs      # State machine
+│   │   │   └── logs.rs           # Log tailing
+│   │   ├── permission-engine/
+│   │   │   ├── mod.rs
+│   │   │   ├── tiers.rs          # Permission tiers enum
+│   │   │   ├── evaluator.rs      # Tool call → policy check
+│   │   │   ├── redactor.rs       # Secret redaction (.env, wp-config)
+│   │   │   └── config.rs         # User policy (.wursor/policy.json)
+│   │   ├── verify/
+│   │   │   ├── mod.rs
+│   │   │   ├── screenshot.rs     # Screenshot capture
+│   │   │   ├── http_check.rs     # URL load + status + error sniff
+│   │   │   ├── editor_check.rs   # Block editor route check
+│   │   │   └── reporter.rs       # Result formatting
+│   │   ├── agent-bridge/
+│   │   │   ├── mod.rs
+│   │   │   ├── client.rs         # Grok API client (BYO key)
+│   │   │   ├── tool_schemas.rs   # Tool schemas → Grok format
+│   │   │   ├── context.rs        # System prompt + WP context
+│   │   │   └── fallback.rs       # Error handling + retry
+│   │   └── playbooks/
+│   │       ├── mod.rs
+│   │       ├── registry.rs       # Playbook registry
+│   │       ├── dynamic_block.rs
+│   │       ├── child_theme.rs
+│   │       ├── cpt.rs
+│   │       └── plugin.rs
+│   ├── tests/                    # Integration tests
+│   │   ├── tool_bus_test.rs
+│   │   ├── runtime_manager_test.rs
+│   │   ├── knowledge_index_test.rs
+│   │   ├── state_diff_test.rs
+│   │   ├── permission_engine_test.rs
+│   │   └── playbooks_test.rs
+│   ├── fixtures/                 # Test WP repos
+│   │   ├── classic-theme/
+│   │   ├── block-theme/
+│   │   └── single-plugin/
+│   ├── Cargo.toml
+│   └── tauri.conf.json
+│
+├── webview/                      # Tauri webview frontend (TypeScript)
+│   ├── src/
+│   │   ├── main.tsx              # App entry
+│   │   ├── App.tsx               # Root component
+│   │   ├── components/
+│   │   │   ├── Editor.tsx         # Monaco Editor wrapper
+│   │   │   ├── Preview.tsx        # Site preview iframe
+│   │   │   ├── ChatPanel.tsx      # Agent chat
+│   │   │   ├── DiffPanel.tsx      # Side-by-side file diff
+│   │   │   ├── StateDiffPanel.tsx # State Diff lifecycle UI
+│   │   │   ├── StatusBar.tsx      # Site status, permissions
+│   │   │   ├── Terminal.tsx       # Integrated terminal
+│   │   │   └── FirstRun.tsx       # Onboarding wizard
+│   │   ├── hooks/
+│   │   │   ├── useToolBus.ts      # Invoke Rust commands
+│   │   │   ├── useRuntime.ts      # Runtime state
+│   │   │   └── useAgent.ts        # Agent chat state
+│   │   ├── utils/
+│   │   │   ├── monaco-setup.ts    # Monaco theme, WP stubs
+│   │   │   └── tauri-api.ts       # @tauri-apps/api wrappers
+│   │   └── styles/
+│   │       └── global.css
 │   ├── __tests__/
-│   │   ├── main.test.ts
-│   │   └── preload.test.ts
-│   ├── electron-builder.yml     # Build config
+│   │   ├── App.test.tsx
+│   │   ├── ChatPanel.test.tsx
+│   │   ├── DiffPanel.test.tsx
+│   │   └── FirstRun.test.tsx
+│   ├── index.html
+│   ├── vite.config.ts
+│   ├── tsconfig.json
 │   └── package.json
 │
-├── packages/
-│   ├── editor-core/             # Code-OSS extension layer
-│   │   ├── src/
-│   │   │   ├── extension.ts     # Activation entry
-│   │   │   ├── panels/
-│   │   │   │   ├── preview-panel.ts
-│   │   │   │   ├── diff-panel.ts
-│   │   │   │   ├── state-diff-panel.ts
-│   │   │   │   └── chat-panel.ts
-│   │   │   ├── commands/
-│   │   │   │   ├── open-project.ts
-│   │   │   │   ├── run-playbook.ts
-│   │   │   │   └── verify-preview.ts
-│   │   │   └── providers/
-│   │   │       ├── status-bar.ts
-│   │   │       └── tree-view.ts
-│   │   ├── __tests__/
-│   │   │   ├── panels.test.ts
-│   │   │   └── commands.test.ts
-│   │   └── package.json
-│   │
-│   ├── tool-bus/                # Agent tool schemas + execution
-│   │   ├── src/
-│   │   │   ├── index.ts
-│   │   │   ├── registry.ts      # Tool registry (name → schema → handler)
-│   │   │   ├── tools/
-│   │   │   │   ├── fs.ts        # fs.read, fs.write, fs.apply_patch
-│   │   │   │   ├── wpcli.ts     # wpcli.run (categorized)
-│   │   │   │   ├── site.ts      # site.browse, site.screenshot, site.request
-│   │   │   │   ├── db.ts        # db.query (read-only)
-│   │   │   │   ├── lint.ts      # lint.phpcs
-│   │   │   │   ├── test.ts      # test.phpunit
-│   │   │   │   └── index.ts     # index.search, index.graph_lookup
-│   │   │   ├── schemas.ts       # JSON Schema for each tool
-│   │   │   └── executor.ts      # Shell executor (spawn, stream, timeout)
-│   │   ├── __tests__/
-│   │   │   ├── registry.test.ts
-│   │   │   ├── tools/fs.test.ts
-│   │   │   ├── tools/wpcli.test.ts
-│   │   │   ├── tools/site.test.ts
-│   │   │   ├── tools/db.test.ts
-│   │   │   └── executor.test.ts
-│   │   └── package.json
-│   │
-│   ├── knowledge-index/         # WordPress Knowledge Graph
-│   │   ├── src/
-│   │   │   ├── index.ts
-│   │   │   ├── scanner/
-│   │   │   │   ├── static-scanner.ts   # PHP/JSON file scan
-│   │   │   │   └── runtime-enricher.ts # WP-CLI enrichment
-│   │   │   ├── graph/
-│   │   │   │   ├── node.ts
-│   │   │   │   ├── edge.ts
-│   │   │   │   └── store.ts
-│   │   │   ├── freshness.ts     # Staleness tracking
-│   │   │   └── queries.ts       # Graph query API
-│   │   ├── __tests__/
-│   │   │   ├── scanner/static-scanner.test.ts
-│   │   │   ├── scanner/runtime-enricher.test.ts
-│   │   │   ├── graph/store.test.ts
-│   │   │   └── queries.test.ts
-│   │   ├── fixtures/            # Test WP repos
-│   │   │   ├── classic-theme/
-│   │   │   ├── block-theme/
-│   │   │   └── single-plugin/
-│   │   └── package.json
-│   │
-│   ├── state-diff/              # State Diff lifecycle
-│   │   ├── src/
-│   │   │   ├── index.ts
-│   │   │   ├── lifecycle.ts     # create → review → stage → apply → verify → commit
-│   │   │   ├── evaluator.ts     # Evaluate intent + blast radius
-│   │   │   ├── rollback.ts      # Inverse / rollback generation
-│   │   │   ├── serializer.ts    # .state-diff.json format
-│   │   │   └── types.ts
-│   │   ├── __tests__/
-│   │   │   ├── lifecycle.test.ts
-│   │   │   ├── evaluator.test.ts
-│   │   │   ├── rollback.test.ts
-│   │   │   └── serializer.test.ts
-│   │   └── package.json
-│   │
-│   ├── runtime-manager/         # Site runtime lifecycle
-│   │   ├── src/
-│   │   │   ├── index.ts
-│   │   │   ├── interface.ts     # Runtime interface (abstraction layer)
-│   │   │   ├── adapters/
-│   │   │   │   └── wp-env.ts    # wp-env adapter (v1 only)
-│   │   │   ├── lifecycle.ts     # start/stop/reset/status
-│   │   │   └── logs.ts          # Log tailing
-│   │   ├── __tests__/
-│   │   │   ├── adapters/wp-env.test.ts
-│   │   │   ├── lifecycle.test.ts
-│   │   │   └── logs.test.ts
-│   │   └── package.json
-│   │
-│   ├── permission-engine/       # Policy engine
-│   │   ├── src/
-│   │   │   ├── index.ts
-│   │   │   ├── tiers.ts         # Permission tiers definition
-│   │   │   ├── evaluator.ts     # Evaluate tool call against policy
-│   │   │   ├── redactor.ts      # Secret redaction
-│   │   │   └── config.ts        # User-defined policy
-│   │   ├── __tests__/
-│   │   │   ├── tiers.test.ts
-│   │   │   ├── evaluator.test.ts
-│   │   │   └── redactor.test.ts
-│   │   └── package.json
-│   │
-│   ├── verify/                  # Preview verification
-│   │   ├── src/
-│   │   │   ├── index.ts
-│   │   │   ├── screenshot.ts    # Screenshot capture
-│   │   │   ├── http-check.ts    # URL load + status + error sniff
-│   │   │   ├── editor-check.ts  # Block editor route check
-│   │   │   └── reporter.ts      # Verify result formatting
-│   │   ├── __tests__/
-│   │   │   ├── screenshot.test.ts
-│   │   │   ├── http-check.test.ts
-│   │   │   └── reporter.test.ts
-│   │   └── package.json
-│   │
-│   ├── agent-bridge/            # Agent API client
-│   │   ├── src/
-│   │   │   ├── index.ts
-│   │   │   ├── client.ts        # Claude API client (BYO key)
-│   │   │   ├── tool-schemas.ts  # Tool schemas → Claude format
-│   │   │   ├── context.ts       # Build system prompt + context
-│   │   │   └── fallback.ts      # Error handling + retry
-│   │   ├── __tests__/
-│   │   │   ├── client.test.ts
-│   │   │   ├── tool-schemas.test.ts
-│   │   │   └── context.test.ts
-│   │   └── package.json
-│   │
-│   └── playbooks/               # Reusable agent workflows
-│       ├── src/
-│       │   ├── index.ts
-│       │   ├── registry.ts      # Playbook registry
-│       │   ├── dynamic-block.ts
-│       │   ├── child-theme.ts
-│       │   ├── cpt.ts
-│       │   └── plugin.ts
-│       ├── __tests__/
-│       │   ├── registry.test.ts
-│       │   ├── dynamic-block.test.ts
-│       │   ├── child-theme.test.ts
-│       │   └── cpt.test.ts
-│       └── package.json
-│
-├── e2e/                         # End-to-end tests
-│   ├── electron/
+├── e2e/                          # End-to-end tests
+│   ├── tauri/
 │   │   ├── open-project.test.ts
 │   │   ├── detect-wp.test.ts
 │   │   ├── boot-preview.test.ts
 │   │   ├── playbook-dynamic-block.test.ts
 │   │   └── verify-preview.test.ts
 │   ├── fixtures/
-│   │   ├── sample-theme/        # Minimal WP theme repo
-│   │   └── sample-plugin/       # Minimal WP plugin repo
+│   │   ├── sample-theme/
+│   │   └── sample-plugin/
 │   └── playwright.config.ts
 │
-├── tsconfig.base.json
-├── vitest.workspace.ts
-├── package.json                 # Root package.json (workspaces)
+├── Cargo.toml                    # Workspace root
+├── package.json                  # Scripts, dev tooling
 ├── pnpm-workspace.yaml
+├── rust-toolchain.toml
 └── .github/workflows/
-    ├── ci.yml                   # Unit + integration on PR
-    └── e2e.yml                  # E2E on release branch
+    ├── ci.yml                    # Rust tests + webview tests on PR
+    └── e2e.yml                   # E2E on release branch
 ```
 
 ---
 
 ## 3. Build Phases
 
-The implementation follows the roadmap from §12 of the PRD.
-
 | Phase | Weeks | Output | Exit criteria |
 |-------|-------|--------|---------------|
-| **Phase 1** | 1–8 | Electron shell, wp-env runtime, agent tool bus, chat, WP-CLI, playbooks, first-run | Clean machine → live preview ≤10 min; P0 playbook completes |
+| **Phase 1** | 1–8 | Tauri shell, Monaco Editor, Rust tool bus, wp-env, chat, playbooks, first-run | Clean machine → live preview ≤10 min; P0 playbook completes |
 | **Phase 2** | 9–16 | Knowledge graph, State Diffs, quality gates, staging pull, closed alpha | All §11 baselines collected; State Diff lifecycle demoed |
 | **Phase 3** | 17–28 | Block/FSE workshop, deploy connectors, team playbooks, paid beta | — |
 | **Phase 4** | 29+ | WooCommerce, multisite, maintenance agents, ecosystem | — |
-
-This guide details **Phase 1** only. Phase 2 will be broken down after Phase 1 exit criteria are met.
 
 ---
 
 ## 4. Phase 1 — Foundation (Weeks 1–8)
 
-Organized into **8 sprints** (one per week). Every sprint produces a **run integration test** that passes before the sprint is done.
+8 sprints, one per week. Every sprint produces a passing integration test.
 
 ---
 
-### Sprint 1: Electron shell + project scaffold
+### Sprint 1: Tauri shell + Monaco Editor + project scaffold
 
-**Goal:** Ship a working Electron window wrapping Code-OSS that opens a folder and shows a Wursor sidebar.
+**Goal:** A working Tauri window with Monaco Editor that opens a folder and shows a Wursor sidebar.
 
 #### TDD sequence
 
 **Step 1 — Write the test that defines "done"**
 
 ```typescript
-// e2e/electron/open-project.test.ts
-import { _electron as electron } from 'playwright';
+// e2e/tauri/open-project.test.ts
 import { test, expect } from '@playwright/test';
+import { _electron as tauri } from 'tauri-playwright';
 
 test('opens a folder and shows Wursor sidebar', async () => {
-  const app = await electron.launch({
-    args: ['/path/to/fixtures/sample-theme'],
+  const app = await tauri.launch({
+    args: ['--project', '/path/to/fixtures/sample-theme'],
   });
-  const window = await app.firstWindow();
+  const window = await app.webview();
   await expect(window.locator('.wursor-sidebar')).toBeVisible();
   await expect(window.locator('.monaco-editor')).toBeVisible();
   await app.close();
 });
 ```
 
-**Step 2 — Write the code to pass it**
+**Step 2 — Write the Rust unit tests**
 
-- **`electron/src/main.ts`** — Create BrowserWindow, load Code-OSS, pass `--folder-uri` arg
-- **`electron/src/preload.ts`** — Expose Wursor API via contextBridge
-- **`electron/src/windows/main-window.ts`** — Window factory: size, menu, webview preload
-- **`electron/electron-builder.yml`** — macOS + Windows targets
-- **`packages/editor-core/src/extension.ts`** — Code-OSS extension that activates on `wursor.*` commands
-- **`packages/editor-core/src/panels/chat-panel.ts`** — Sidebar webview (placeholder)
+```rust
+// src-tauri/src/commands/project.rs (tests module)
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-**Step 3 — Write the unit tests**
+    #[test]
+    fn test_open_valid_project() {
+        let result = open_project("/path/to/fixtures/sample-theme");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().project_type, "classic-theme");
+    }
+
+    #[test]
+    fn test_open_invalid_path() {
+        let result = open_project("/nonexistent");
+        assert!(result.is_err());
+    }
+}
+```
+
+**Step 3 — Write the webview unit tests**
 
 ```typescript
-// electron/__tests__/main.test.ts
-describe('Electron main process', () => {
-  it('creates a BrowserWindow', () => { /* ... */ });
-  it('loads the Code-OSS editor core', () => { /* ... */ });
-  it('exposes Wursor API via preload', () => { /* ... */ });
+// webview/__tests__/App.test.tsx
+describe('App', () => {
+  it('renders Monaco Editor after project open', () => { /* ... */ });
+  it('shows Wursor sidebar', () => { /* ... */ });
+  it('displays project name in the title bar', () => { /* ... */ });
 });
 ```
 
-**Step 4 — Integration test**
+**Step 4 — Implement**
 
-```bash
-pnpm test:e2e -- --grep "opens a folder and shows Wursor sidebar"
-```
+- **`src-tauri/src/main.rs`** — Tauri builder, register commands
+- **`src-tauri/src/commands/project.rs`** — `open_project` command
+- **`webview/src/App.tsx`** — Root layout: editor + sidebar
+- **`webview/src/components/Editor.tsx`** — Monaco Editor wrapper (`@monaco-editor/react`)
+- **`webview/src/components/ChatPanel.tsx`** — Sidebar (placeholder)
+- **`webview/src/utils/monaco-setup.ts`** — Dark theme, PHP stubs, `block.json` schemas
+- **`src-tauri/tauri.conf.json`** — Window config, permissions
+- **`src-tauri/Cargo.toml`** — Dependencies: tauri, serde, tokio, etc.
 
 #### Deliverables
 
-- Electron app that opens a folder and shows a sidebar
-- `e2e/electron/open-project.test.ts` passing
-- `electron/__tests__/main.test.ts` passing
-- `packages/editor-core/__tests__/extension.test.ts` passing
+- Tauri app that opens a folder and shows Monaco Editor + sidebar
+- `e2e/tauri/open-project.test.ts` passing
+- Rust unit tests for `open_project` command
+- Webview unit tests for `App` component
 
 ---
 
-### Sprint 2: wp-env runtime manager
+### Sprint 2: Rust tool bus
 
-**Goal:** Start/stop/reset a WordPress site via wp-env, show status in the sidebar.
+**Goal:** All tools from §8.3 are registered Rust commands with schemas, handlers, and shell execution.
 
 #### TDD sequence
 
-**Step 1 — Write the integration test**
+**Step 1 — Write the Rust unit tests**
 
-```typescript
-// e2e/electron/boot-preview.test.ts
-test('boots a WordPress site via wp-env and shows preview', async () => {
-  const app = await electron.launch({ args: ['/path/to/fixtures/sample-theme'] });
-  const window = await app.firstWindow();
-  await window.locator('.wursor-start-runtime').click();
-  await expect(window.locator('.wursor-status-indicator')).toHaveText('running');
-  await expect(window.locator('.wursor-preview-frame')).toBeVisible();
-  await app.close();
-});
+```rust
+// src-tauri/src/tool-bus/registry.rs
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_register_tool() {
+        let mut registry = ToolRegistry::new();
+        registry.register("fs.read", fs_schema(), fs_handler());
+        assert!(registry.get("fs.read").is_some());
+    }
+
+    #[test]
+    fn test_duplicate_tool_name_errors() {
+        let mut registry = ToolRegistry::new();
+        registry.register("fs.read", fs_schema(), fs_handler());
+        assert!(registry.register("fs.read", fs_schema(), fs_handler()).is_err());
+    }
+}
+
+// src-tauri/src/tool-bus/tools/fs.rs
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_fs_read_workspace_file() {
+        let result = fs_read(FsReadArgs { path: "fixtures/sample.txt".into() }).await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().content, "hello");
+    }
+
+    #[tokio::test]
+    async fn test_fs_read_rejects_path_traversal() {
+        let result = fs_read(FsReadArgs { path: "../../etc/passwd".into() }).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_fs_read_missing_file() {
+        let result = fs_read(FsReadArgs { path: "nonexistent.txt".into() }).await;
+        assert!(result.is_err());
+    }
+}
+
+// src-tauri/src/tool-bus/tools/wpcli.rs
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_wpcli_run_safe_command() {
+        let result = wpcli_run(WpCliArgs {
+            command: "wp option get blogname".into(),
+            category: "safe".into(),
+        }).await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().exit_code, 0);
+    }
+
+    #[tokio::test]
+    async fn test_wpcli_rejects_destructive_without_confirm() {
+        let result = wpcli_run(WpCliArgs {
+            command: "wp db drop".into(),
+            category: "destructive".into(),
+        }).await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("confirmation required"));
+    }
+}
+
+// src-tauri/src/tool-bus/executor.rs
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_execute_shell_command() {
+        let output = execute("echo hello", None).await.unwrap();
+        assert_eq!(output.stdout.trim(), "hello");
+    }
+
+    #[tokio::test]
+    async fn test_execute_timeout() {
+        let result = execute("sleep 60", Some(Duration::from_millis(100))).await;
+        assert!(result.is_err());
+    }
+}
 ```
 
-**Step 2 — Write the unit tests**
+**Step 2 — Implement**
 
-```typescript
-// packages/runtime-manager/__tests__/lifecycle.test.ts
-describe('RuntimeManager', () => {
-  it('starts wp-env and returns status', async () => {
-    const manager = new RuntimeManager();
-    const status = await manager.start();
-    expect(status).toBe('running');
-  });
-  it('stops wp-env and cleans up', async () => { /* ... */ });
-  it('reports status as stopped when not running', async () => { /* ... */ });
-  it('streams logs from wp-env', async () => { /* ... */ });
-});
-
-// packages/runtime-manager/__tests__/adapters/wp-env.test.ts
-describe('WpEnvAdapter', () => {
-  it('spawns wp-env start', async () => { /* ... */ });
-  it('parses wp-env output for URL and credentials', async () => { /* ... */ });
-  it('handles wp-env not found', async () => { /* ... */ });
-});
-```
-
-**Step 3 — Implement**
-
-- **`packages/runtime-manager/src/interface.ts`** — `RuntimeAdapter` interface (start, stop, reset, status, logs, url, credentials)
-- **`packages/runtime-manager/src/adapters/wp-env.ts`** — Implements `RuntimeAdapter` via `child_process.spawn('npx wp-env start')`
-- **`packages/runtime-manager/src/lifecycle.ts`** — State machine: stopped → starting → running → stopping → stopped
-- **`packages/runtime-manager/src/logs.ts`** — Tail `wp-env logs` output stream
-- **`packages/editor-core/src/panels/preview-panel.ts`** — iframe pointing to `http://localhost:{port}`
-- **`packages/editor-core/src/providers/status-bar.ts`** — Runtime status indicator
+- **`src-tauri/src/tool-bus/registry.rs`** — `HashMap<String, Tool>` with schema + handler
+- **`src-tauri/src/tool-bus/tools/fs.rs`** — Path-scoped file operations
+- **`src-tauri/src/tool-bus/tools/wpcli.rs`** — WP-CLI spawn with categorized allowlist
+- **`src-tauri/src/tool-bus/tools/site.rs`** — HTTP fetch (reqwest) + screenshot via headless webview
+- **`src-tauri/src/tool-bus/tools/db.rs`** — MySQL read-only query via mysql crate
+- **`src-tauri/src/tool-bus/tools/lint.rs`** — PHPCS spawn
+- **`src-tauri/src/tool-bus/tools/test_runner.rs`** — PHPUnit spawn
+- **`src-tauri/src/tool-bus/tools/index.rs`** — Stub (throws "not implemented" until Phase 2)
+- **`src-tauri/src/tool-bus/executor.rs`** — `tokio::process::Command` wrapper with timeout + streaming
 
 #### Deliverables
 
-- Runtime manager package with unit tests
-- Preview panel showing the live site
-- Status bar showing runtime state
-- `e2e/electron/boot-preview.test.ts` passing
+- Rust tool registry with all 9 tools
+- Each tool has unit tests for happy path, error path, and security boundary
+- `cargo test --package tool-bus` passes
 
 ---
 
-### Sprint 3: Agent tool bus
+### Sprint 3: wp-env runtime manager
 
-**Goal:** Each tool from §8.3 is a registered schema with a handler that executes in the local environment.
+**Goal:** Start/stop/reset a WordPress site via wp-env from Rust, show status in the webview.
 
 #### TDD sequence
 
-**Step 1 — Write the unit tests**
+**Step 1 — Write the tests**
+
+```rust
+// src-tauri/src/runtime-manager/lifecycle.rs
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_start_wp_env() {
+        let manager = RuntimeManager::new(WpEnvAdapter::new());
+        let status = manager.start().await.unwrap();
+        assert_eq!(status, RuntimeStatus::Running);
+    }
+
+    #[tokio::test]
+    async fn test_stop_wp_env() {
+        let manager = RuntimeManager::new(WpEnvAdapter::new());
+        manager.start().await.unwrap();
+        let status = manager.stop().await.unwrap();
+        assert_eq!(status, RuntimeStatus::Stopped);
+    }
+
+    #[tokio::test]
+    async fn test_status_when_stopped() {
+        let manager = RuntimeManager::new(WpEnvAdapter::new());
+        assert_eq!(manager.status().await, RuntimeStatus::Stopped);
+    }
+
+    #[tokio::test]
+    async fn test_log_streaming() {
+        let manager = RuntimeManager::new(WpEnvAdapter::new());
+        let mut logs = manager.stream_logs().await.unwrap();
+        let entry = logs.next().await;
+        assert!(entry.is_some());
+    }
+}
+
+// src-tauri/src/runtime-manager/adapters/wp_env.rs
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_spawn_wp_env_start() {
+        let adapter = WpEnvAdapter::new();
+        let result = adapter.start().await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_parse_wp_env_output() {
+        let output = "WordPress development site.\n\nℹ http://localhost:8888\n\n✔ Okay!";
+        let parsed = WpEnvAdapter::parse_output(output);
+        assert_eq!(parsed.url, "http://localhost:8888");
+    }
+
+    #[tokio::test]
+    async fn test_handle_wp_env_not_found() {
+        let adapter = WpEnvAdapter::new();
+        // Simulate missing wp-env by clearing PATH
+        let result = adapter.start().await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("wp-env not found"));
+    }
+}
+```
 
 ```typescript
-// packages/tool-bus/__tests__/registry.test.ts
-describe('ToolRegistry', () => {
-  it('registers a tool with name, schema, and handler', () => {
-    const registry = new ToolRegistry();
-    registry.register('fs.read', fsReadSchema, fsReadHandler);
-    expect(registry.get('fs.read')).toBeDefined();
-  });
-  it('throws on duplicate tool name', () => { /* ... */ });
-  it('returns all tool schemas for the agent', () => { /* ... */ });
-});
-
-// packages/tool-bus/__tests__/tools/fs.test.ts
-describe('fs.read', () => {
-  it('reads a file and returns its content', async () => {
-    const result = await fsReadHandler({ path: 'fixtures/sample.txt' });
-    expect(result.content).toBe('hello');
-  });
-  it('rejects paths outside the workspace', async () => { /* ... */ });
-  it('handles missing files gracefully', async () => { /* ... */ });
-});
-
-// packages/tool-bus/__tests__/tools/wpcli.test.ts
-describe('wpcli.run', () => {
-  it('runs a WP-CLI command and returns output', async () => {
-    const result = await wpcliRunHandler({ command: 'wp option get blogname' });
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain('Wursor');
-  });
-  it('rejects commands in the destructive category without confirm', async () => { /* ... */ });
-  it('timeouts after 30 seconds', async () => { /* ... */ });
-});
-
-// packages/tool-bus/__tests__/tools/site.test.ts
-describe('site.browse', () => {
-  it('returns the HTML of a URL', async () => { /* ... */ });
-});
-
-// packages/tool-bus/__tests__/tools/db.test.ts
-describe('db.query', () => {
-  it('executes a read-only SQL query', async () => { /* ... */ });
-  it('rejects INSERT/UPDATE/DELETE queries', async () => { /* ... */ });
-});
-
-// packages/tool-bus/__tests__/executor.test.ts
-describe('Executor', () => {
-  it('spawns a shell command and captures output', async () => { /* ... */ });
-  it('applies a timeout to long-running commands', async () => { /* ... */ });
-  it('streams output to a callback', async () => { /* ... */ });
+// webview/__tests__/Preview.test.tsx
+describe('Preview', () => {
+  it('shows a loading state while runtime starts', () => { /* ... */ });
+  it('renders the site iframe when running', () => { /* ... */ });
+  it('shows error state when runtime fails', () => { /* ... */ });
 });
 ```
 
 **Step 2 — Implement**
 
-- **`packages/tool-bus/src/registry.ts`** — Map of tool name → { schema, handler, category }
-- **`packages/tool-bus/src/schemas.ts`** — JSON Schema for each tool
-- **`packages/tool-bus/src/tools/fs.ts`** — File system operations (path-scoped to workspace)
-- **`packages/tool-bus/src/tools/wpcli.ts`** — WP-CLI runner with categorized allowlist
-- **`packages/tool-bus/src/tools/site.ts`** — HTTP fetch + screenshot via Puppeteer
-- **`packages/tool-bus/src/tools/db.ts`** — MySQL read-only query via wp-env credentials
-- **`packages/tool-bus/src/tools/lint.ts`** — PHPCS wrapper
-- **`packages/tool-bus/src/tools/test.ts`** — PHPUnit wrapper
-- **`packages/tool-bus/src/tools/index.ts`** — Knowledge graph search (stub until Phase 2)
-- **`packages/tool-bus/src/executor.ts`** — `child_process.spawn` wrapper with timeout + streaming
+- **`src-tauri/src/runtime-manager/interface.rs`** — `RuntimeAdapter` trait
+- **`src-tauri/src/runtime-manager/adapters/wp_env.rs`** — Spawns `npx wp-env start`, parses URL/creds
+- **`src-tauri/src/runtime-manager/lifecycle.rs`** — State machine: Stopped → Starting → Running → Stopping → Stopped
+- **`src-tauri/src/runtime-manager/logs.rs`** — Tail `wp-env logs` via tokio process
+- **`src-tauri/src/commands/runtime.rs`** — `start_runtime`, `stop_runtime`, `runtime_status` IPC commands
+- **`webview/src/components/Preview.tsx`** — iframe pointing to site URL
+- **`webview/src/components/StatusBar.tsx`** — Runtime status indicator
+- **`webview/src/hooks/useRuntime.ts`** — React hook subscribing to runtime state
 
 #### Deliverables
 
-- Tool registry with all 9 tools from §8.3
-- Each tool has unit tests for happy path, error path, and security boundary
-- `packages/tool-bus/__tests__/*` all passing
+- Rust runtime manager with wp-env adapter
+- Preview panel showing the live site
+- Status bar showing runtime state
+- `cargo test --package runtime-manager` passing
 
 ---
 
 ### Sprint 4: Agent chat + diff review
 
-**Goal:** Chat panel that sends tasks to Claude, receives tool calls, executes them, and shows diffs.
+**Goal:** Chat panel that sends tasks to Grok, receives tool calls, dispatches through the Rust tool bus, and shows diffs.
 
 #### TDD sequence
 
-**Step 1 — Write the unit tests**
+**Step 1 — Write the tests**
+
+```rust
+// src-tauri/src/agent-bridge/client.rs
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_send_message_to_grok() {
+        let client = GrokClient::new("test-key");
+        let response = client.send("Add a paragraph to index.php").await.unwrap();
+        assert_eq!(response.message_type, "tool_call");
+    }
+
+    #[tokio::test]
+    async fn test_handle_api_error() {
+        let client = GrokClient::new("invalid-key");
+        let result = client.send("hello").await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("API error"));
+    }
+}
+
+// src-tauri/src/agent-bridge/tool_schemas.rs
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_converts_tool_registry_to_grok_format() {
+        let schemas = to_grok_format(&registry);
+        assert_eq!(schemas[0].name, "fs.read");
+        assert!(schemas[0].input_schema.is_object());
+    }
+}
+
+// src-tauri/src/agent-bridge/context.rs
+#[cfg(test)]
+mod tests {
+    #[tokio::test]
+    async fn test_builds_system_prompt_with_wp_semantics() {
+        let ctx = ContextBuilder::new()
+            .with_project_rules("fixtures/WORDPRESS.md")
+            .build();
+        assert!(ctx.contains("WordPress"));
+        assert!(ctx.contains("template hierarchy"));
+    }
+}
+```
 
 ```typescript
-// packages/agent-bridge/__tests__/client.test.ts
-describe('AgentClient', () => {
-  it('sends a message to Claude API and returns a response', async () => {
-    const client = new AgentClient({ apiKey: 'test-key' });
-    const response = await client.send('Add a paragraph to index.php');
-    expect(response.type).toBe('tool_call');
-  });
-  it('handles API errors with a clear message', async () => { /* ... */ });
-  it('retries on transient failures', async () => { /* ... */ });
-});
-
-// packages/agent-bridge/__tests__/tool-schemas.test.ts
-describe('ToolSchemas', () => {
-  it('converts tool registry schemas to Claude format', () => {
-    const schemas = toClaudeFormat(registry.getAll());
-    expect(schemas[0].name).toBe('fs.read');
-    expect(schemas[0].input_schema).toBeDefined();
-  });
-});
-
-// packages/agent-bridge/__tests__/context.test.ts
-describe('ContextBuilder', () => {
-  it('builds a system prompt with WP semantics', () => { /* ... */ });
-  it('includes project rules from WORDPRESS.md', () => { /* ... */ });
-  it('includes knowledge graph context', () => { /* ... */ });
-});
-
-// packages/editor-core/__tests__/panels/chat-panel.test.ts
+// webview/__tests__/ChatPanel.test.tsx
 describe('ChatPanel', () => {
   it('sends a message and displays the response', () => { /* ... */ });
   it('shows tool calls as expandable cards', () => { /* ... */ });
   it('shows diffs in a side-by-side view', () => { /* ... */ });
+  it('shows error state when Grok is unreachable', () => { /* ... */ });
 });
 ```
 
 **Step 2 — Implement**
 
-- **`packages/agent-bridge/src/client.ts`** — Claude API client (messages API, tool use)
-- **`packages/agent-bridge/src/tool-schemas.ts`** — Convert tool-bus schemas → Claude `tools` array
-- **`packages/agent-bridge/src/context.ts`** — Build system prompt with WP semantics, project rules, and graph context
-- **`packages/agent-bridge/src/fallback.ts`** — Error handling, retry with exponential backoff
-- **`packages/editor-core/src/panels/chat-panel.ts`** — Chat UI (message list, input, tool call cards)
-- **`packages/editor-core/src/panels/diff-panel.ts`** — Side-by-side diff view
-- **`packages/editor-core/src/commands/run-playbook.ts`** — Command to trigger a playbook
-
-**Step 3 — Integration test**
-
-```typescript
-// e2e/electron/playbook-dynamic-block.test.ts
-test('chat panel sends a task and executes a playbook', async () => {
-  const app = await electron.launch({ args: ['/path/to/fixtures/sample-theme'] });
-  const window = await app.firstWindow();
-  await window.locator('.wursor-chat-input').fill('Scaffold a dynamic block named "testimonial"');
-  await window.locator('.wursor-chat-send').click();
-  await expect(window.locator('.wursor-diff-view')).toBeVisible({ timeout: 60000 });
-  await app.close();
-});
-```
+- **`src-tauri/src/agent-bridge/client.rs`** — Grok API client (messages API, tool use, streaming)
+- **`src-tauri/src/agent-bridge/tool_schemas.rs`** — Convert tool registry → Grok `tools` array
+- **`src-tauri/src/agent-bridge/context.rs`** — Build system prompt with WP semantics, project rules, graph state
+- **`src-tauri/src/agent-bridge/fallback.rs`** — Error handling, retry with exponential backoff
+- **`webview/src/components/ChatPanel.tsx`** — Chat UI (message list, input, tool call cards, streaming)
+- **`webview/src/components/DiffPanel.tsx`** — Side-by-side diff view (Monaco diff editor)
+- **`webview/src/hooks/useAgent.ts`** — React hook for agent state
 
 #### Deliverables
 
-- Working chat panel that sends to Claude and executes tool calls
+- Working chat panel that sends to Grok and executes tool calls
 - Diff view showing file changes
-- `packages/agent-bridge/__tests__/*` passing
+- `cargo test --package agent-bridge` passing
 - Chat panel unit tests passing
 
 ---
 
-### Sprint 5: WP-CLI tool + permission engine
+### Sprint 5: Permission engine + WP-CLI
 
-**Goal:** WP-CLI commands are categorized and gated by permission tiers. Secrets are redacted from agent context.
+**Goal:** WP-CLI commands categorized and gated by permission tiers. Secrets redacted from agent context.
 
 #### TDD sequence
 
-**Step 1 — Write the unit tests**
+**Step 1 — Write the tests**
 
-```typescript
-// packages/permission-engine/__tests__/tiers.test.ts
-describe('PermissionTiers', () => {
-  it('defines read FS, edit FS, WP-CLI safe, WP-CLI destructive, SQL read, SQL write, network install', () => {
-    expect(Tiers.READ_FS).toBeDefined();
-    expect(Tiers.WPCLI_DESTRUCTIVE).toBeDefined();
-  });
-  it('orders tiers from least to most permissive', () => { /* ... */ });
-});
+```rust
+// src-tauri/src/permission-engine/tiers.rs
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_tiers_ordered() {
+        assert!(Tier::ReadFs < Tier::EditFs);
+        assert!(Tier::EditFs < Tier::WpCliSafe);
+        assert!(Tier::WpCliSafe < Tier::WpCliDestructive);
+    }
 
-// packages/permission-engine/__tests__/evaluator.test.ts
-describe('PolicyEvaluator', () => {
-  it('allows a tool call within the current tier', () => { /* ... */ });
-  it('blocks a tool call above the current tier', () => { /* ... */ });
-  it('requires confirmation for destructive tier', () => { /* ... */ });
-  it('blocks production writes by default', () => { /* ... */ });
-});
+    #[test]
+    fn test_all_tiers_defined() {
+        assert_eq!(Tier::variants().len(), 7);
+    }
+}
 
-// packages/permission-engine/__tests__/redactor.test.ts
-describe('SecretRedactor', () => {
-  it('redacts values from .env files', () => {
-    const redacted = redact('DB_PASSWORD=secret123', ['secret123']);
-    expect(redacted).not.toContain('secret123');
-  });
-  it('redacts wp-config.php constants', () => { /* ... */ });
-  it('does not redact environment variable names', () => { /* ... */ });
-});
+// src-tauri/src/permission-engine/evaluator.rs
+#[cfg(test)]
+mod tests {
+    #[tokio::test]
+    async fn test_allows_call_within_tier() {
+        let policy = Policy::default();
+        assert!(policy.evaluate("fs.read", Tier::ReadFs).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_blocks_call_above_tier() {
+        let policy = Policy::default().with_tier(Tier::ReadFs);
+        assert!(policy.evaluate("wpcli.run", Tier::WpCliSafe).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_requires_confirm_for_destructive() {
+        let policy = Policy::default().with_tier(Tier::WpCliDestructive);
+        let result = policy.evaluate("wpcli.run", Tier::WpCliDestructive).await.unwrap();
+        assert!(result.confirmation_required);
+    }
+
+    #[tokio::test]
+    async fn test_blocks_production_writes() {
+        let policy = Policy::default().with_environment(Environment::Production);
+        assert!(policy.evaluate("fs.write", Tier::EditFs).await.is_err());
+    }
+}
+
+// src-tauri/src/permission-engine/redactor.rs
+#[cfg(test)]
+mod tests {
+    #[tokio::test]
+    async fn test_redacts_env_values() {
+        let text = "DB_PASSWORD=secret123";
+        let secrets = vec!["secret123".to_string()];
+        assert!(!redact(text, &secrets).contains("secret123"));
+    }
+
+    #[tokio::test]
+    async fn test_redacts_wp_config_constants() {
+        let text = "define('DB_PASSWORD', 'secret123');";
+        let result = redact(text, &[]).await;
+        assert!(result.contains("[REDACTED]"));
+    }
+
+    #[tokio::test]
+    async fn test_preserves_variable_names() {
+        let text = "DB_PASSWORD=secret123";
+        let result = redact(text, &["secret123".to_string()]);
+        assert!(result.contains("DB_PASSWORD"));
+    }
+}
 ```
 
 **Step 2 — Implement**
 
-- **`packages/permission-engine/src/tiers.ts`** — Tier definitions as ordered enum
-- **`packages/permission-engine/src/evaluator.ts`** — Policy evaluator (current tier, requested tier, environment, confirmation flag)
-- **`packages/permission-engine/src/redactor.ts`** — Scan text for secrets from `.env` and `wp-config.php`, redact before sending to agent
-- **`packages/permission-engine/src/config.ts`** — User-defined policy overrides (read from `.wursor/policy.json`)
-- Wire permission engine into **`packages/tool-bus/src/tools/wpcli.ts`** — categorize and check before running
+- **`src-tauri/src/permission-engine/tiers.rs`** — Ordered enum, 7 tiers
+- **`src-tauri/src/permission-engine/evaluator.rs`** — Policy evaluator: current tier, environment, confirmation flag
+- **`src-tauri/src/permission-engine/redactor.rs`** — Scan text for secrets, redact before sending to agent
+- **`src-tauri/src/permission-engine/config.rs`** — User-defined policy from `.wursor/policy.json`
+- Wire into **`src-tauri/src/tool-bus/tools/wpcli.rs`** — check permission before executing
 
 #### Deliverables
 
-- Permission engine with all 7 tiers
+- Rust permission engine with all 7 tiers
 - Secret redaction for `.env` and `wp-config.php`
 - WP-CLI tool categorized and gated
-- `packages/permission-engine/__tests__/*` passing
+- `cargo test --package permission-engine` passing
 
 ---
 
 ### Sprint 6: P0 playbooks + first-run
 
-**Goal:** Four P0 playbooks (dynamic block, child theme, CPT, plugin) are executable from the chat panel. First-run experience guides the user through project open and dependency check.
+**Goal:** Four P0 playbooks executable from the chat panel. First-run experience guides project open.
 
 #### TDD sequence
 
-**Step 1 — Write the unit tests**
+**Step 1 — Write the tests**
+
+```rust
+// src-tauri/src/playbooks/dynamic_block.rs
+#[cfg(test)]
+mod tests {
+    #[tokio::test]
+    async fn test_detects_build_setup() {
+        let playbook = DynamicBlockPlaybook::new();
+        let config = playbook.detect("fixtures/sample-theme").await.unwrap();
+        assert_eq!(config.build_tool, "@wordpress/scripts");
+    }
+
+    #[tokio::test]
+    async fn test_scaffolds_block_with_metadata() {
+        let playbook = DynamicBlockPlaybook::new();
+        let result = playbook.scaffold("testimonial").await.unwrap();
+        assert!(result.files.contains("block.json"));
+        assert!(result.files.contains("render.php"));
+    }
+
+    #[tokio::test]
+    async fn test_verifies_block_in_editor() {
+        let playbook = DynamicBlockPlaybook::new();
+        assert!(playbook.verify("testimonial").await.unwrap());
+    }
+}
+
+// src-tauri/src/playbooks/child_theme.rs
+#[cfg(test)]
+mod tests {
+    #[tokio::test]
+    async fn test_creates_style_css_with_template_header() {
+        let playbook = ChildThemePlaybook::new();
+        let result = playbook.scaffold("twentytwentyfour", "my-child").await.unwrap();
+        assert!(result.style_css.contains("Template: twentytwentyfour"));
+    }
+}
+
+// src-tauri/src/playbooks/cpt.rs
+#[cfg(test)]
+mod tests {
+    #[tokio::test]
+    async fn test_registers_cpt_with_rest_support() {
+        let playbook = CptPlaybook::new();
+        let result = playbook.register("book", "books").await.unwrap();
+        assert!(result.php.contains("show_in_rest"));
+    }
+
+    #[tokio::test]
+    async fn test_flushes_rewrite_rules() {
+        let playbook = CptPlaybook::new();
+        assert!(playbook.flush_rewrites().await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_verifies_rest_endpoint() {
+        let playbook = CptPlaybook::new();
+        let result = playbook.verify_rest("book").await.unwrap();
+        assert!(result.status_ok);
+    }
+}
+
+// src-tauri/src/playbooks/plugin.rs
+#[cfg(test)]
+mod tests {
+    #[tokio::test]
+    async fn test_creates_plugin_headers() {
+        let playbook = PluginPlaybook::new();
+        let result = playbook.scaffold("my-plugin", "My Plugin").await.unwrap();
+        assert!(result.main_php.contains("Plugin Name: My Plugin"));
+    }
+}
+```
 
 ```typescript
-// packages/playbooks/__tests__/dynamic-block.test.ts
-describe('DynamicBlockPlaybook', () => {
-  it('detects the build setup', async () => {
-    const playbook = new DynamicBlockPlaybook();
-    const config = await playbook.detect(workspacePath);
-    expect(config.buildTool).toBe('@wordpress/scripts');
-  });
-  it('scaffolds a block with correct metadata', async () => { /* ... */ });
-  it('registers the block in the plugin file', async () => { /* ... */ });
-  it('builds the assets', async () => { /* ... */ });
-  it('verifies the block appears in the editor', async () => { /* ... */ });
-  it('produces a diff of all changes', async () => { /* ... */ });
-});
-
-// packages/playbooks/__tests__/child-theme.test.ts
-describe('ChildThemePlaybook', () => {
-  it('creates a style.css with correct Template header', async () => { /* ... */ });
-  it('enqueues parent theme styles', async () => { /* ... */ });
-  it('overrides a template with screenshot verification', async () => { /* ... */ });
-});
-
-// packages/playbooks/__tests__/cpt.test.ts
-describe('CptPlaybook', () => {
-  it('registers a CPT with REST support', async () => { /* ... */ });
-  it('flushes rewrite rules via WP-CLI', async () => { /* ... */ });
-  it('seeds test data via WP-CLI', async () => { /* ... */ });
-  it('verifies the REST endpoint returns data', async () => { /* ... */ });
-});
-
-// packages/playbooks/__tests__/plugin.test.ts
-describe('PluginPlaybook', () => {
-  it('creates plugin headers', async () => { /* ... */ });
-  it('sets up Composer if requested', async () => { /* ... */ });
-  it('sets up PHPUnit if requested', async () => { /* ... */ });
+// webview/__tests__/FirstRun.test.tsx
+describe('FirstRun', () => {
+  it('shows three project paths on first launch', () => { /* ... */ });
+  it('detects Docker and wp-env, guides install if missing', () => { /* ... */ });
+  it('opens a project and shows the workspace within 10 minutes', () => { /* ... */ });
 });
 ```
 
-**Step 2 — Integration tests**
+**Step 2 — Implement**
 
-```typescript
-// e2e/first-run.test.ts
-describe('First-run experience', () => {
-  it('shows project open dialog on first launch', async () => { /* ... */ });
-  it('detects Docker and wp-env, guides install if missing', async () => { /* ... */ });
-  it('opens a project and shows the workspace within 10 minutes', async () => { /* ... */ });
-});
-```
-
-**Step 3 — Implement**
-
-- **`packages/playbooks/src/registry.ts`** — Playbook registration
-- **`packages/playbooks/src/dynamic-block.ts`** — Full playbook: detect build → scaffold → register → build → verify → diff
-- **`packages/playbooks/src/child-theme.ts`** — Full playbook: scaffold → enqueue → override → screenshot
-- **`packages/playbooks/src/cpt.ts`** — Full playbook: register → flush → seed → REST check → diff
-- **`packages/playbooks/src/plugin.ts`** — Full playbook: headers → optional Composer/PHPUnit
-- **`packages/editor-core/src/commands/open-project.ts`** — First-run dialog with three paths
-- **`packages/editor-core/src/commands/verify-preview.ts`** — Verify step integration
+- **`src-tauri/src/playbooks/registry.rs`** — Playbook registration
+- **`src-tauri/src/playbooks/dynamic_block.rs`** — detect → scaffold → register → build → verify → diff
+- **`src-tauri/src/playbooks/child_theme.rs`** — scaffold → enqueue → override → screenshot
+- **`src-tauri/src/playbooks/cpt.rs`** — register → flush → seed → REST check → diff
+- **`src-tauri/src/playbooks/plugin.rs`** — headers → optional Composer/PHPUnit
+- **`webview/src/components/FirstRun.tsx`** — Onboarding wizard (3 paths: WP repo, folder, sample)
+- **`src-tauri/src/commands/project.rs`** — Dependency check command
 
 #### Deliverables
 
-- 4 P0 playbooks with unit tests
-- First-run dialog (3 paths: WP repo, plain folder, sample project)
-- Dependency check (Docker, wp-env) with install guidance
-- `e2e/first-run.test.ts` passing
+- 4 P0 playbooks with Rust unit tests
+- First-run dialog (3 paths)
+- `cargo test --package playbooks` passing
 
 ---
 
 ### Sprint 7: Integration + exit criteria
 
-**Goal:** All Phase 1 pieces work together. The exit criteria test passes end-to-end.
+**Goal:** All Phase 1 pieces work together. Exit criteria tests pass end-to-end.
 
-#### Integration test
+#### Integration tests
 
 ```typescript
-// e2e/phase1-exit-criteria.test.ts
-describe('Phase 1 exit criteria', () => {
-  test('clean machine → live preview in ≤10 min', async () => {
-    // Simulate a clean machine (no Docker, no wp-env)
-    const app = await electron.launch({ args: [] });
-    const window = await app.firstWindow();
-    const startTime = Date.now();
-    // Follow first-run dialog → install Docker → install wp-env → open project → boot
-    await window.locator('.wursor-first-run-open-repo').click();
-    await window.locator('.wursor-project-picker').fill('/path/to/fixtures/sample-theme');
-    await window.locator('.wursor-confirm-open').click();
-    // Wait for runtime to boot
-    await expect(window.locator('.wursor-status-indicator')).toHaveText('running', { timeout: 600000 });
-    const elapsed = Date.now() - startTime;
-    expect(elapsed).toBeLessThan(10 * 60 * 1000);
-    await app.close();
-  });
+// e2e/tauri/phase1-exit-criteria.test.ts
+import { test, expect } from '@playwright/test';
 
-  test('P0 playbook completes with verified preview + accepted diff', async () => {
-    const app = await electron.launch({ args: ['/path/to/fixtures/sample-theme'] });
-    const window = await app.firstWindow();
-    // Wait for runtime
-    await expect(window.locator('.wursor-status-indicator')).toHaveText('running', { timeout: 60000 });
-    // Run playbook
-    await window.locator('.wursor-chat-input').fill('Create a dynamic block named "testimonial"');
-    await window.locator('.wursor-chat-send').click();
-    // Wait for diff
-    await expect(window.locator('.wursor-diff-view')).toBeVisible({ timeout: 120000 });
-    // Wait for verify
-    await expect(window.locator('.wursor-verify-result')).toBeVisible({ timeout: 60000 });
-    // Accept
-    await window.locator('.wursor-accept-diff').click();
-    await expect(window.locator('.wursor-accepted-badge')).toBeVisible();
-    await app.close();
-  });
+test('clean machine → live preview in ≤10 min', async () => {
+  const app = await tauri.launch({ args: [] });
+  const window = await app.webview();
+  const startTime = Date.now();
+
+  // Follow first-run dialog → install Docker → install wp-env → open project → boot
+  await window.locator('.wursor-first-run-open-repo').click();
+  await window.locator('.wursor-project-picker').fill('/path/to/fixtures/sample-theme');
+  await window.locator('.wursor-confirm-open').click();
+
+  // Wait for runtime to boot
+  await expect(window.locator('.wursor-status-indicator')).toHaveText('running', { timeout: 600000 });
+  const elapsed = Date.now() - startTime;
+  expect(elapsed).toBeLessThan(10 * 60 * 1000);
+  await app.close();
 });
+
+test('P0 playbook completes with verified preview + accepted diff', async () => {
+  const app = await tauri.launch({ args: ['/path/to/fixtures/sample-theme'] });
+  const window = await app.webview();
+
+  // Wait for runtime
+  await expect(window.locator('.wursor-status-indicator')).toHaveText('running', { timeout: 60000 });
+
+  // Run playbook
+  await window.locator('.wursor-chat-input').fill('Create a dynamic block named "testimonial"');
+  await window.locator('.wursor-chat-send').click();
+
+  // Wait for diff
+  await expect(window.locator('.wursor-diff-view')).toBeVisible({ timeout: 120000 });
+
+  // Wait for verify
+  await expect(window.locator('.wursor-verify-result')).toBeVisible({ timeout: 60000 });
+
+  // Accept
+  await window.locator('.wursor-accept-diff').click();
+  await expect(window.locator('.wursor-accepted-badge')).toBeVisible();
+  await app.close();
+});
+```
+
+```rust
+// src-tauri/tests/tool_bus_test.rs
+#[cfg(test)]
+mod integration_tests {
+    #[tokio::test]
+    async fn test_tool_bus_integration() {
+        let registry = build_registry();
+        let tool = registry.get("fs.read").unwrap();
+        let result = (tool.handler)(serde_json::json!({"path": "fixtures/sample.txt"})).await;
+        assert!(result.is_ok());
+    }
+}
 ```
 
 #### Deliverables
 
 - Both exit criteria tests passing
-- All unit tests passing (`pnpm test`)
-- All integration tests passing (`pnpm test:integration`)
+- `cargo test` passing (all Rust unit + integration tests)
+- `pnpm test:webview` passing (all webview tests)
 
 ---
 
 ### Sprint 8: Polish + alpha readiness
 
-**Goal:** Error states from §8.5 are handled, app packaging works, and the build is ready for internal alpha.
+**Goal:** Error states from §8.5 handled, app packaging works, build ready for internal alpha.
 
 #### Tasks
 
-- **Error states** — Wire each error state from §8.5 into the UI
-- **App packaging** — `electron-builder` produces signed `.dmg` (macOS) and `.exe` (Windows)
-- **Auto-update** — `electron-updater` with GitHub releases
+- **Error states** — Wire each state from PRD §8.5 into the webview UI
+- **App packaging** — `tauri build` produces signed `.dmg` (macOS) and `.msi` (Windows)
+- **Auto-update** — Tauri updater with GitHub releases
 - **Telemetry** — Minimal events (preview load time, playbook run, verify result) with consent dialog
 - **Documentation** — `README.md` with install instructions and quickstart
-- **Bug bash** — Internal team runs through the first-run + playbook flow
+- **Bug bash** — Internal team runs through first-run + playbook flow
 
 #### Deliverables
 
 - Signed app bundles for macOS + Windows
 - Auto-update mechanism
-- Error states all wired
+- Error states all wired in the webview
 - Minimal telemetry with consent
 - `README.md` updated for alpha users
 
@@ -769,17 +918,17 @@ describe('Phase 1 exit criteria', () => {
 
 ## 5. Phase 2 — Intelligence (Weeks 9–16)
 
-*High-level outline only — full breakdown will follow Phase 1 exit.*
+*High-level outline — full breakdown follows Phase 1 exit.*
 
-| Sprint | Focus | Packages |
-|--------|-------|----------|
-| 9 | Knowledge graph static scanner | `packages/knowledge-index/src/scanner/static-scanner.ts` |
-| 10 | Knowledge graph runtime enricher | `packages/knowledge-index/src/scanner/runtime-enricher.ts` |
-| 11 | Knowledge graph queries + UI | `packages/knowledge-index/src/queries.ts`, tree view |
-| 12 | State Diff lifecycle | `packages/state-diff/src/lifecycle.ts` |
-| 13 | State Diff UI + rollback | `packages/state-diff/src/rollback.ts`, diff panel |
-| 14 | Quality gates (PHPCS, PHPUnit) | `packages/tool-bus/src/tools/lint.ts`, `test.ts` |
-| 15 | Staging pull connector | `packages/tool-bus/src/tools/staging.ts` |
+| Sprint | Focus | Crates |
+|--------|-------|--------|
+| 9 | Knowledge graph static scanner | `src-tauri/src/knowledge-index/scanner.rs` |
+| 10 | Knowledge graph runtime enricher | `src-tauri/src/knowledge-index/enricher.rs` |
+| 11 | Knowledge graph queries + UI | `src-tauri/src/knowledge-index/queries.rs`, tree view in webview |
+| 12 | State Diff lifecycle | `src-tauri/src/state-diff/lifecycle.rs` |
+| 13 | State Diff UI + rollback | `src-tauri/src/state-diff/rollback.rs`, StateDiffPanel |
+| 14 | Quality gates (PHPCS, PHPUnit) | `src-tauri/src/tool-bus/tools/lint.rs`, `test_runner.rs` |
+| 15 | Staging pull connector | `src-tauri/src/tool-bus/tools/staging.rs` |
 | 16 | Closed alpha ship + baseline collection | Telemetry review, §11 baselines |
 
 ---
@@ -790,22 +939,16 @@ These rules apply to every sprint:
 
 1. **Write the test first.** No implementation code is written without a failing test.
 2. **One assertion per test.** Each test verifies exactly one behavior.
-3. **Tests are deterministic.** No network calls in unit tests (mock Claude API, mock wp-env).
-4. **Integration tests use fixtures.** Sample WP repos live in `packages/*/fixtures/` and `e2e/fixtures/`.
+3. **Tests are deterministic.** No network calls in unit tests (mock Grok API, mock wp-env).
+4. **Integration tests use fixtures.** Sample WP repos live in `src-tauri/fixtures/` and `e2e/fixtures/`.
 5. **Red → Green → Refactor.** Write the failing test (red), make it pass (green), then clean up (refactor).
-6. **Coverage floor.** Each package must maintain ≥ 90% line coverage. CI enforces this.
-7. **No skipped tests in main.** `test.skip` and `test.only` are only allowed in feature branches.
+6. **Coverage floor.** Rust: `cargo-tarpaulin` enforces ≥ 90% line coverage. Webview: vitest enforces ≥ 90%.
+7. **No skipped tests in main.** `#[ignore]` and `test.only` only in feature branches.
 
 ### Test naming convention
 
-```
-{module}.{behavior}.test.ts
-```
-
-Examples:
-- `fs.read-workspace-file.test.ts`
-- `wpcli.reject-destructive-without-confirm.test.ts`
-- `lifecycle.start-and-report-status.test.ts`
+Rust: `{module}_{behavior}` (e.g. `fs_read_rejects_path_traversal`)
+TypeScript: `{module}.{behavior}.test.ts` (e.g. `fs.read-workspace-file.test.ts`)
 
 ---
 
@@ -816,30 +959,31 @@ Examples:
 name: CI
 on: [pull_request]
 jobs:
-  unit:
+  rust:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v2
-      - run: pnpm install
-      - run: pnpm test          # All unit tests
-      - run: pnpm test:coverage # Enforces 90% floor
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --all-features
+      - run: cargo tarpaulin --out Xml --skip-clean
+        # Enforces 90% coverage floor
 
-  integration:
+  webview:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v2
       - run: pnpm install
-      - run: pnpm test:integration  # Fixture-based integration tests
+      - run: pnpm test -- --coverage  # Enforces 90% coverage
 
   lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo clippy --all-targets -- -D warnings
       - uses: pnpm/action-setup@v2
-      - run: pnpm install
-      - run: pnpm lint
+      - run: pnpm install && pnpm lint
 
 # .github/workflows/e2e.yml — runs on release branch
 name: E2E
@@ -854,9 +998,10 @@ jobs:
         os: [macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
       - uses: pnpm/action-setup@v2
       - run: pnpm install
-      - run: pnpm build
+      - run: cargo build --release
       - run: pnpm test:e2e
 ```
 
@@ -866,14 +1011,14 @@ jobs:
 
 | Term | Definition |
 |------|------------|
-| **Tool bus** | The registry and executor for all agent-callable tools (fs, wpcli, site, db, etc.) |
-| **Runtime adapter** | Interface that abstracts wp-env (v1) behind a common API for future backends |
+| **Tool bus** | Rust registry and executor for all agent-callable tools (fs, wpcli, site, db, etc.) |
+| **Runtime adapter** | Rust trait that abstracts wp-env (v1) behind a common interface for future backends |
 | **Playbook** | A reusable, multi-step agent workflow (scaffold block, create CPT, etc.) |
 | **State Diff** | A reviewable mutation plan for WP content/state (CLI commands, SQL, or migration) |
 | **Permission tier** | A capability level (read FS → edit FS → WP-CLI safe → destructive → etc.) |
 | **Verify** | Required proof step: screenshot, HTTP check, or editor route confirmation |
-| **Knowledge graph** | Indexed map of themes, plugins, blocks, hooks, and REST routes |
+| **Knowledge graph** | Rust-indexed map of themes, plugins, blocks, hooks, and REST routes |
 
 ---
 
-*End of Implementation Guide v1.0 — Wursor*
+*End of Implementation Guide v1.1 — Wursor*
