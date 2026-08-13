@@ -2,188 +2,156 @@
 
 **Wursor**
 
-The Agentic WordPress Development Environment
+The Agentic WordPress Management Platform
 
-*Where WordPress products get built — code, site, and shipping in one loop.*
+*Just describe what you want. Wursor does the rest.*
 
 | Field | Value |
 | :--- | :--- |
-| **Version** | 1.3 |
+| **Version** | 2.0 |
 | **Date** | August 13, 2026 |
 | **Author** | Patrick (Product Lead) |
-| **Status** | Draft — Internal (key decisions locked; Phase 0) |
-| **Repo** | SinachPat/wursor (renamed from originmain) |
+| **Status** | Draft — Internal (non-technical-first pivot; Phase 0) |
+| **Repo** | SinachPat/wursor |
 | **Classification** | Confidential |
-| **Supersedes** | v1.2 (shell → Tauri/Monaco; model → Grok) |
+| **Supersedes** | v1.3 (engineer-first; desktop shell; Tauri + Monaco) |
 
 ---
 
 ## 1. Executive Summary
 
-Wursor is a development environment built for people who ship on WordPress. It combines an AI agent that can plan and edit real project code with a live WordPress runtime, WP-CLI, database awareness, and preview — so building a theme, plugin, or block is not split across five apps and a hope that the model "knows WordPress."
+Wursor is a web-based platform that lets anyone manage their WordPress site by simply describing what they want. No code, no wp-admin, no hosting jargon. The user types "make my homepage look more modern" or "add a booking form" or "change the site to a two-column layout" — and Wursor does it.
 
-WordPress work is not generic app development. The product surface is a CMS platform with themes, plugins, hooks, a block editor, content in MySQL, and a long tail of agency and product workflows. Today's stack forces builders to keep that reality in their head while jumping between an editor, a local site tool, wp-admin, a terminal for WP-CLI, and a database client.
+Under the hood, Wursor spins up a secure cloud sandbox (an isolated copy of the user's site), instructs an AI agent to make the changes, and shows the user a live preview. If the user likes it, Wursor deploys the changes to the real site. If they don't, it resets.
 
-Wursor makes that reality the environment:
+The product is a web app. The user installs one WordPress plugin to connect their site. Everything else happens in the browser. No Docker, no terminal, no filesystem access.
 
-- A **site you can boot, browse, reset, and inspect** sits beside the code.
-- The agent is taught **WordPress semantics** — template hierarchy, hooks, `block.json`, capabilities, text domains — not only PHP syntax.
-- Changes show up as **reviewable code diffs** and, when content or options must move, as explicit **State Diffs** (WP-CLI / migration scripts), never silent database edits.
-- **Blocks and block themes** are first-class: `theme.json`, patterns, template parts, and editor preview.
-- **Environments matter**: local → staging → production, with write access gated by policy.
-
-**The opportunity:** become the default professional workspace for WordPress product and agency teams in an agent-assisted era — without pretending WordPress is "just another repo."
+**The opportunity:** become the default way non-technical WordPress site owners make changes to their sites — replacing the agency phone call, the frustrating wp-admin search, and the fear of breaking something.
 
 ---
 
 ## 2. Problem Statement
 
-### 2.1 WordPress is a platform, not a folder of PHP
+### 2.1 WordPress is powerful, but it still requires technical skill
 
-Competent general coding agents still miss what breaks real WP projects:
+Millions of businesses run on WordPress. The owners are real estate agents, restaurant owners, consultants, dentists, e-commerce operators. They are not developers. They are not designers. They are people who need a website that works.
 
-- The split between **code** (themes/plugins) and **content/state** (posts, options, post meta, transients).
-- **Load order** and hook timing (`plugins_loaded` vs `init` vs `wp_enqueue_scripts`).
-- **Child themes**, template hierarchy, and the dual world of classic vs block themes.
-- **WP-CLI** as the practical automation layer.
-- **Multisite**, capabilities, nonces, and auth patterns.
-- **Block development** (`block.json`, `render.php`, editor scripts, `@wordpress/scripts`).
+When they need to change something — update the layout, add a feature, fix a broken page — they have three options today:
 
-The failure mode is confident patches that enqueue wrong, ignore APIs WordPress already provides, or "fix" a theme without ever loading the site.
+1. **Learn wp-admin** — navigate a 20-year-old admin interface designed for content publishers, not business owners
+2. **Call an agency** — wait days, pay hundreds, and hope the result matches what they described
+3. **Use a hosted builder** — leave WordPress entirely for Wix/Squarespace, losing their SEO, content, and investment
 
-### 2.2 The toolchain is fragmented
+Each option is painful. None of them respects the user's time or expertise.
 
-| Concern | Typical tool today |
-| :--- | :--- |
-| Edit code | General IDE / editor |
-| Run site | Local WP, DDEV, Lando, wp-env, Docker |
-| Admin / content | wp-admin in a browser |
-| Automate | WP-CLI in a separate terminal |
-| Database | phpMyAdmin / TablePlus |
-| Assist | Chat tools with no live site context |
-| Deploy | FTP, rsync, Git + host pipelines, site managers |
+### 2.2 The toolchain is designed for engineers
 
-Every hop drops context. Nothing in that chain can scaffold a block, flush rewrites, open the editor, and prove the front end in one continuous run.
+The WordPress ecosystem tools — Local WP, wp-env, WP-CLI, Git, staging sites — are all built for developers. A business owner doesn't know what a staging site is. They don't want to know. They want to see their change and click "accept."
 
-### 2.3 Agencies and product teams buy turnaround
+### 2.3 The gap is trust, not technology
 
-WordPress shops compete on speed and reliability. Friction is environment spin-up, safe changes across code and data, regression checks on real themes, and handoff between design, content, and engineering. Host "AI" features aimed at writing posts do not solve that.
+The technology to have an AI agent edit a WordPress site exists today. The gap is safety: the user needs to trust that the agent won't break their site. That's why the core product is the sandbox + preview + approve loop — not the agent itself. The agent is invisible. The sandbox is the safety guarantee.
 
-### 2.4 Blast radius is real
+### 2.4 Fragmentation is the user's problem, not the tool's
 
-WordPress sites are high-value targets. An agent that can edit `wp-config.php`, install arbitrary zips, or run unchecked SQL is a liability. **Safe-by-default permissions** are a core product requirement.
+A business owner might use:
+- A page builder (Elementor, Beaver Builder)
+- Several plugins (WooCommerce, SEO, forms, booking)
+- A custom theme
+- Third-party services (Mailchimp, Stripe, Google Analytics)
+
+Today, changing any of these requires learning each tool's interface. Wursor abstracts all of them behind a single chat interface. The agent knows how to use them.
 
 ---
 
 ## 3. Vision & Opportunity
 
-**Vision:** Open a WordPress project in Wursor and you get a workspace that already understands the shape of the project, can start the site, and can take a job like "add a pricing block that matches our patterns and verify it on /pricing" through edit → CLI → preview → review in one place.
+**Vision:** Open Wursor, type what you want your site to do, preview it, approve it. That's it. WordPress becomes as easy as describing it.
 
-Wursor sits at the intersection of:
+Wursor is not a page builder. It's not a hosting platform. It's not a content editor. It's the **agentic layer** that sits on top of any WordPress site and lets you control it with natural language.
 
-| Category | What exists | What Wursor adds |
-| :--- | :--- | :--- |
-| AI-assisted coding | General editors and agents | WP-native tools, playbooks, and site loop |
-| Local WP environments | Local, DDEV, wp-env | Runtime embedded and controllable by the agent |
-| In-admin AI helpers | Host and plugin copilots | Real engineering workspace (Git, diffs, tests), not post drafting |
-| Block / theme tooling | `@wordpress/scripts`, theme.json editors | Unified with agent + live preview |
+**The opportunity:** the entire WordPress ecosystem (43% of the web) has no native agentic interface. The closest alternatives are:
+- AI assistants inside page builders (lock you into their builder)
+- General AI coding tools (require technical skill)
+- Agency retainer relationships (expensive, slow)
 
-**Positioning:** Wursor is the agentic **WordPress workshop** — not a generic coding assistant with a WordPress sticker, and not an AI writing widget inside wp-admin.
+Wursor is the first product that gives non-technical site owners a direct, safe, natural-language interface to their WordPress site — without requiring them to learn any tool.
 
 ---
 
 ## 4. Target Users & Personas
 
-### 4.1 Primary — Agency WordPress Engineer
+### 4.1 Primary — WordPress Site Owner (non-technical)
 
-Ships custom themes/plugins for clients on deadline. Wants faster scaffolding, safer refactors, fewer context switches. Uses Git; distrusts mystery FTP deploys.
+Runs a business on WordPress. Has admin access but doesn't know how to use it beyond basic post editing. Hires an agency for anything non-trivial. Wants to make changes without a phone call. Examples: dentist, real estate agent, restaurant owner, e-commerce store operator.
 
-### 4.2 Primary — Plugin / Block Product Developer
+**Out of scope for v1:** content-only users who mainly need AI to draft posts. Wursor is for *doing* — changing the site, not just writing.
 
-Ships commercial or open-source plugins and block libraries. Needs scaffolding, wp-env, WPCS, tests, and release hygiene. Cares about headers, text domains, and build pipelines.
+### 4.2 Secondary — Agency Client (delegator)
 
-### 4.3 Secondary — Technical Founder / Solo Builder
+Has an agency but wants to make small changes themselves without waiting for a ticket. Wursor becomes the "self-serve" layer on top of the agency-managed site.
 
-Runs a business on WordPress (WooCommerce, membership, LMS). Wants senior-WP leverage without a full bench.
+### 4.3 Tertiary — Technical WordPress Developer (future)
 
-### 4.4 Secondary — Design Engineer on Block Themes
-
-Lives in `theme.json`, patterns, and template parts. Needs structured edits plus visual proof.
-
-### 4.5 Tertiary — Technical PM / Solutions Architect
-
-Scopes builds, reviews proposed changes, cares about migration plans and staging checks.
-
-**Out of scope for v1:** content-only users who mainly need AI inside wp-admin to draft posts.
+The same product, with advanced features unlocked later. For now, the product is designed for non-technical users. Engineers can use it too, but they're not the target.
 
 ---
 
 ## 5. Product Principles
 
-1. **Site is a runtime, not a folder** — If it cannot boot, browse, and assert against WordPress, it is guessing.
-2. **Code and state are both first-class** — File diffs and explicit State Diffs; no silent DB mutation.
-3. **WordPress semantics over generic PHP** — Prefer platform APIs, hooks, and patterns a senior WP engineer would choose.
-4. **Safe by default** — Capability-scoped tools; production gated; secrets redacted; destructive ops require confirmation.
-5. **Preview is proof** — The agent cannot mark a task "done" without a verify step (screenshot, HTTP check, or editor verification). Users may dismiss the proof; the agent may not skip producing it.
-6. **Git records code; scripts record state** — Migrations and WP-CLI plans are reviewable artifacts.
-7. **Opinionated for WordPress** — Defaults follow WPCS, wp-env, and block-era workflows; escape hatches exist but are not the center.
+1. **The user describes what they want; the agent does the rest.** No settings screens, no toggles, no configuration.
+2. **The live preview is the only proof.** The user never sees a diff, a terminal, or an error log. They see their site with the change applied.
+3. **Safe by default.** The agent never touches the live site until the user explicitly approves. Sandbox isolation is non-negotiable.
+4. **Every change is reversible.** If the user doesn't like the result, they reject it. The live site is unchanged. If they approved and regret it, one-click rollback.
+5. **Speed is the UX.** Boot the sandbox fast, show the preview fast, deploy fast. The user waits seconds, not minutes.
+6. **The agent knows WordPress.** The user doesn't need to know what a theme, plugin, hook, or shortcode is. The agent does.
+7. **Non-technical first.** Every feature is designed for the person who doesn't know what a file is. Technical features are added later, not instead.
 
 ---
 
 ## 6. Core Concepts & Mental Model
 
-### 6.1 Workspace = Project + Site
+### 6.1 The loop
 
-A **Workspace** binds:
+The user's entire interaction with Wursor is a single loop:
 
-- A Git project (theme, plugin, plugin monorepo, `wp-content` checkout, or Composer/Bedrock layout)
-- A **site runtime** (wp-env by default; Docker / Local / DDEV import paths)
-- Environment config (local / staging / production endpoints and a credentials vault)
+```
+Describe → Preview → Approve
+```
 
-> **v1 scope (locked):** wp-env is the *only* supported runtime in v1. Local / DDEV / Bedrock import is P1 (§7.2.6). The runtime manager is still abstraction-bound (§8.1) so adding those backends later does not require a redesign.
+That's it. There is nothing else. No dashboard, no settings, no configuration. The user lands on a chat interface, types what they want, sees a preview of their site with the change, and clicks approve or reject.
 
-### 6.2 WordPress Knowledge Graph
+### 6.2 The sandbox
 
-Indexed understanding of:
+Every task gets an ephemeral, isolated copy of the user's WordPress site — a **sandbox**. The sandbox is a full WordPress instance running in Wursor's cloud infrastructure, pre-loaded with the user's active theme, plugins, and content.
 
-- Themes / child themes / active theme
-- Plugins (active, mu-plugins, drop-ins)
-- CPTs, taxonomies, REST routes
-- Hook registrations (best-effort from code)
-- Block inventory (`block.json`)
-- `theme.json` tokens and style variations
-- Template hierarchy for key routes
+The agent works inside the sandbox. It can install plugins, edit files, change settings, modify the database — anything. The live site is never touched.
 
-**Build source (locked):** two passes. (1) *Static* — scan of `*.php`, `block.json`, `theme.json`, and plugin/theme headers at project open, refreshed on file-save and on git checkout. (2) *Runtime* — when the site is up, enrich via WP-CLI (`wp plugin list`, `wp theme list`, `wp post-type list`, `wp rewrite list`) with the *actual* active theme, active plugins, registered CPTs/taxonomies, and REST routes.
+When the user approves, the sandbox changes are deployed to the live site via the Wursor plugin. When the user rejects, the sandbox is destroyed. Nothing persists.
 
-**Freshness model:** every graph node carries a source stamp (static vs runtime) and timestamp. Both the agent context and the UI surface staleness explicitly (e.g., "active theme — static scan, site not loaded"). Full re-index runs on project open and on every `site.browse` boot; incremental updates follow file-save events. Runtime nodes are re-verified each time the site boots.
+### 6.3 The plugin
 
-### 6.3 The build loop
+A lightweight WordPress plugin that the user installs once. It does two things:
+1. **Connects the site** — provides a secure API for Wursor to read site info (themes, plugins, content) and deploy changes
+2. **Receives deploys** — applies the sandbox changes (file updates, database changes, plugin installs) to the live site
 
-Plan → edit files → run WP-CLI / tests → refresh preview → read logs → revise. Every step uses WordPress-aware tools.
+The plugin is the only thing the user ever installs. It requires no configuration beyond the initial connection token.
 
-### 6.4 State Diffs
+### 6.4 Playbooks
 
-When a task needs content or options changes, Wursor proposes a **State Diff**: WP-CLI commands and/or a migration script — never an invisible database tweak. The lifecycle is explicit:
+Every user request maps to a **playbook** — a structured, multi-step agent workflow. The user doesn't know about playbooks. They just see "I'll work on that now." But internally, each request is routed to a specific playbook:
 
-1. **Create** — the agent generates a candidate diff (WP-CLI commands, SQL statements, or a PHP migration), each step annotated with intent and blast radius.
-2. **Review** — shown in the State tab; every step expands to full text and effect; nothing runs without review.
-3. **Stage** — approved steps form a numbered plan; steps can be reordered or dropped.
-4. **Apply** — executes against the local environment by default; each step streams output and marks pass/fail.
-5. **Verify** — the agent re-checks the site (option read-back, URL load, screenshot) before the diff counts as applied.
-6. **Commit** — migration-style state scripts commit to the repo as `db/` migrations; pure WP-CLI plans persist as reviewable `.state-diff.json` artifacts under `.wursor/state-diffs/`.
+- **Content change** — edit text, images, pages
+- **Design change** — modify theme, layout, colors, fonts
+- **Feature add** — install and configure a plugin (e.g., booking form, SEO, analytics)
+- **Plugin install** — find, install, and activate a plugin from the WordPress repo
+- **Site build** — create a new site from scratch (theme + pages + content)
+- **Fix** — diagnose and repair a broken page, layout issue, or plugin conflict
 
-**Rollback (locked):** destructive steps must declare an inverse at create time (e.g., `wp option delete` paired with the prior value) or an explicit "manual backup required" acknowledgment; Wursor refuses to stage a destructive step without one.
+### 6.5 Environments
 
-### 6.5 Rules & Playbooks
-
-Project guidance lives in `WORDPRESS.md` / `.wursor/rules` (standards, banned patterns, deploy checklists). **Playbooks** are reusable workflows: scaffold a dynamic block, spin a child theme, register a CPT, harden a plugin release.
-
-### 6.6 Environments
-
-- **Local** — full control for the agent under user policy  
-- **Staging** — sync down and careful promote  
-- **Production** — read/observe by default; write only with explicit break-glass  
+- **Sandbox** — ephemeral, agent has full access, isolated from live site
+- **Live site** — the user's real WordPress site, only touched by explicit deploy after approval
 
 ---
 
@@ -193,93 +161,113 @@ Project guidance lives in `WORDPRESS.md` / `.wursor/rules` (standards, banned pa
 
 ### 7.1 P0 — Launch Blocking
 
-#### 7.1.1 Agentic editing workspace
-- Project-aware chat with file/symbol/doc context
-- Inline rewrite of selections
-- Multi-file agent runs with reviewable patches
-- Integrated terminal
-- Git status, diff review, commit assist
-- Project rules (`WORDPRESS.md`, `.wursor/rules`)
+#### 7.1.1 Chat interface
+- Single text input, no buttons, no tabs
+- User types what they want, in any language, any level of detail
+- Agent responds conversationally: "I've changed your homepage to a two-column layout. Here's the preview."
+- Agent can ask clarifying questions: "I see you have a contact form. Do you want me to keep it or replace it?"
+- Follow-up turns refine the result: "Make the header blue instead" → new preview
+- Mobile-responsive — the user can approve changes from their phone
 
-#### 7.1.2 WordPress project intelligence
-- Detect project shape: classic theme, block theme, single plugin, `wp-content` tree, Bedrock/Composer
-- When the site is up: map active theme and plugins
-- PHP + block JS support with WordPress stubs
-- Template hierarchy and `block.json` awareness
+#### 7.1.2 Live preview
+- Embedded browser preview of the sandbox site
+- Real-time — the preview updates as the agent works (streaming changes)
+- The user can click around the preview to verify the change works on all pages
+- Device toggle: desktop / tablet / mobile views
+- The preview is the *only* verification — no diffs, no logs, no technical output
 
-#### 7.1.3 Embedded local site runtime
-- Start/stop/reset via **wp-env** — the only supported runtime in v1 (the emitted Docker compose file is for debugging, not an alternative surface)
-- Embedded preview (front end + wp-admin)
-- Log tail (PHP / web server; Query Monitor later)
-- Runtime manager is abstraction-bound (§8.1); Local / DDEV import (P1) plugs in behind the same interface
+#### 7.1.3 Approve / reject
+- Big, clear buttons: "Looks good → Apply" and "Not right → Reject"
+- Apply deploys the sandbox changes to the live site via the plugin
+- Reject destroys the sandbox, live site unchanged
+- Confirmation dialog before apply: "Apply changes to your live site?"
+- One-click rollback: a history of deployed changes, with "Undo" for each
 
-#### 7.1.4 WP-CLI as an agent tool
-- Allowlisted WP-CLI runner
-- Recipes: scaffold plugin/theme/block, rewrite flush, cache flush, activate plugins, local DB export/import
-- Preview destructive commands before run
+#### 7.1.4 WordPress plugin connector
+- One-click install from wp-admin plugin directory
+- Pairing flow: user copies a 6-character code from Wursor web app, pastes it into the plugin
+- Plugin exposes: site info (theme, plugins, content), file system (read/write), database (read/write), WP-CLI (full access)
+- All communication over HTTPS with token-based auth
+- Plugin auto-updates; no user maintenance
 
-#### 7.1.5 Permissions & safety
-- Tiers: read FS, edit FS, WP-CLI safe, WP-CLI destructive, SQL read, SQL write, network install
-- Production writes off by default
-- Redact secrets from `.env` / `wp-config` in agent context; scan on apply
+#### 7.1.5 Cloud sandbox orchestration
+- Spin up a sandbox in ≤ 10 seconds (warm pool)
+- Mirror the user's site: theme, plugins, content, media (lazy sync for media)
+- Full network access (so the agent can install plugins from the WordPress repo)
+- 15-minute idle timeout (auto-hibernate, resume on user interaction)
+- 24-hour hard timeout (sandbox destroyed, no exceptions)
+- Deploy: apply file changes, database changes, plugin installs/activations to the live site via the plugin
 
-#### 7.1.6 Preview verification
-- Verify runs by default on every agent task and is required before the agent marks a task "done" (Principle 5); users may dismiss the proof, the agent cannot skip producing it
-- Verify step: load URLs, screenshot, HTTP status + basic error sniff (PHP error log, 500s)
-- For block tasks: open editor routes and confirm the block can be inserted (lightweight P0)
-- Failures surface explicitly — "verify failed: /pricing returned 500" with the log excerpt — never a silent retry
+#### 7.1.6 Content playbooks
+- **Edit text** — find and replace text on any page, update headings, rewrite paragraphs
+- **Edit images** — replace, resize, reposition images
+- **Edit pages** — add/remove sections, reorder content, change layouts
+- **Import/export** — copy content from another page or site
 
-#### 7.1.7 Scaffolding playbooks
-- Plugin (headers, text domain, optional Composer/PHPUnit)
-- Static / dynamic block (`@wordpress/scripts`)
-- Child theme
-- CPT + REST + minimal admin UI
+#### 7.1.7 Design playbooks
+- **Theme change** — switch to a new theme, migrate content
+- **Layout change** — single column → two columns, sidebar position, full-width sections
+- **Color/font change** — update theme colors, typography, spacing
+- **Mobile fix** — fix a layout that breaks on mobile
 
-#### 7.1.8 First-run experience
-- Install: single signed app bundle (macOS + Windows; Linux best-effort); no Docker prompt before first project open
-- First open: guided "open a project" with three paths — a WordPress repo (auto-detects wp-env config), a plain theme/plugin folder, or a built-in sample project
-- Dependency check: Docker / wp-env detection with one-click install guidance and a diagnostic panel — a dead end is not an option
-- First preview target: ≤ 10 minutes p50 from install to a live preview (§11)
+#### 7.1.8 Plugin playbooks
+- **Install plugin** — find a plugin in the WordPress repo, install, activate, configure
+- **Configure plugin** — change settings for an existing plugin (e.g., "set up WooCommerce shipping")
+- **Plugin conflict fix** — diagnose and resolve a plugin conflict
+
+#### 7.1.9 Site build playbook (P0 limited)
+- **From scratch** — user describes their business type; Wursor selects a theme, installs it, creates pages, sets up plugins
+- **From existing** — take the user's current site and apply a new design direction
+- Limited to simple sites in v1 (5 pages, standard plugins). Complex builds are P1.
+
+#### 7.1.10 Safety & trust
+- Every change is previewed before apply — no "apply now, preview later"
+- Agent has a "no-surprise" rule: it must surface any action that costs money (e.g., a paid plugin) or affects SEO (e.g., URL changes)
+- Agent role: "I changed your homepage layout. It also removed your sidebar widget. Is that OK?"
+- Deploy history: a timeline of all changes, with one-click undo per change
+- Undo reverts the last deploy (not individual file changes — the user sees "your site has been restored to before that change")
 
 ### 7.2 P1 — Follow-on
 
-#### 7.2.1 Database & options introspection
-- Read-only schema explorer and options search
-- Explain an options row with link-back to plugin code when possible
-- State Diff generation for options / post meta
+#### 7.2.1 Multi-step workflows
+- User can queue multiple changes: "Change the homepage layout, add a booking form, and update the footer"
+- Agent works through them in order, previews the combined result
+- User approves all at once or rejects individual changes
 
-#### 7.2.2 Block & FSE workshop
-- Structured `theme.json` editing + agent tools
-- Pattern export/import as files
-- Best-effort jump from preview selection → template part / block source
+#### 7.2.2 Visual design picker
+- Instead of describing a design, the user picks from a gallery of design templates
+- "Show me my site with this theme" — the agent changes the theme, previews it
+- The user can cycle through options without committing
 
-#### 7.2.3 Quality gates
-- PHPCS + WordPress Coding Standards
-- PHPUnit / e2e hooks (Playwright or wp-env-based)
-- Agent runs configured gates before marking work done
+#### 7.2.3 SEO optimization
+- "Make my site rank better" — agent analyzes the site, suggests changes, applies them with approval
+- Meta descriptions, title tags, alt text, heading structure, schema markup
 
-#### 7.2.4 Staging connectors
-- Explicit, logged pull of DB/media from staging
-- Deploy via GitHub Actions / host APIs
-- Production DB pull requires double confirm + scrubbing warnings
+#### 7.2.4 Performance optimization
+- "Make my site faster" — agent analyzes performance, suggests fixes (image optimization, caching, plugin cleanup)
+- Applies changes with approval
 
-#### 7.2.5 Hook & REST introspection
-- Live REST route list from the site
-- Assist for `add_action` / `add_filter` discovery
+#### 7.2.5 Content migration
+- "Move my site from Wix to WordPress" — agent imports content, maps pages, sets up redirects
+- Complex, but the agent does the heavy lifting
 
-#### 7.2.6 Import paths
-- Open Local WP / DDEV projects
-- Zero-config open for existing wp-env repos
+#### 7.2.6 Multi-site management
+- User connects multiple WordPress sites to one Wursor account
+- Switch between sites, apply changes across sites, bulk operations
+
+#### 7.2.7 Team / agency mode
+- Multiple users can access the same site with different permission levels
+- Agency team can manage client sites from a single Wursor account
+- Client approves changes, agency makes them
 
 ### 7.3 P2 — Strategic
 
-- WooCommerce-oriented skills  
-- Multisite tools  
-- Host integrations (WP Cloud, SpinupWP, Rocket.net, etc.)  
-- Team workspaces and shared playbooks for agencies  
-- Sandboxed maintenance agent (updates, conflict triage)  
-- Optional design intake (e.g. Figma → patterns)  
-- Headless / hybrid (Faust, Next) workspaces  
+- E-commerce operations (WooCommerce: product updates, inventory, pricing, shipping)
+- Scheduled changes (e.g., "update the site for the holiday sale on December 1")
+- Custom code agent (for users who want to add custom CSS/JS — still via chat, no code editor)
+- A/B testing (agent creates two versions, measures performance, picks the winner)
+- Monitoring agent (watches the site, suggests fixes proactively)
+- Marketplace (playbooks built by third parties, shared with the community)
 
 ---
 
@@ -287,74 +275,125 @@ Project guidance lives in `WORDPRESS.md` / `.wursor/rules` (standards, banned pa
 
 ### 8.1 Layers
 
-> **Shell decision (locked):** Native desktop app built on **Tauri + Monaco Editor**. Tauri (Rust shell, system webview) gives fast startup (~0.3–0.8s), low memory (100–200MB), and native filesystem/Docker/process access. Monaco Editor is the same editor component that powers VS Code — editing, language services, and diff views without Electron's Chromium overhead. Rust owns the tool bus, knowledge graph parser, permission engine, and runtime manager; the webview renders the editor and Wursor panels (TypeScript/HTML).
->
-> **Why not Electron + Code-OSS:** Electron ships an entire Chromium per app (500MB–1GB memory, 2–6s startup) — a constant quality-of-life cost for a daily-driver dev tool. Tauri uses the OS webview, which is already resident.
->
-> **Why not Zed:** immature ecosystem, no Monaco/VS Code editor quality, and its agent story is not Claude/Grok-style tool-calling. The product is the WP+agent loop, not the editor.
+```
+┌─────────────────────────────────────────────────────┐
+│  Web Frontend (Wursor Web App)                        │
+│  ┌─────────────────────────────────────────────────┐ │
+│  │  Chat UI (React)                                 │ │
+│  │  Preview iframe (sandbox URL)                    │ │
+│  │  Approve / Reject buttons                        │ │
+│  │  Deploy history timeline                         │ │
+│  └─────────────────────────────────────────────────┘ │
+├─────────────────────────────────────────────────────┤
+│  API Server (Backend)                                 │
+│  ┌─────────────────────────────────────────────────┐ │
+│  │  Session Manager                                 │ │
+│  │  ├─ Create session (auth, site info, context)   │ │
+│  │  └─ Resume session (reconnect to sandbox)       │ │
+│  ├─────────────────────────────────────────────────┤ │
+│  │  Agent Orchestrator                              │ │
+│  │  ├─ Route user request to playbook              │ │
+│  │  ├─ Build system prompt (site context, rules)   │ │
+│  │  ├─ Dispatch tool calls to sandbox              │ │
+│  │  └─ Stream results to frontend (SSE)            │ │
+│  ├─────────────────────────────────────────────────┤ │
+│  │  Playbook Runner                                 │ │
+│  │  ├─ Content playbook (text, images, pages)      │ │
+│  │  ├─ Design playbook (theme, layout, colors)     │ │
+│  │  ├─ Plugin playbook (install, configure)        │ │
+│  │  └─ Site build playbook (scaffold, populate)    │ │
+│  ├─────────────────────────────────────────────────┤ │
+│  │  Sandbox Manager                                 │ │
+│  │  ├─ Spin up/down containers (Docker + k8s)      │ │
+│  │  ├─ Warm pool (pre-booted base images)          │ │
+│  │  ├─ Mirror user site (plugin, content, media)   │ │
+│  │  └─ Garbage collection (idle, hard timeout)     │ │
+│  ├─────────────────────────────────────────────────┤ │
+│  │  Deploy Manager                                  │ │
+│  │  ├─ Compute diff from sandbox → live site       │ │
+│  │  ├─ Push changes via plugin API (files, DB)     │ │
+│  │  └─ Rollback (revert last deploy)               │ │
+│  └─────────────────────────────────────────────────┘ │
+├─────────────────────────────────────────────────────┤
+│  WordPress Plugin (on user's hosting)                  │
+│  ┌─────────────────────────────────────────────────┐ │
+│  │  REST API (site info, read/write files, DB,    │ │
+│  │  WP-CLI execution, deploy receiver)            │ │
+│  └─────────────────────────────────────────────────┘ │
+├─────────────────────────────────────────────────────┤
+│  Infrastructure                                      │
+│  ┌─────────────────────────────────────────────────┐ │
+│  │  Docker + orchestration on raw VPS (v1)        │ │
+│  │  → Pre-baked WordPress image                   │ │
+│  │  → Warm pool for instant spin-up               │ │
+│  │  → Lazy media sync (only what the task needs)  │ │
+│  └─────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────┘
+```
 
-| Layer | Responsibility |
-| :--- | :--- |
-| **Workspace shell** | Tauri window, Monaco Editor, Wursor panels (preview, diff, state, chat), terminal |
-| **WP language services** | PHP/JS, stubs, `block.json`, `theme.json` schemas (Monaco language services + WP stubs) |
-| **Site runtime manager** | wp-env/Docker lifecycle, ports, credentials (Rust; abstraction-bound for future backends) |
-| **Agent tool bus** | Files, WP-CLI, HTTP preview, DB read, linters (Rust; one tool schema per tool) |
-| **Knowledge index** | Code index + WP graph (Rust parser; static scan + runtime enrichment) |
-| **Policy engine** | Permissions, environment gates, secret redaction (Rust) |
-| **Preview / verify** | Embedded webview, screenshots, HTTP checks, error sniff |
-| **Connectors** | GitHub, staging hosts, optional design tools |
+### 8.2 Agent substrate (locked)
 
-### 8.1.1 Agent substrate (locked)
+- **Model:** Grok (xAI) — strong agentic capabilities, tool-calling, multi-step reasoning
+- **Routing:** Wursor-hosted (users do not need their own API key)
+- **Tool-calling:** Each playbook step is a tool call against the sandbox. The agent orchestrates the sequence; the API server dispatches.
+- **System prompt:** Built per session from:
+  - Site info (theme, active plugins, WordPress version, PHP version)
+  - User's goal (parsed from the chat message)
+  - Safety rules (never touch the live site, never ask for money, never hide changes)
+  - Playbook-specific instructions
 
-- **Model:** Grok (xAI) — agentic coding model; BYO API key at launch
-- **Routing:** All agent traffic goes through the user's own API key — no Wursor-hosted model tier in v1
-- **Tool-calling protocol:** Every agent tool (§8.3) is a single tool schema, not a prompt chain. The agent calls tools; the tool bus executes against the local environment
-- **Fallback:** If the model is unreachable or returns an error, the agent panel shows a clear "Model unavailable" state with the raw error, logs, and a retry button. The workspace shell (editing, terminal, preview) remains fully functional
-- **P1 upsell:** Optional Wursor-hosted routing tier for users who prefer a managed key or bundled tokens
+### 8.3 Sandbox infrastructure
 
-### 8.2 Default local stack
-- **wp-env** for local + CI parity (sole runtime in v1; runtime manager abstraction-bound for future backends)
-- MySQL as default; optional ultralight SQLite path for demos only
-- Node LTS for block builds
+- **Base image:** WordPress + nginx + PHP 8.x + MySQL 8.x + WP-CLI + Redis
+- **Warm pool:** 5–10 pre-booted containers per region, ready to accept a mirror
+- **Site mirroring:**
+  - Plugin list and active theme → installed immediately
+  - Content (posts, pages, options) → pulled from the live site via the plugin API
+  - Media files → lazy sync; only pulled when the preview or agent accesses them
+- **Networking:** Sandboxes have full outbound internet access (for plugin installs, API calls). No inbound access except from the Wursor API server.
+- **Idle timeout:** 15 minutes. User typing or viewing the preview resets the timer.
+- **Hard timeout:** 24 hours. Sandbox is destroyed regardless of state.
+- **Cost per sandbox:** ~$0.01–0.02/hour in raw compute (VPS-backed). A typical 1.5-hour task costs ~$0.02–0.03.
 
-### 8.3 Initial agent tools
-- `fs.read` / `fs.write` / `fs.apply_patch`
-- `wpcli.run` (categorized)
-- `site.browse` / `site.screenshot`
-- `site.request` (front / REST)
-- `db.query` (read-only default)
-- `lint.phpcs` / `test.phpunit`
-- `index.search` / `wp.graph.lookup`
+### 8.4 Deploy mechanism
 
-### 8.4 Example flow
-1. "Add an FAQ accordion block and show it on /pricing."
-2. Detect theme type, build setup, existing patterns.
-3. Scaffold and register the block; wire pattern or template.
-4. Build assets; flush as needed via WP-CLI.
-5. Load /pricing and editor insert path; capture proof.
-6. Present file diffs (+ State Diff if any); user accepts.
+When the user approves:
+
+1. **Compute diff** — compare the sandbox's file system and database to the mirror snapshot taken at spin-up
+2. **File changes** — send changed files to the plugin's deploy API
+3. **Database changes** — send SQL migration to the plugin's deploy API (or WP-CLI commands)
+4. **Plugin changes** — plugin installs/activations sent as WP-CLI commands
+5. **Verify** — plugin confirms the live site is functional after changes
+6. **Snapshot** — deploy snapshot stored for rollback (files + DB state)
+
+Rollback restores the files and database from the snapshot.
 
 ### 8.5 Error & offline states
 
 | State | What Wursor does |
 | :--- | :--- |
-| **Docker not installed** | Detect at project open; show diagnostic panel with one-click install guide; app remains usable for file editing and git |
-| **wp-env not found** | Offer to install via npm; fall back to npx |
-| **Site won't boot** | Stream logs live; highlight the first error; offer "reset" and "last known good config" |
-| **Model unreachable** | Show raw error + retry; workspace shell stays fully functional |
-| **API key invalid / expired** | Prompt for key update inline; no data loss |
-| **Network offline** | Cache last-known graph state; agent panel shows "offline" warning; local site and editing unaffected |
-| **File permission denied** | Surface the OS-level error; no silent fallback to a different path |
+| **Plugin not installed** | Show the pairing code and a link to install the plugin; wait for connection |
+| **Plugin unreachable** | Show "Wursor can't reach your site" with troubleshooting steps (check if site is down, plugin is active) |
+| **Sandbox spin-up fails** | Retry with a fresh container; if persistent, show "We're having trouble starting a preview" with support link |
+| **Agent encounters an error** | Surface in chat: "I ran into an issue. Here's what happened and what I can try next." |
+| **Deploy fails** | Show the error with a retry button; sandbox is kept alive so the user can retry or contact support |
+| **Deploy results in broken site** | Plugin detects a 500 error or critical failure; automatically rolls back and reports to the user |
+| **Network offline (user)** | Show "You're offline" message; session resumes when connection returns |
+| **Rate limit / API error** | Retry with exponential backoff; surface persistent failures in chat |
 
 ---
 
 ## 9. UX Notes
 
-- Dark-first, dense workshop UI; calm over theatrical  
-- **Site status bar:** environment, WP version, active theme, permission mode  
-- **Diff view:** Files tab + State tab  
-- **Preview:** dockable; device widths; view-as role (Admin / Editor / Customer)  
-- Keyboard-complete for agent flows; escape hatch from preview focus  
+- **Landing page is the chat.** No dashboard, no navigation. The user signs in and sees a chat input. That's it.
+- **First-time user:** "Welcome to Wursor. Describe what you'd like to change on your site."
+- **Empty state:** "Your site is connected. Try: 'Make my homepage look more modern' or 'Add a contact form.'"
+- **Preview opens in a split view.** Chat on the left, preview on the right. The user can resize the split.
+- **Preview is interactive.** The user can click around the preview, navigate pages, test forms. It's a real browser.
+- **Approve/reject buttons are persistent.** They stay at the bottom of the chat as long as there's an unapproved change.
+- **Deploy history is a simple list.** "Homepage redesign — applied 2 hours ago — Undo" with a one-click undo on each entry.
+- **The agent has a name and personality.** Warm, competent, transparent. "I've updated your homepage. Here's what I changed: I updated the hero section, added a call-to-action button, and fixed the mobile layout."
+- **Mobile:** The preview collapses to a full-screen chat with a "Show preview" button that opens the preview in a new tab.
 
 ---
 
@@ -362,14 +401,14 @@ Project guidance lives in `WORDPRESS.md` / `.wursor/rules` (standards, banned pa
 
 | Product type | Strength | Gap Wursor fills |
 | :--- | :--- | :--- |
-| General AI code editors | Strong general coding agents | No WordPress runtime loop or WP semantics |
-| Classic PHP IDEs | Deep PHP tooling | Weak agent-native site loop |
-| Local WP apps | Easy site spin-up | Not an engineering agent workspace |
-| wp-env / DDEV | Solid runtimes | CLI-centric; no integrated agent UX |
-| Host / plugin AI | Handy in wp-admin | Content-oriented; not Git/theme/plugin shipping |
-| Page builders | Fast visual pages | Different paradigm; not Wursor's v1 center |
+| Page builders (Elementor, etc.) | Visual editing | Require learning the builder; agent does it for you |
+| AI content assistants (Jetpack AI, etc.) | Writing posts | Can't change layout, install plugins, or modify design |
+| General AI coding tools | Code-level changes | Require technical skill; no visual preview |
+| Wix / Squarespace | Simple, integrated | Not WordPress; don't own your site |
+| Agency / freelancer | Human expertise | Slow, expensive, per-task |
+| Host copilot features | In-context help | Limited to what the host built; no agentic autonomy |
 
-**Moat:** WP knowledge graph + controllable runtime + policy-aware tools + verify-via-preview, packaged as playbooks agencies and plugin teams repeat weekly.
+**Moat:** Cloud sandbox + agentic orchestration + universal plugin connector. The user gets a safe, ephemeral copy of their site, an agent that can do anything a WordPress developer can do, and a one-click deploy back to the live site. No other product combines all three.
 
 ---
 
@@ -377,53 +416,58 @@ Project guidance lives in `WORDPRESS.md` / `.wursor/rules` (standards, banned pa
 
 | Metric | Baseline | 6-month target | Owner | How we measure |
 | :--- | :--- | :--- | :--- | :--- |
-| Time to first local preview from new workspace | TBD (Phase 0 spike) | ≤ 10 min p50 | Eng lead | In-app timer from project open to first rendered preview |
-| Accepted agent runs on P0 playbooks (little rework) | TBD (alpha 1) | ≥ 60% | PM | Per-playbook accept/reject event, tagged by playbook |
-| Verify step catches issues before accept | TBD (alpha 1) | ≥ 30% of failing tasks | PM | Verify-fail event before accept, per task |
-| Trial → weekly habit by week 4 | TBD | ≥ 40% | PM | Weekly active usage per trial cohort |
-| Paying seats | n/a | TBD with pricing | GTM | Billing records |
+| Time from sign-up to first deployed change | TBD (alpha 1) | ≤ 5 min | PM | In-app timer from sign-up to first approve |
+| Task completion rate (user describes → change deployed) | TBD (alpha 1) | ≥ 60% | PM | Per-task: started → approved |
+| User claps back (reject → re-describe → approve) | TBD | ≤ 20% of tasks | PM | Reject events per session |
+| Sandbox spin-up time (p50) | TBD | ≤ 5s | Eng | Server-side timer |
+| Verify step catches issues before approve | TBD (alpha 1) | ≥ 30% of failing tasks | PM | Verify-fail before approve, per task |
+| Weekly active users as % of sign-ups | TBD | ≥ 40% | PM | Weekly active per cohort |
+| Paid conversion | TBD | ≥ 5% of trial users | GTM | Billing records |
 
-**Measurement plan:** all metrics instrumented from first alpha build (Phase 2). Every metric is a dashboarded event, not a manual tally. Baselines are collected during closed alpha (10–20 agencies / plugin teams) and reviewed as Phase 2 exit criteria.
-
-Qualitative bar: experienced WordPress engineers say it behaves like someone who has shipped WP for years.
+**Measurement plan:** all metrics instrumented from first alpha build. Every metric is a dashboarded event. Baselines from closed alpha (Phase 1) inform Phase 2 targets.
 
 ---
 
 ## 12. Phased Roadmap
 
 ### Phase 0 — Pivot & spec (now)
-- Clear prior product codebase  
-- PRD + naming  
-- Spike: wp-env control plane + agent tool bus  
+- Rewrite PRD for non-technical-first
+- Spike: cloud sandbox orchestration (WordPress in Docker, warm pool, site mirroring)
+- Spike: WordPress plugin (REST API, file read/write, DB access, WP-CLI)
+- Spike: basic chat + preview web app
 
 ### Phase 1 — Foundation (weeks 1–8)
-- Ship Tauri shell on Monaco Editor (reused editor component; no greenfield chrome)
-- Project open + WP detection
-- wp-env lifecycle + preview
-- Agent chat + diffs + rules
-- WP-CLI tool + permission engine
-- P0 playbooks
+- Web app: sign-up, site connection (plugin auth), chat, preview, approve/reject
+- Sandbox infrastructure: warm pool, site mirroring, idle timeout, GC
+- WordPress plugin: site info API, deploy receiver, rollback, auto-update
+- Playbooks: content edit (text, images, pages), design change (layout, colors)
+- Deploy history: timeline, one-click undo
 
-**Exit criteria:** a new user on a clean machine (no Docker, no wp-env) reaches a live preview of a WordPress repo in ≤ 10 minutes, and a P0 playbook (dynamic block) completes with a verified preview + accepted diff.
+**Exit criteria:** a new user signs up, connects their WordPress site, types "change my homepage heading to 'Welcome to My Business'", sees a preview with the change, and approves it — all in under 5 minutes.
 
 ### Phase 2 — Intelligence (weeks 9–16)
-- Knowledge graph v1 (static + runtime passes)
-- WPCS / tests in the loop
-- State Diffs + read-only DB introspection
-- Careful staging pull
-- Closed alpha (10–20 agencies / plugin teams)
+- Plugin playbooks (install, configure, fix conflicts)
+- Site build playbook (from scratch, from design direction)
+- Mobile-responsive preview
+- Agent clarifying questions (disambiguation)
+- Closed alpha (10–20 site owners)
 
-**Exit criteria:** all §11 baselines collected and reviewed; knowledge graph staleness surfaced in UI; State Diff create→rollback loop demoed on a destructive option change.
+**Exit criteria:** all §11 baselines collected and reviewed; a non-technical user can install a plugin via chat and see it working on their site.
 
 ### Phase 3 — Professional (weeks 17–28)
-- Block / FSE workshop  
-- Role-based preview  
-- Host deploy connectors  
-- Shared team playbooks  
-- Paid beta  
+- Multi-step workflows (queue changes)
+- Visual design picker (theme gallery)
+- Site build playbook (complex, multi-page)
+- SEO optimization playbook
+- Performance optimization playbook
+- Paid beta
 
 ### Phase 4 — Platform
-- WooCommerce, multisite, maintenance agents, ecosystem connectors  
+- Multi-site management
+- Team / agency mode
+- E-commerce operations (WooCommerce)
+- Scheduled changes
+- Marketplace (community playbooks)
 
 ---
 
@@ -431,15 +475,14 @@ Qualitative bar: experienced WordPress engineers say it behaves like someone who
 
 | Risk | Impact | Mitigation |
 | :--- | :--- | :--- |
-| Building a full workspace is large | High | Tauri + Monaco (reused editor component, no greenfield editor); WP runtime + tools get the focus |
-| Local Docker/wp-env pain (esp. Windows) | High | Diagnostics-first first-run; installer guides; early Local/DDEV import (P1) |
-| Agent harms a site | High | Permission tiers; local-default; production lock; State Diffs with rollback |
-| "Prompts in my current editor are enough" | Medium | Demo the site loop and playbooks general setups fail |
-| Legacy PHP / chaotic themes | Medium | Stubs, WPCS, honest limits; playbooks for clean paths first |
-| Repo still named originmain | Resolved | Repo renamed to SinachPat/wursor |
-| Trademark / "WordPress" in marketing | Medium | Follow WordPress Foundation trademark rules |
-| LLM provider outage / model churn | Medium | BYO-key model; workspace shell stays usable offline; P1 hosted routing tier |
-| Docker Desktop licensing for commercial use | Low | Document; wp-env alternatives; Rancher Desktop path |
+| Agent breaks the sandbox site | Medium | Sandbox is ephemeral; worst case, GC and start fresh. Live site never touched. |
+| Agent installs a malicious plugin | Medium | Plugin repo is reviewed; sandbox is isolated; no data leaks to the live site. |
+| Deploy to live site fails | High | Plugin detects failure, rolls back automatically, sandbox stays alive for retry. |
+| Mirroring a large site is slow | High | Lazy sync for media; incremental content sync; warm pool absorbs the variance. |
+| User can't describe what they want | Medium | Agent asks clarifying questions; suggests options ("Would you like a modern look or a classic look?"). |
+| Plugin compatibility (old WordPress, old PHP) | Medium | Detect at connection time; warn the user; support the top 90% of versions. |
+| Grok model quality for agentic tasks | Medium | Evaluate in Phase 0 spike; have a fallback model path (switch to Claude or GPT-4o). |
+| Sandbox cost scales with usage | Low | ~$0.02/task at v1 volume; even at 100k tasks/month, < $5k. Agent API calls are the higher cost. |
 
 ---
 
@@ -447,57 +490,58 @@ Qualitative bar: experienced WordPress engineers say it behaves like someone who
 
 ### Resolved (locked)
 
-1. **Shell:** Native desktop app on Tauri (Rust shell, system webview) + Monaco Editor (the editor core that powers VS Code). Fast startup (~0.3–0.8s), low memory (100–200MB), native filesystem/Docker/process access, offline-capable. Rust backend; webview UI in TypeScript.
-2. **Name:** Wursor (locked in v1.2; no further rename planned).
-3. **Repo:** renamed to `SinachPat/wursor`.
-4. **Pricing:** seat-based ($X/dev/month, free tier with per-seat limits); agency teams primary. Final $X set during Phase 3 paid beta.
-5. **Roots/Bedrock/Trellis support:** P1 (not v1). wp-env covers the launch segment; runtime manager is abstraction-bound for later import.
-6. **Models:** Grok (xAI) via BYO API key (v1); optional Wursor-hosted routing tier (P1 upsell). No local model support in v1.
-7. **Runtime backends:** wp-env only in v1; Local / DDEV import is P1.
+1. **Shell:** Web app. No desktop app. No code editor. The chat interface is the entire product surface.
+2. **Architecture:** Web app → API server → cloud sandbox → WordPress plugin on user's hosting.
+3. **Sandbox hosting:** Wursor-hosted (cloud VPS with Docker). User installs nothing beyond the plugin.
+4. **Model:** Grok (xAI). Wursor-hosted. Users do not need their own API key.
+5. **Plugin connector:** Required for all users. Single install, one-time pairing code.
+6. **Pricing:** Seat-based (free tier with limited tasks/month, paid tier for unlimited). Free tier supports the "try before you trust" loop.
+7. **Non-technical first:** All features are designed for the person who has never seen a terminal. Advanced features are added later.
 
 ### Remaining (genuinely open)
 
-All Phase 0 questions are resolved above. New questions will be documented per phase and resolved before the next phase begins.
+1. **Free tier limits:** How many tasks per month before asking for payment? Set during Phase 3 beta.
+2. **Pricing:** Final $X and free tier limits set during Phase 3 paid beta.
+3. **Media library handling:** Lazy sync is the plan, but large media libraries (20GB+) need specific design. Phase 1 spike.
+4. **Plugin compatibility:** Which WordPress + PHP versions are we guaranteeing? Phase 0 spike.
 
 ---
 
 ## 15. Appendices
 
 ### A. Glossary
-- **Workspace** — Project + site runtime + environment config bound together
-- **State Diff** — Reviewable WP-CLI / SQL / content mutation plan with a create→review→apply→rollback lifecycle
-- **Playbook** — Reusable agent workflow with tools and checks
-- **WP Knowledge Graph** — Map of themes, plugins, blocks, hooks, REST (static scan + runtime enrichment)
-- **Runtime** — The site execution environment (wp-env in v1)
-- **Environment** — A target (local / staging / production) with endpoints and policy
-- **Verify** — The proof step (screenshot / HTTP check / editor confirmation) required before a task is "done"
-- **FSE** — Full Site Editing (block themes)
-- **wp-env** — `@wordpress/env` local environment
+- **Sandbox** — An ephemeral, isolated copy of the user's WordPress site running in Wursor's cloud
+- **Playbook** — A structured, multi-step agent workflow for a specific task type
+- **Plugin connector** — The WordPress plugin that connects the user's site to Wursor
+- **Mirror** — The process of copying a site's theme, plugins, content, and settings into a sandbox
+- **Deploy** — The process of applying sandbox changes to the live site
+- **Warm pool** — Pre-booted WordPress containers ready to accept a mirror, reducing spin-up time
 
 ### B. P0 playbook sketches
-1. **Dynamic block** — detect build → scaffold → register → build → verify in editor → diff  
-2. **Child theme** — scaffold → enqueue parent → override template → screenshot home  
-3. **CPT** — register → flush rewrites → seed via WP-CLI → REST check → diff  
+1. **Edit text** — parse user request → find content in DB → update → verify page loads → show preview
+2. **Change layout** — parse user request → identify theme → modify template or page builder content → verify → preview
+3. **Install plugin** — parse user request → search WP repo → install via WP-CLI → activate → configure defaults → verify → preview
 
 ### C. Non-goals (v1)
-- Replacing wp-admin for authors
-- Unattended production hotfixes
-- Competing with Elementor-class page builders as the core offer
-- Equal-class support for every legacy builder shortcode ecosystem on day one
-- A public extension/plugin API — connectors are internal; third-party integration ships after platform phase
-- Local / DDEV / Bedrock imports — P1 (§7.2.6)
-- Managed/hosted model tier — P1 upsell
-- **Accessibility certification (WCAG) or i18n / localization** — v1 is English-only with no formal accessibility conformance target. Basic keyboard navigation and screen reader support come from Monaco and the webview's standard web accessibility practices; custom Wursor panels will not be audited until Phase 3.
+- A code editor or terminal
+- Git integration or file diffs
+- Local development workflows (Docker, wp-env, Local WP)
+- AI content writing (blog posts, copywriting — Wursor is for *doing*, not writing)
+- Replacing wp-admin entirely for users who want it (the plugin coexists)
+- Hosting or infrastructure management (Wursor is not a hosting platform)
+- Extension API or marketplace (Phase 4)
+- Multi-user or team features (Phase 4)
+- **Accessibility certification (WCAG) or i18n / localization** — v1 is English-only with no formal accessibility conformance target. The web app targets standard web accessibility practices but will not be audited until Phase 3.
 
-### C.1 Wursor's own test strategy
-- **Unit + integration tests** for the agent tool bus (each tool schema), the permission engine, and the State Diff lifecycle
-- **Fixture-based WP repos** in CI (wp-env in GitHub Actions) to test detection, indexing, and playbooks without a live install
-- **E2E smoke** on the Tauri shell: open → detect → boot → preview → verify
-- **Release gates:** CI runs Rust + webview tests on every PR; e2e before each release
+### D. Wursor's own test strategy
+- **Unit tests** for the agent orchestrator, playbook runner, sandbox manager, and deploy manager
+- **Integration tests** with real WordPress sandbox instances in CI (Docker on GitHub Actions, pre-baked image)
+- **E2E tests** with Playwright against the web app, connected to a real sandbox + plugin
+- **Release gates:** CI runs unit + integration on every PR; e2e before each release
 
-### D. One-liner
-**Wursor is the agentic workshop for WordPress — code, WP-CLI, data, and a live site in one loop.**
+### E. One-liner
+**Wursor is the agentic layer for WordPress — describe what you want, see it live, approve it.**
 
 ---
 
-*End of PRD v1.3 — Wursor*
+*End of PRD v2.0 — Wursor*
