@@ -185,14 +185,14 @@ Every user request maps to a **playbook** — a structured, multi-step agent wor
 
 #### 7.1.4 WordPress plugin connector
 - One-click install from wp-admin plugin directory
-- Pairing flow: user copies a 6-character code from Wursor web app, pastes it into the plugin
+- Pairing flow: user copies an 8+ character code from Wursor web app (5-minute TTL, 5-attempt lockout, bound to account + site URL), pastes it into the plugin
 - Plugin exposes: site info (theme, plugins, content), file system (read/write), database (read/write), WP-CLI (full access)
 - All communication over HTTPS with token-based auth
 - Plugin auto-updates; no user maintenance
 
 #### 7.1.5 Cloud sandbox orchestration
 - Spin up a sandbox in ≤ 10 seconds (warm pool)
-- Mirror the user's site: theme, plugins, content, media (lazy sync for media)
+- Mirror the user's site: theme, plugins, content (task-scoped). Media is proxied from origin, not copied.
 - Full network access (so the agent can install plugins from the WordPress repo)
 - 15-minute idle timeout (auto-hibernate, resume on user interaction)
 - 24-hour hard timeout (sandbox destroyed, no exceptions)
@@ -223,9 +223,11 @@ Every user request maps to a **playbook** — a structured, multi-step agent wor
 #### 7.1.10 Safety & trust
 - Every change is previewed before apply — no "apply now, preview later"
 - Agent has a "no-surprise" rule: it must surface any action that costs money (e.g., a paid plugin) or affects SEO (e.g., URL changes)
+- That rule is mechanical at deploy, not just conversational: URL/slug changes, `blog_public`, payment/shipping, and user/role table writes are blocked until the user confirms that specific bullet (R12)
 - Agent role: "I changed your homepage layout. It also removed your sidebar widget. Is that OK?"
 - Deploy history: a timeline of all changes, with one-click undo per change
 - Undo reverts the last deploy (not individual file changes — the user sees "your site has been restored to before that change")
+- The last 3 deploy snapshots are stored in Wursor's cloud as well as on the site, so Undo still works if the live site is down (R3)
 
 ### 7.2 P1 — Follow-on
 
@@ -349,7 +351,7 @@ Every user request maps to a **playbook** — a structured, multi-step agent wor
 - **Site mirroring:**
   - Plugin list and active theme → installed immediately
   - Content (posts, pages, options) → pulled from the live site via the plugin API
-  - Media files → lazy sync; only pulled when the preview or agent accesses them
+  - Media files → not copied. Sandbox nginx proxies `/wp-content/uploads/*` to the live origin (or a signed Wursor proxy). A file is pulled only when the agent replaces it.
 - **Networking:** Sandboxes have full outbound internet access (for plugin installs, API calls). No inbound access except from the Wursor API server.
 - **Idle timeout:** 15 minutes. User typing or viewing the preview resets the timer.
 - **Hard timeout:** 24 hours. Sandbox is destroyed regardless of state.
@@ -364,9 +366,11 @@ When the user approves:
 3. **Database changes** — send SQL migration to the plugin's deploy API (or WP-CLI commands)
 4. **Plugin changes** — plugin installs/activations sent as WP-CLI commands
 5. **Verify** — plugin confirms the live site is functional after changes
-6. **Snapshot** — deploy snapshot stored for rollback (files + DB state)
+6. **Snapshot** — deploy snapshot stored for rollback (files + DB state) on the site **and** in Wursor's cloud (last 3). Cloud copy is what Undo uses if the live site is down.
+7. **Drift check** — re-hash the live files/options in the changeset at approve time. If the live site changed since the preview, ask before clobbering (R11).
+8. **No-surprise gate** — slug / `blog_public` / payment / role changes require an explicit confirm bullet (R12).
 
-Rollback restores the files and database from the snapshot.
+Rollback walks the changeset journal backwards, then restores from the snapshot if the journal is incomplete.
 
 ### 8.5 Error & offline states
 
@@ -432,14 +436,20 @@ Rollback restores the files and database from the snapshot.
 
 ### Phase 0 — Pivot & spec (now)
 - Rewrite PRD for non-technical-first
-- Spike: cloud sandbox orchestration (WordPress in Docker, warm pool, site mirroring)
+- Risk rewrite: §13 is 14 risks with mitigations that map to tests or UI (this revision)
+- Spike: golden-task eval harness (20 prompts × ≥2 canned WP sites, scored)
+- Spike: Elementor / builder detection in site-info
+- Spike: pairing threat model (8+ char, TTL, lockout, HMAC, scoped tokens)
+- Spike: time a task-scoped content mirror + media proxy against a ≥2GB site
+- Spike: cloud sandbox orchestration (WordPress in Docker, overlay + pause pool)
 - Spike: WordPress plugin (REST API, file read/write, DB access, WP-CLI)
 - Spike: basic chat + preview web app
+- Lock the P0 plugin catalog (~40 slugs) before any agent can install
 
 ### Phase 1 — Foundation (weeks 1–8)
 - Web app: sign-up, site connection (plugin auth), chat, preview, approve/reject
-- Sandbox infrastructure: warm pool, site mirroring, idle timeout, GC
-- WordPress plugin: site info API, deploy receiver, rollback, auto-update
+- Sandbox infrastructure: overlay + pause-to-disk warm pool, task-scoped mirroring, media proxy, idle timeout, GC
+- WordPress plugin: site info API (builder + capability tiers + pre-flight), HMAC-signed pairing, two-phase deploy receiver, journaled rollback, auto-update
 - Playbooks: content edit (text, images, pages), design change (layout, colors)
 - Deploy history: timeline, one-click undo
 
@@ -473,16 +483,149 @@ Rollback restores the files and database from the snapshot.
 
 ## 13. Risks & Mitigations
 
-| Risk | Impact | Mitigation |
+Isolation, a warning dialog, and a fallback model are not mitigations. Each row below maps to a test, a playbook constraint, or a product surface. Residual impact assumes the mitigation ships; **Launch-blocking** means Phase 1 cannot exit without it.
+
+### 13.1 Documented risks
+
+#### R1 — Agent breaks the sandbox site
+
+| | |
+| :--- | :--- |
+| **Impact (original → residual)** | Medium → Low for the live site; **High for session trust** until checkpoints ship |
+| **Launch-blocking** | Circuit breaker and per-step verify. Full self-heal can follow. |
+| **Why the old mitigation fails** | “GC and start fresh” keeps the live site safe and kills the session. A white-screen preview after 90 seconds is a churn event. Retrying the same trajectory also burns the warm pool and the model budget. |
+| **Mitigation** | Copy-on-write checkpoint after every successful playbook step (overlayfs / Docker commit). Verify after every tool call (target URL 200, no new PHP fatal, `siteurl`/`home` unchanged). Two consecutive verify failures → circuit breaker, stop, and talk — do not thrash. Content playbooks prefer WP-CLI / REST (`wp post update`) over theme file surgery. A tiny internal self-heal path rewinds the last checkpoint before the user sees a dead preview. |
+| **Owner / where** | Sprint 1 (overlay + GC), Sprint 3 (circuit breaker), Sprint 4 (REST-first content), Sprint 6 (reuse verifier on the sandbox). |
+
+#### R2 — Agent installs a malicious plugin
+
+| | |
+| :--- | :--- |
+| **Impact (original → residual)** | Medium → Low **if** the catalog and gates ship. Deploy path makes the unmitigated case High. |
+| **Launch-blocking** | Tool-schema allowlist in Sprint 3. Catalog + reputation in Sprint 9, but the agent must not be able to `wp plugin install <url>` before then. |
+| **Why the old mitigation fails** | wordpress.org is not a reviewed-safe catalog. Sandbox isolation only holds until the user clicks “Looks good → Apply.” A pretty form that phones home looks fine in preview. |
+| **Mitigation** | P0/P1 install from a curated catalog of ~40 slugs only (CF7, WPForms, Yoast, RankMath, Woo, Elementor, WooPayments, …). Reputation gate before install: WPScan / Patchstack CVE, last updated < 18 months, `tested up to` within 2 majors, active-install floor, zip SHA against a Wursor mirror. Fail closed. While a new plugin first activates, sandbox egress is allowlisted (wordpress.org, gravatar, the user’s own domain); unexpected egress is surfaced in chat and the plugin is not applied. Static smell test rejects `eval(base64_decode`, `/e` preg, unexpected remote `file_get_contents`. Deploy re-checks reputation even after approve. No arbitrary ZIP, no premium marketplace URLs, no `wp plugin install <url>` in v1. |
+| **Owner / where** | Sprint 3 (`tool-schemas.ts` allowlist), Sprint 9 (catalog + reputation + egress watch). |
+
+#### R3 — Deploy to live site fails
+
+| | |
+| :--- | :--- |
+| **Impact (original → residual)** | High → Medium (hosts stay messy) |
+| **Launch-blocking** | **Yes** |
+| **Why the old mitigation fails** | The failure mode is a **partial** deploy, not a clean 500. CSS lands, `wp_options` is half-updated, object cache serves the old theme, then rollback fails because the customer’s disk is full. HTTP 200 does not catch a wrong `home` URL or a dropped menu. |
+| **Mitigation** | Two-phase deploy: prepare artifacts under `wp-content/upgrade/wursor-<id>/`, then commit. Prepare failure = live site untouched. Pre-flight before the confirm dialog: disk free, `ABSPATH` writable, `DISALLOW_FILE_MODS` off, PHP memory, `post_max_size`, can flush object/opcode cache, can enter maintenance mode. Failure copy is host-ticket language, not “deploy failed.” Every file / option / WP-CLI call is a numbered journal entry; rollback walks it backwards. Health contract: homepage + one inner page + `/wp-json` + `wp-login.php` + no new fatal + `siteurl`/`home` match intent + screenshot SSIM vs sandbox. Last 3 snapshots live in **Wursor’s cloud**, not only on the customer disk, so Undo still works when the site is down. Maintenance mode for the commit window (seconds). Detect managed hosts at connect; v1 still file-pushes but must purge known caches. Canary rewrite (`/?wursor_canary=`) is stretch; journal + cloud snapshot is the P0 version. |
+| **Owner / where** | Sprint 2 (pre-flight on site-info), Sprint 6 (two-phase, journal, cloud snapshot, health contract). The existing `handles partial failures` test is acceptance, not a comment. |
+
+#### R4 — Mirroring a large site is slow
+
+| | |
+| :--- | :--- |
+| **Impact (original → residual)** | High → Medium once thin-slice + media proxy ship (standby replica is Phase 2) |
+| **Launch-blocking** | **Yes** for task-scoped mirror + media proxy. Standby replica is not. |
+| **Why the old mitigation fails** | Warm pool absorbs *boot*, not *copy*. “Incremental” was unnamed. The 5-minute Phase 1 exit criterion dies on a Woo store with 8 years of posts. Media is often not the bottleneck — `wp_posts`, plugin folders, and upload thumbs are. |
+| **Mitigation** | **Task-scoped mirrors.** Content edit → target posts + `wp_options` + menus + active theme/plugins (skip orders, logs, transients, revisions). Design → theme + `theme.json` + templates + a few representative pages. Plugin install → current site + the new plugin, still skip Woo order tables. Theme swap / rebuild → fuller clone. **Remote media proxy:** sandbox nginx rewrites `/wp-content/uploads/*` to the live origin (or a signed Wursor proxy). Copy a file only when the agent replaces it. Plugin sends a path→sha256 manifest; wordpress.org packages come from a Wursor cache, not the customer host. Chunked resumable zstd batches over plugin REST, not one zip. Default DB exclude: `_transient_*`, action scheduler logs, Woo orders/customers for non-commerce playbooks. Progressive preview: show the target page as soon as *that* page is mirrored. **Phase 2:** a per-site standby replica synced by webhook / 15-min cron so a task is `fork replica`, not `pull production`. |
+| **Owner / where** | Sprint 1 (proxy, hash manifest, subset dump), §14 media decision, Phase 2 standby replica. |
+
+#### R5 — User can't describe what they want
+
+| | |
+| :--- | :--- |
+| **Impact (original → residual)** | Medium → Medium. Unmitigated this is **High for activation** — vague language is the default for the primary persona. |
+| **Launch-blocking** | Intent chips, site-aware starters, and structured reject in Sprint 8. Full design-fork picker can wait on alpha reject rate. |
+| **Why the old mitigation fails** | Clarifying questions feel like a support form. The §11 “claps back” metric (reject → re-describe ≤ 20%) *is* this risk. |
+| **Mitigation** | Empty state is intent chips (“Change wording” / “New look” / “Add a form” / “Something’s broken”), not a blank chat. After connect, scan for default theme H1, missing favicon, no contact page, mobile overflow, and offer three *specific* starter sentences. Reject is chips (“Wrong color” / “Too busy” / “Keep my logo” / “Undo only the last thing”), each mapped to a constrained follow-up. Vague design prompts should *show* 2–3 cheap visual forks (theme.json / CSS / catalog themes) rather than ask “modern or classic?” Point-and-talk: click an element in the preview, then type “make this blue” — Phase 1 spike, not Phase 4 magic. Before/after slider on the preview. Voice input on mobile via browser SpeechRecognition is enough for alpha. |
+| **Owner / where** | Sprint 8 (chips, starters, structured reject), Phase 1 spike (point-and-talk), Sprint 12 (disambiguation), pull a fork-and-pick slice forward from Sprint 13 if design-prompt reject rate is high. |
+
+#### R6 — Plugin compatibility (old WordPress, old PHP)
+
+| | |
+| :--- | :--- |
+| **Impact (original → residual)** | Medium → Medium |
+| **Launch-blocking** | Version matrix + capability tiers at connect (Sprint 2). |
+| **Why the old mitigation fails** | A warning a dentist cannot act on is a bounce. The real incompatibilities are Elementor vs Gutenberg vs Classic, security plugins that kill REST, and hosts that set `DISALLOW_FILE_MODS` — not PHP 7.4 vs 8.2 alone. |
+| **Mitigation** | **Capability tiers, not a binary supported flag.** *Content-safe:* edit posts/pages via REST (always try to offer this). *Design-safe:* writable theme / `theme.json` / page-builder API. *Install-safe:* WP-CLI or filesystem and `DISALLOW_FILE_MODS` off. Chat: “I can change text on your site today. Installing plugins needs a WordPress update — I can preview that first if you want.” **P0 matrix (locked):** WP 6.1+ and PHP 8.0+ for full playbooks; WP 5.8–6.0 / PHP 7.4 are content-only. Publish this in the plugin readme. Detect Elementor / Beaver / Divi / Gutenberg at connect; content and layout playbooks must use the matching adapter or they will edit `post_content` while Elementor JSON is what renders. Sandbox may run newer PHP than production; deploy lints PHP against the live interpreter version. “Update WordPress for me” is a sandbox-then-approve playbook, not a warning. If PHP is old, generate a 4-line host-ticket email the user can forward. Connect-time scan also flags Wordfence / iThemes / disabled REST, `DISALLOW_FILE_EDIT`, `open_basedir`, object cache. |
+| **Owner / where** | Phase 0 spike (matrix + builder detect), Sprint 2 (tiered connect + concierge copy), Sprint 4–5 (adapters for builders we actually see). |
+
+#### R7 — Grok model quality for agentic tasks
+
+| | |
+| :--- | :--- |
+| **Impact (original → residual)** | Medium → Medium. Unmitigated this is High until the eval harness has a score. |
+| **Launch-blocking** | Golden-task harness (Phase 0) + tool allowlist (Sprint 3). |
+| **Why the old mitigation fails** | “Have a fallback model” is not a design. WordPress is full of hallucinated WP-CLI flags. Grok stays the default *vendor*; it must not be the architecture. |
+| **Mitigation** | Playbooks are the intelligence; the model fills slots (`page`, `old`, `new`) and a deterministic runner executes. Almost never emit free-form shell. Allowlisted tools only: a short WP-CLI list, REST routes, file paths under `wp-content/themes/{active}` and `wp-content/uploads`. Forbidden: `wp db query` with DROP/TRUNCATE, `wp eval`, `wp config`, `rm`, writing `wp-config.php`, touching `mu-plugins`. Golden-task harness from day 1: 20–50 fixture sites × ~20 prompts, asserting preview text / options / screenshot — not “the model said it worked.” Router: cheap/fast model classifies + asks one question; stronger model (Grok or fallback) only for design/plugin reasoning. Fallback is **per playbook**. Sprint 3 client is `llm-client.ts` with a Grok adapter; vendor switch is an env var. Self-critique before the user sees the preview (health contract + screenshot: “Did the H1 actually change?”). Store anonymized winning tool traces as few-shots. If the classifier is unsure, offer chips (R5) — do not improvise a theme rewrite. |
+| **Owner / where** | Phase 0 (eval harness, before playbooks), Sprint 3 (allowlist + provider-agnostic client), Sprint 4–5 (slot-filling). |
+
+#### R8 — Sandbox cost scales with usage
+
+| | |
+| :--- | :--- |
+| **Impact (original → residual)** | Low compute → Low. **Token spend is the real risk** (Medium) and was previously named but not mitigated. |
+| **Launch-blocking** | Per-task token budget in Sprint 3. Pause-to-disk in Sprint 1. |
+| **Why the old mitigation fails** | The old row admitted API spend is higher than VPS hours, then did nothing about it. A warm pool of *running* WP+MySQL+Redis boxes is idle burn. One runaway tool loop can cost more than a month of that user’s subscription. |
+| **Mitigation (compute)** | 15-min idle → pause / checkpoint to disk, resume in ~2s. Warm pool = paused images + 1–2 hot spares per region, not 5–10 fully running. Shared read-only WordPress image + overlayfs site layers. Predictive pool on time-of-day / queue depth. Do not copy media (R4). Content-edit without a full container is stretch. |
+| **Mitigation (tokens — the actual cost)** | Hard cap per task: e.g. 12 tool rounds and a dollar token budget. Hit the cap → R1 circuit breaker, not another retry. Playbook-specific short prompts; do not dump the entire site-info blob every turn. Cache prompt prefixes and repeated tool results (“what’s the active theme”). Price the unit against p95 token usage, not sandbox hours. Free tier = 1 concurrent sandbox + M token-budgeted tasks (kills sandbox-farming). |
+| **Owner / where** | Sprint 1 (pause + overlay + no media copy), Sprint 3 (token budget), Phase 3 pricing (unit = task budget). |
+
+### 13.2 Risks the original table did not name
+
+The spec creates these. They are in scope for Phase 1.
+
+#### R9 — Plugin is a privileged backdoor
+
+Plugin exposes files + DB + WP-CLI. A 6-character pairing code (`[A-Z0-9]{6}`) with no stated rate limit, plus a stolen token, is site ownership.
+
+**Mitigation:** Pairing codes are 8+ characters, 5-minute TTL, 5-attempt lockout, bound to account + site URL. Tokens are hashed at rest, scoped (read vs deploy), rotatable, stored in WP encrypted with a site salt. Requests are HMAC-signed (body + timestamp) so a leaked URL is not enough. **Launch-blocking. Sprint 2.**
+
+#### R10 — Sandbox holds real customer PII
+
+A full mirror copies Woo orders, emails, form submissions, and license keys into a container with outbound internet.
+
+**Mitigation:** Default DB subset excludes orders, customers, and form entries. Redact options matching `*_key`, `*_secret`, `smtp_pass`. Egress allowlist (R2). 24-hour hard delete already helps; pin sandbox region to the user’s site region when we have it, and document retention. **Launch-blocking for subset + redact. Sprint 1.**
+
+#### R11 — Live-site drift during a session
+
+An agency or the user edits wp-admin while the sandbox is open. Deploy silently overwrites their work.
+
+**Mitigation:** On approve, re-hash the live files/options in the changeset. If they drifted, show “your live site changed since this preview — refresh preview or apply anyway.” Never silent clobber. **Sprint 6.**
+
+#### R12 — Visual-only approve misses silent damage
+
+The user never sees a diff (product principle — keep it). That is right for UX and wrong for SEO slugs, `robots`, deleted pages, and payment settings.
+
+**Mitigation:** Keep the UI visual. The agent already owes a plain-language change list (“I also removed your sidebar”). Make the no-surprise rule mechanical: block deploy on URL/slug changes, `blog_public`, payment/shipping, and user/role tables unless the user explicitly confirms that bullet. **Launch-blocking. Sprint 6.**
+
+#### R13 — Page builders, managed hosts, and security plugins
+
+Will cause more alpha failures than Grok quality. Partly covered by R6.
+
+**Mitigation:** Connect-time detection + adapters + capability tiers (R6). Alpha recruitment must include at least one Elementor site and one managed host (WP Engine / Kinsta / SiteGround), not only Twenty Twenty-Four on a VPS. **Alpha plan, Sprint 2 detect, Sprint 4–5 adapters.**
+
+#### R14 — One bad live deploy kills trust
+
+A restaurant homepage going down on a Saturday is a tweet. Trust is the moat.
+
+**Mitigation:** R3 journal + cloud snapshots + auto-rollback. First N deploys of a new account, and any theme/plugin install, take a slower “Wursor is watching this deploy” path with the stricter health contract. Dogfood on a sacrificial WordPress site before any stranger’s. **Launch-blocking process. Sprint 6 + Sprint 8 bug bash.**
+
+### 13.3 Residual ratings (if the mitigations ship)
+
+| ID | Residual impact | Launch-blocking? |
 | :--- | :--- | :--- |
-| Agent breaks the sandbox site | Medium | Sandbox is ephemeral; worst case, GC and start fresh. Live site never touched. |
-| Agent installs a malicious plugin | Medium | Plugin repo is reviewed; sandbox is isolated; no data leaks to the live site. |
-| Deploy to live site fails | High | Plugin detects failure, rolls back automatically, sandbox stays alive for retry. |
-| Mirroring a large site is slow | High | Lazy sync for media; incremental content sync; warm pool absorbs the variance. |
-| User can't describe what they want | Medium | Agent asks clarifying questions; suggests options ("Would you like a modern look or a classic look?"). |
-| Plugin compatibility (old WordPress, old PHP) | Medium | Detect at connection time; warn the user; support the top 90% of versions. |
-| Grok model quality for agentic tasks | Medium | Evaluate in Phase 0 spike; have a fallback model path (switch to Claude or GPT-4o). |
-| Sandbox cost scales with usage | Low | ~$0.02/task at v1 volume; even at 100k tasks/month, < $5k. Agent API calls are the higher cost. |
+| R1 Sandbox self-heal | Low | Circuit breaker yes; full self-heal no |
+| R2 Malicious plugin | Low if catalog + gate ship | **Yes** — tool allowlist |
+| R3 Deploy / rollback | Medium (hosts are messy) | **Yes** |
+| R4 Slow mirror | Medium (standby is Phase 2) | **Yes** — thin-slice + media proxy |
+| R5 Intent UX | Medium | Chips + starters in Sprint 8 |
+| R6 Compatibility | Medium | Matrix + tiers in Sprint 2 |
+| R7 Model quality | Medium | Harness + allowlist in Phase 0 / Sprint 3 |
+| R8 Cost | Low compute / Medium tokens | Token budget in Sprint 3 |
+| R9 Plugin auth | High if skipped | **Yes** |
+| R10 PII in sandbox | High if skipped | **Yes** — subset + redact |
+| R11 Drift | Medium | Sprint 6 |
+| R12 Silent damage | High if skipped | **Yes** — no-surprise gate |
+| R13 Builders / hosts | Medium | Alpha plan, not just code |
+| R14 Trust-ending deploy | High | Dogfood + watched first deploys |
 
 ---
 
@@ -500,10 +643,13 @@ Rollback restores the files and database from the snapshot.
 
 ### Remaining (genuinely open)
 
-1. **Free tier limits:** How many tasks per month before asking for payment? Set during Phase 3 beta.
+1. **Free tier limits:** How many token-budgeted tasks per month before asking for payment? Unit is a task budget (R8), not sandbox hours. The number itself is set during Phase 3 beta.
 2. **Pricing:** Final $X and free tier limits set during Phase 3 paid beta.
-3. **Media library handling:** Lazy sync is the plan, but large media libraries (20GB+) need specific design. Phase 1 spike.
-4. **Plugin compatibility:** Which WordPress + PHP versions are we guaranteeing? Phase 0 spike.
+
+### Locked this revision (were open in v2.0)
+
+3. **Media library handling:** Remote media proxy is the default. Sandbox nginx rewrites `/wp-content/uploads/*` to the live origin (or a signed Wursor proxy). A file is copied into the sandbox only when the agent replaces it. Full-library copy is not a v1 path, including for 20GB+ libraries. Task-scoped DB/file mirrors (R4) plus this proxy are how the 5-minute exit criterion stays honest.
+4. **Plugin compatibility:** P0 guarantee is WP 6.1+ and PHP 8.0+ for full playbooks. WP 5.8–6.0 and PHP 7.4 are **content-only** (REST edits, no theme file writes, no plugin installs). Older than that is unsupported with concierge copy to the host. Capability is tiered at connect (content-safe / design-safe / install-safe), not a binary block (R6). Page-builder detection (Elementor, Beaver, Divi, Gutenberg) is part of connect, not a later surprise.
 
 ---
 
@@ -515,7 +661,11 @@ Rollback restores the files and database from the snapshot.
 - **Plugin connector** — The WordPress plugin that connects the user's site to Wursor
 - **Mirror** — The process of copying a site's theme, plugins, content, and settings into a sandbox
 - **Deploy** — The process of applying sandbox changes to the live site
-- **Warm pool** — Pre-booted WordPress containers ready to accept a mirror, reducing spin-up time
+- **Warm pool** — Paused WordPress images plus a small number of hot spares, ready to accept a task-scoped mirror
+- **Media proxy** — Sandbox nginx rewrite of `/wp-content/uploads/*` to the live origin so previews work without copying the library
+- **Capability tier** — What Wursor can do on this site today: content-safe, design-safe, and/or install-safe
+- **Changeset journal** — Numbered list of file, option, and WP-CLI operations that deploy walks forward and rollback walks backward
+- **No-surprise gate** — Deploy blocker for slug, visibility, payment, and role changes until the user confirms that bullet
 
 ### B. P0 playbook sketches
 1. **Edit text** — parse user request → find content in DB → update → verify page loads → show preview

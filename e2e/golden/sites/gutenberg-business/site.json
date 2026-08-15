@@ -1,0 +1,45 @@
+{
+  "id": "gutenberg-business",
+  "theme": "twentytwentyfour",
+  "plugins": [{ "slug": "contact-form-7", "active": true }],
+  "wordpressVersion": "6.6.2",
+  "phpVersion": "8.2.24",
+  "options": {
+    "blogname": "Harbor Family Dental",
+    "blogdescription": "Family dentistry downtown",
+    "blog_public": "1",
+    "siteurl": "https://harbor.example",
+    "home": "https://harbor.example"
+  },
+  "posts": [
+    {
+      "id": 1,
+      "slug": "homepage",
+      "title": "Home",
+      "content": "<!-- wp:heading --><h1>Welcome to our site</h1><!-- /wp:heading --><!-- wp:paragraph --><p>Family dentistry for the neighborhood.</p><!-- /wp:paragraph -->",
+      "meta": {}
+    },
+    {
+      "id": 2,
+      "slug": "about",
+      "title": "About",
+      "content": "<!-- wp:heading --><h1>About us</h1><!-- /wp:heading --><!-- wp:paragraph --><p>We have served the harbor for 20 years.</p><!-- /wp:paragraph -->",
+      "meta": {}
+    },
+    {
+      "id": 3,
+      "slug": "contact",
+      "title": "Contact",
+      "content": "<!-- wp:heading --><h1>Get in touch</h1><!-- /wp:heading --><!-- wp:paragraph --><p>Call the front desk.</p><!-- /wp:paragraph -->",
+      "meta": {}
+    },
+    {
+      "id": 4,
+      "slug": "services",
+      "title": "Services",
+      "content": "<!-- wp:heading --><h1>Services</h1><!-- /wp:heading --><!-- wp:paragraph --><p>Cleanings, crowns, and kids visits.</p><!-- /wp:paragraph -->",
+      "meta": {}
+    }
+  ],
+  "uploads": [{ "path": "/wp-content/uploads/2024/hero.jpg", "bytes": 2400000 }]
+}

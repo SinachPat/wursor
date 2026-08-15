@@ -6,6 +6,12 @@ node_modules/
 .wp-env/
 vendor/
 dist/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+.phpunit.result.cache
 *.log
 .idea/
 .vscode/
+e2e/fixtures/large-exports/

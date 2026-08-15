@@ -10,6 +10,7 @@ Just describe what you want. Wursor does the rest.
 
 - Full product spec: [PRD.md](./PRD.md)
 - Build guide (TDD, sprints, CI): [IMPLEMENTATION.md](./IMPLEMENTATION.md)
+- Phase 0 gate: [spikes/README.md](./spikes/README.md)
 
 ## What it does
 
@@ -22,4 +23,4 @@ No code. No terminals. No wp-admin.
 
 ## Status
 
-Spec / Phase 0. Implementation has not started.
+Spec / Phase 0. Workspace folders exist. Product code waits on [spikes/](./spikes/README.md).

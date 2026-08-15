@@ -1,0 +1,67 @@
+{
+  "id": "elementor-restaurant",
+  "theme": "hello-elementor",
+  "plugins": [{ "slug": "elementor", "active": true }],
+  "wordpressVersion": "6.5.5",
+  "phpVersion": "8.1.30",
+  "options": {
+    "blogname": "Nonna Trattoria",
+    "blogdescription": "Sunday gravy, every night",
+    "blog_public": "1",
+    "siteurl": "https://nonna.example",
+    "home": "https://nonna.example"
+  },
+  "posts": [
+    {
+      "id": 10,
+      "slug": "homepage",
+      "title": "Home",
+      "content": "",
+      "meta": {
+        "_elementor_edit_mode": "builder",
+        "_elementor_data": "[{\"widgetType\":\"heading\",\"settings\":{\"title\":\"Tonight only\"}},{\"widgetType\":\"button\",\"settings\":{\"title\":\"Book now\"}}]"
+      }
+    },
+    {
+      "id": 11,
+      "slug": "menu",
+      "title": "Menu",
+      "content": "",
+      "meta": {
+        "_elementor_edit_mode": "builder",
+        "_elementor_data": "[{\"widgetType\":\"heading\",\"settings\":{\"title\":\"This week\"}}]"
+      }
+    },
+    {
+      "id": 12,
+      "slug": "about",
+      "title": "About",
+      "content": "",
+      "meta": {
+        "_elementor_edit_mode": "builder",
+        "_elementor_data": "[{\"widgetType\":\"heading\",\"settings\":{\"title\":\"Our kitchen\"}}]"
+      }
+    },
+    {
+      "id": 13,
+      "slug": "hours",
+      "title": "Hours",
+      "content": "",
+      "meta": {
+        "_elementor_edit_mode": "builder",
+        "_elementor_data": "[{\"widgetType\":\"heading\",\"settings\":{\"title\":\"Open nightly\"}},{\"widgetType\":\"text-editor\",\"settings\":{\"title\":\"Tue–Sun 5 to 10\"}}]"
+      }
+    },
+    {
+      "id": 14,
+      "slug": "location",
+      "title": "Location",
+      "content": "",
+      "meta": {
+        "_elementor_edit_mode": "builder",
+        "_elementor_data": "[{\"widgetType\":\"heading\",\"settings\":{\"title\":\"Find us\"}}]"
+      }
+    }
+  ],
+  "uploads": [{ "path": "/wp-content/uploads/2023/pasta.jpg", "bytes": 1800000 }]
+}

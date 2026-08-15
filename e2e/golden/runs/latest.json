@@ -1,0 +1,130 @@
+{
+  "fixturePassed": 20,
+  "fixtureTotal": 20,
+  "grokLive": {
+    "skipped": true,
+    "reason": "XAI_API_KEY not set"
+  },
+  "scores": [
+    {
+      "id": "gb-01",
+      "site": "gutenberg-business",
+      "passed": true,
+      "source": "fixture-tool-trace"
+    },
+    {
+      "id": "gb-02",
+      "site": "gutenberg-business",
+      "passed": true,
+      "source": "fixture-tool-trace"
+    },
+    {
+      "id": "gb-03",
+      "site": "gutenberg-business",
+      "passed": true,
+      "source": "fixture-tool-trace"
+    },
+    {
+      "id": "gb-04",
+      "site": "gutenberg-business",
+      "passed": true,
+      "source": "fixture-tool-trace"
+    },
+    {
+      "id": "gb-05",
+      "site": "gutenberg-business",
+      "passed": true,
+      "source": "fixture-tool-trace"
+    },
+    {
+      "id": "gb-06",
+      "site": "gutenberg-business",
+      "passed": true,
+      "source": "fixture-tool-trace"
+    },
+    {
+      "id": "gb-07",
+      "site": "gutenberg-business",
+      "passed": true,
+      "source": "fixture-tool-trace"
+    },
+    {
+      "id": "gb-08",
+      "site": "gutenberg-business",
+      "passed": true,
+      "source": "fixture-tool-trace"
+    },
+    {
+      "id": "gb-09",
+      "site": "gutenberg-business",
+      "passed": true,
+      "source": "fixture-tool-trace"
+    },
+    {
+      "id": "gb-10",
+      "site": "gutenberg-business",
+      "passed": true,
+      "source": "fixture-tool-trace"
+    },
+    {
+      "id": "el-01",
+      "site": "elementor-restaurant",
+      "passed": true,
+      "source": "fixture-tool-trace"
+    },
+    {
+      "id": "el-02",
+      "site": "elementor-restaurant",
+      "passed": true,
+      "source": "fixture-tool-trace"
+    },
+    {
+      "id": "el-03",
+      "site": "elementor-restaurant",
+      "passed": true,
+      "source": "fixture-tool-trace"
+    },
+    {
+      "id": "el-04",
+      "site": "elementor-restaurant",
+      "passed": true,
+      "source": "fixture-tool-trace"
+    },
+    {
+      "id": "el-05",
+      "site": "elementor-restaurant",
+      "passed": true,
+      "source": "fixture-tool-trace"
+    },
+    {
+      "id": "el-06",
+      "site": "elementor-restaurant",
+      "passed": true,
+      "source": "fixture-tool-trace"
+    },
+    {
+      "id": "el-07",
+      "site": "elementor-restaurant",
+      "passed": true,
+      "source": "fixture-tool-trace"
+    },
+    {
+      "id": "el-08",
+      "site": "elementor-restaurant",
+      "passed": true,
+      "source": "fixture-tool-trace"
+    },
+    {
+      "id": "el-09",
+      "site": "elementor-restaurant",
+      "passed": true,
+      "source": "fixture-tool-trace"
+    },
+    {
+      "id": "el-10",
+      "site": "elementor-restaurant",
+      "passed": true,
+      "source": "fixture-tool-trace"
+    }
+  ]
+}

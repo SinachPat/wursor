@@ -9,12 +9,12 @@ Non-technical WordPress site owners describe what they want; Wursor makes it hap
 ## Repo layout
 
 ```
-api/               Node.js + TypeScript API server (session manager, agent orchestrator,
-                   playbook runner, sandbox manager, deploy manager, plugin client)
-web/               React + TypeScript frontend (chat, preview, approve/reject, deploy history)
-plugin/            WordPress plugin (PHP) — the connector on the user's hosting
+api/               Node.js + TypeScript API server (empty until Phase 0 gate)
+web/               React + TypeScript frontend (empty until Phase 0 gate)
+plugin/            WordPress plugin (PHP) — empty until Phase 0 gate
 infrastructure/    Docker images, warm pool, GC, deploy scripts
-e2e/               Playwright end-to-end tests
+e2e/               Playwright + e2e/golden/ harness
+spikes/            Phase 0 written results — gate before product code
 PRD.md             Product requirements (v2.0 — non-technical-first)
 IMPLEMENTATION.md  TDD build guide with 8-sprint Phase 1 plan
 ```

@@ -1,0 +1,122 @@
+[
+  {
+    "id": "gb-01",
+    "site": "gutenberg-business",
+    "prompt": "Change the homepage heading to Welcome to My Business",
+    "assert": { "type": "preview_text", "page": "homepage", "contains": "Welcome to My Business" }
+  },
+  {
+    "id": "gb-02",
+    "site": "gutenberg-business",
+    "prompt": "Change the site title to Harbor Dental",
+    "assert": { "type": "option", "key": "blogname", "value": "Harbor Dental" }
+  },
+  {
+    "id": "gb-03",
+    "site": "gutenberg-business",
+    "prompt": "Change the About heading to About the practice",
+    "assert": { "type": "preview_text", "page": "about", "contains": "About the practice" }
+  },
+  {
+    "id": "gb-04",
+    "site": "gutenberg-business",
+    "prompt": "On the homepage, replace Family dentistry with Gentle dentistry",
+    "assert": { "type": "preview_text", "page": "homepage", "contains": "Gentle dentistry" }
+  },
+  {
+    "id": "gb-05",
+    "site": "gutenberg-business",
+    "prompt": "Hide the site from search engines",
+    "assert": { "type": "option", "key": "blog_public", "value": "0" }
+  },
+  {
+    "id": "gb-06",
+    "site": "gutenberg-business",
+    "prompt": "Change the contact page heading to Call us today",
+    "assert": { "type": "preview_text", "page": "contact", "contains": "Call us today" }
+  },
+  {
+    "id": "gb-07",
+    "site": "gutenberg-business",
+    "prompt": "Set the tagline to Dentistry for the whole family",
+    "assert": { "type": "option", "key": "blogdescription", "value": "Dentistry for the whole family" }
+  },
+  {
+    "id": "gb-08",
+    "site": "gutenberg-business",
+    "prompt": "Change the services heading to What we offer",
+    "assert": { "type": "preview_text", "page": "services", "contains": "What we offer" }
+  },
+  {
+    "id": "gb-09",
+    "site": "gutenberg-business",
+    "prompt": "Make the homepage heading Harbor Dental Home. I will check the preview.",
+    "assert": { "type": "screenshot", "page": "homepage", "contains": "Harbor Dental Home" }
+  },
+  {
+    "id": "gb-10",
+    "site": "gutenberg-business",
+    "prompt": "Change the About heading to Meet the dentist",
+    "assert": { "type": "preview_text", "page": "about", "contains": "Meet the dentist" }
+  },
+  {
+    "id": "el-01",
+    "site": "elementor-restaurant",
+    "prompt": "Change the homepage heading to Evening table available",
+    "assert": { "type": "preview_text", "page": "homepage", "contains": "Evening table available" }
+  },
+  {
+    "id": "el-02",
+    "site": "elementor-restaurant",
+    "prompt": "Change the site title to Nonna's Kitchen",
+    "assert": { "type": "option", "key": "blogname", "value": "Nonna's Kitchen" }
+  },
+  {
+    "id": "el-03",
+    "site": "elementor-restaurant",
+    "prompt": "Change the menu heading to This week's plates",
+    "assert": { "type": "preview_text", "page": "menu", "contains": "This week's plates" }
+  },
+  {
+    "id": "el-04",
+    "site": "elementor-restaurant",
+    "prompt": "On the homepage, replace Book now with Reserve a table",
+    "assert": { "type": "preview_text", "page": "homepage", "contains": "Reserve a table" }
+  },
+  {
+    "id": "el-05",
+    "site": "elementor-restaurant",
+    "prompt": "Hide the restaurant from search engines",
+    "assert": { "type": "option", "key": "blog_public", "value": "0" }
+  },
+  {
+    "id": "el-06",
+    "site": "elementor-restaurant",
+    "prompt": "Change the about heading to The family kitchen",
+    "assert": { "type": "preview_text", "page": "about", "contains": "The family kitchen" }
+  },
+  {
+    "id": "el-07",
+    "site": "elementor-restaurant",
+    "prompt": "Set the tagline to Pasta, wine, and Sunday gravy",
+    "assert": { "type": "option", "key": "blogdescription", "value": "Pasta, wine, and Sunday gravy" }
+  },
+  {
+    "id": "el-08",
+    "site": "elementor-restaurant",
+    "prompt": "Change the menu heading to Printed menu. I will look at the preview.",
+    "assert": { "type": "screenshot", "page": "menu", "contains": "Printed menu" }
+  },
+  {
+    "id": "el-09",
+    "site": "elementor-restaurant",
+    "prompt": "Change the hours heading to Open Tue through Sun",
+    "assert": { "type": "preview_text", "page": "hours", "contains": "Open Tue through Sun" }
+  },
+  {
+    "id": "el-10",
+    "site": "elementor-restaurant",
+    "prompt": "Change the location heading to 14 Harbor Street",
+    "assert": { "type": "preview_text", "page": "location", "contains": "14 Harbor Street" }
+  }
+]

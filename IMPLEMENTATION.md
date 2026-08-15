@@ -11,7 +11,8 @@
 1. [Architecture Overview](#1-architecture-overview)
 2. [Project Structure](#2-project-structure)
 3. [Build Phases](#3-build-phases)
-4. [Phase 1 — Foundation (Weeks 1–8)](#4-phase-1--foundation-weeks-18)
+4. [Phase 0 — Risk spikes (before Sprint 1)](#4-phase-0--risk-spikes-before-sprint-1)
+5. [Phase 1 — Foundation (Weeks 1–8)](#5-phase-1--foundation-weeks-18)
    - [Sprint 1: Web app scaffold + sandbox orchestration](#sprint-1)
    - [Sprint 2: WordPress plugin connector](#sprint-2)
    - [Sprint 3: Agent orchestrator + playbook runner](#sprint-3)
@@ -20,10 +21,10 @@
    - [Sprint 6: Deploy + rollback](#sprint-6)
    - [Sprint 7: Integration + exit criteria](#sprint-7)
    - [Sprint 8: Polish + alpha readiness](#sprint-8)
-5. [Phase 2 — Intelligence (Weeks 9–16)](#5-phase-2--intelligence-weeks-916)
-6. [TDD Rules](#6-tdd-rules)
-7. [CI/CD Pipeline](#7-cicd-pipeline)
-8. [Glossary](#8-glossary)
+6. [Phase 2 — Intelligence (Weeks 9–16)](#6-phase-2--intelligence-weeks-916)
+7. [TDD Rules](#7-tdd-rules)
+8. [CI/CD Pipeline](#8-cicd-pipeline)
+9. [Glossary](#9-glossary)
 
 ---
 
@@ -93,7 +94,7 @@
 **Key stack decisions:**
 - **Backend:** Node.js + TypeScript (fastest path to a working API server; the orchestration is I/O-bound, not CPU-bound)
 - **Frontend:** React + TypeScript (chat interface, preview iframe, deploy history)
-- **Sandbox:** Docker containers on VPS with pre-baked WordPress image
+- **Sandbox:** Docker containers on VPS with a read-only pre-baked WordPress image and overlayfs site layers; media is proxied, not copied
 - **Plugin:** PHP WordPress plugin (standard WordPress plugin architecture)
 - **Database:** PostgreSQL for Wursor's own data (users, sites, sessions, deploy history); MySQL inside sandboxes for WordPress
 - **Queue:** Redis for SSE streaming, task queues, and cache
@@ -124,10 +125,12 @@ wursor/
 │   │   │   ├── plugin-client.ts
 │   │   │   └── warm-pool.ts
 │   │   ├── agents/
-│   │   │   ├── grok-client.ts     # Grok API client
-│   │   │   ├── prompt-builder.ts  # System prompt per session
-│   │   │   ├── tool-schemas.ts    # Tool schemas → Grok format
-│   │   │   └── fallback.ts       # Error handling, retry
+│   │   │   ├── llm-client.ts      # Provider-agnostic LLM client (Grok adapter default)
+│   │   │   ├── grok-adapter.ts    # Grok messages + tool-calling
+│   │   │   ├── prompt-builder.ts  # System prompt per session (playbook-sliced)
+│   │   │   ├── tool-schemas.ts    # Allowlisted tool schemas only
+│   │   │   ├── circuit-breaker.ts # Two verify failures → stop
+│   │   │   └── fallback.ts       # Per-playbook fallback + retry
 │   │   ├── playbooks/
 │   │   │   ├── registry.ts        # Playbook registry
 │   │   │   ├── content.ts         # Content edit playbook
@@ -135,16 +138,20 @@ wursor/
 │   │   │   ├── plugin.ts          # Plugin install playbook
 │   │   │   └── site-build.ts      # Site build playbook (P0 limited)
 │   │   ├── sandbox/
-│   │   │   ├── docker-client.ts   # Docker API client
+│   │   │   ├── docker-client.ts   # Docker API client (overlayfs + pause)
 │   │   │   ├── image-manager.ts   # Pre-baked image management
-│   │   │   ├── mirror.ts          # Site mirroring (content, themes, plugins)
-│   │   │   ├── media-sync.ts      # Lazy media sync
-│   │   │   └── gc.ts              # Garbage collection (idle, hard timeout)
+│   │   │   ├── mirror.ts          # Task-scoped site mirroring
+│   │   │   ├── media-proxy.ts     # Origin proxy for /wp-content/uploads
+│   │   │   ├── subset.ts          # DB subset + secret redaction
+│   │   │   ├── manifest.ts        # path → sha256 delta + package cache
+│   │   │   └── gc.ts              # Pause-to-disk, idle + hard timeout
 │   │   ├── deploy/
 │   │   │   ├── diff-engine.ts     # Compare sandbox → live site
-│   │   │   ├── pusher.ts          # Push changes via plugin API
-│   │   │   ├── verifier.ts        # Verify live site after deploy
-│   │   │   └── rollback.ts        # Snapshot-based rollback
+│   │   │   ├── pusher.ts          # Two-phase prepare/commit + journal
+│   │   │   ├── verifier.ts        # Health contract (sandbox + live)
+│   │   │   ├── drift.ts           # Re-hash live site at approve time
+│   │   │   ├── no-surprise.ts     # Block slug/payment/role without confirm
+│   │   │   └── rollback.ts        # Journal walk + cloud snapshot restore
 │   │   ├── models/
 │   │   │   ├── user.ts
 │   │   │   ├── site.ts
@@ -162,20 +169,24 @@ wursor/
 │   │   │   ├── deploy-manager.test.ts
 │   │   │   └── playbook-runner.test.ts
 │   │   ├── agents/
-│   │   │   ├── grok-client.test.ts
+│   │   │   ├── llm-client.test.ts
 │   │   │   ├── prompt-builder.test.ts
-│   │   │   └── tool-schemas.test.ts
+│   │   │   ├── tool-schemas.test.ts
+│   │   │   └── circuit-breaker.test.ts
 │   │   ├── playbooks/
 │   │   │   ├── content.test.ts
 │   │   │   ├── design.test.ts
 │   │   │   └── plugin.test.ts
 │   │   ├── sandbox/
 │   │   │   ├── mirror.test.ts
-│   │   │   ├── media-sync.test.ts
+│   │   │   ├── media-proxy.test.ts
+│   │   │   ├── subset.test.ts
 │   │   │   └── gc.test.ts
 │   │   └── deploy/
 │   │       ├── diff-engine.test.ts
 │   │       ├── pusher.test.ts
+│   │       ├── drift.test.ts
+│   │       ├── no-surprise.test.ts
 │   │       └── rollback.test.ts
 │   ├── package.json
 │   └── tsconfig.json
@@ -268,9 +279,24 @@ wursor/
 
 ---
 
-## 4. Phase 1 — Foundation (Weeks 1–8)
+## 4. Phase 0 — Risk spikes (before Sprint 1)
 
-8 sprints, one per week. Every sprint produces a passing integration test.
+These are not optional research notes. They lock decisions that Sprints 1–3 will encode as tests. Do not start the web-app scaffold until the four boxes below have a written result in this repo (a `spikes/` note is enough).
+
+| Spike | Question | Done when |
+| :--- | :--- | :--- |
+| **Golden-task harness (R7)** | Can we score a model on WordPress tasks without vibes? | 20 fixture prompts against at least 2 canned WP sites. Each prompt has an assertion (preview text, option value, or screenshot). One Grok run is scored. Harness lives under `e2e/golden/` even if the runner is still a script. |
+| **Elementor detect (R6 / R13)** | How do we know what actually renders a page? | A site-info payload that reports `builder: elementor \| beaver \| divi \| gutenberg \| classic` from plugin slugs + post meta. Documented in the plugin API sketch. |
+| **Pairing threat model (R9)** | What stops a leaked URL from owning the site? | Written threat model: 8+ char code, 5-min TTL, 5-attempt lockout, HMAC request signing, hashed+scoped tokens. This becomes the Sprint 2 auth tests. |
+| **Large-site mirror timing (R4)** | Does the 5-minute exit criterion survive a real site? | Time a task-scoped content mirror + media proxy against one ≥2GB WP export (or a synthetic one). Record p50/p95. If content-edit slice is not on the page in ≤60s, the Sprint 1 slice is wrong. |
+
+Also decide, in writing, the P0 plugin catalog (~40 slugs). The agent will not be allowed to install anything else.
+
+---
+
+## 5. Phase 1 — Foundation (Weeks 1–8)
+
+8 sprints, one per week. Every sprint produces a passing integration test. Risk IDs refer to [PRD.md §13](./PRD.md).
 
 ---
 
@@ -326,8 +352,24 @@ describe('Mirror', () => {
     expect(await mirror.sandboxFileExists('/wp-content/themes/twentytwentyfour')).toBe(true);
   });
 
-  it('lazy-syncs media only when accessed', async () => {
-    // Media should not be synced during mirror, only on first access
+  it('does not copy the media library; preview is served via origin proxy', async () => {
+    const mirror = new Mirror({ sandboxId: 'sb-123' });
+    await mirror.copyTheme('twentytwentyfour');
+    expect(await mirror.sandboxFileExists('/wp-content/uploads/2024/hero.jpg')).toBe(false);
+    expect(await mirror.mediaProxyTarget('/wp-content/uploads/2024/hero.jpg')).toMatch(/^https:\/\/example.com\//);
+  });
+
+  it('copies a media file only when the agent replaces it', async () => {
+    const mirror = new Mirror({ sandboxId: 'sb-123' });
+    await mirror.stageReplacement('/wp-content/uploads/2024/hero.jpg', Buffer.from('new'));
+    expect(await mirror.sandboxFileExists('/wp-content/uploads/2024/hero.jpg')).toBe(true);
+  });
+
+  it('mirrors a content-edit slice, not orders or transients', async () => {
+    const dump = await new Mirror({ sandboxId: 'sb-123' }).exportDbSubset({ playbook: 'content', postIds: [1] });
+    expect(dump.tables).toEqual(expect.arrayContaining(['wp_posts', 'wp_postmeta', 'wp_options']));
+    expect(dump.tables).not.toEqual(expect.arrayContaining(['wp_wc_orders', 'wp_comments']));
+    expect(dump.options).not.toEqual(expect.arrayContaining([expect.stringMatching(/(_key|_secret|smtp_pass)$/)]));
   });
 });
 
@@ -350,9 +392,10 @@ describe('DockerClient', () => {
 
 // api/__tests__/sandbox/gc.test.ts
 describe('GarbageCollection', () => {
-  it('destroys sandboxes after 15 minutes of idle', async () => { /* ... */ });
+  it('pauses sandboxes to disk after 15 minutes of idle', async () => { /* ... */ });
+  it('resumes a paused sandbox in ≤ 2s', async () => { /* ... */ });
   it('destroys sandboxes after 24 hours regardless', async () => { /* ... */ });
-  it('does not destroy active sandboxes', async () => { /* ... */ });
+  it('does not pause or destroy active sandboxes', async () => { /* ... */ });
 });
 ```
 
@@ -365,16 +408,20 @@ describe('GarbageCollection', () => {
 - **`api/src/services/sandbox-manager.ts`** — Orchestrate sandbox lifecycle
 - **`api/src/sandbox/docker-client.ts`** — Docker API client (dockerode)
 - **`api/src/sandbox/image-manager.ts`** — Pre-baked image → Dockerfile
-- **`api/src/sandbox/mirror.ts`** — Site mirroring (stub plugin client)
-- **`api/src/sandbox/media-sync.ts`** — Lazy media sync (stub)
-- **`api/src/sandbox/gc.ts`** — Garbage collection (idle timeout, hard timeout)
-- **`infrastructure/docker/Dockerfile.wordpress`** — Pre-baked image
-- **`infrastructure/scripts/warm-pool.ts`** — Warm pool manager
+- **`api/src/sandbox/mirror.ts`** — Task-scoped site mirroring (stub plugin client)
+- **`api/src/sandbox/media-proxy.ts`** — Origin rewrite for `/wp-content/uploads` (no library copy)
+- **`api/src/sandbox/subset.ts`** — DB subset + `*_key` / `*_secret` / `smtp_pass` redaction (R10)
+- **`api/src/sandbox/manifest.ts`** — path→sha256 delta; wordpress.org packages from Wursor cache
+- **`api/src/sandbox/gc.ts`** — Pause-to-disk on idle; destroy on 24h hard timeout
+- **`infrastructure/docker/Dockerfile.wordpress`** — Pre-baked image (read-only base + overlayfs)
+- **`infrastructure/scripts/warm-pool.ts`** — Paused images + 1–2 hot spares, not 5–10 running
 
 #### Deliverables
 
 - Web app with sign-up and chat interface
-- Sandbox spin-up from pre-baked image
+- Sandbox spin-up from pre-baked image (overlay + pause)
+- Media proxy: preview works with zero upload copy
+- Content-edit DB subset excludes orders / secrets
 - `e2e/chat-flow.test.ts` passing (sign-up → sees chat)
 - All unit tests passing
 
@@ -394,8 +441,24 @@ class WursorAuthTest extends WP_UnitTestCase {
     public function test_generates_pairing_code() {
         $auth = new Wursor_Auth();
         $code = $auth->generate_pairing_code();
-        $this->assertEquals(6, strlen($code));
-        $this->assertMatchesRegularExpression('/^[A-Z0-9]{6}$/', $code);
+        $this->assertGreaterThanOrEqual(8, strlen($code));
+        $this->assertMatchesRegularExpression('/^[A-Z0-9]{8,}$/', $code);
+    }
+
+    public function test_pairing_code_expires_after_five_minutes() {
+        $auth = new Wursor_Auth();
+        $code = $auth->generate_pairing_code();
+        $auth->advance_clock(301);
+        $this->assertFalse($auth->redeem_pairing_code($code));
+    }
+
+    public function test_locks_out_after_five_failed_attempts() {
+        $auth = new Wursor_Auth();
+        $auth->generate_pairing_code();
+        for ($i = 0; $i < 5; $i++) {
+            $auth->redeem_pairing_code('NOPE0000');
+        }
+        $this->assertTrue($auth->is_locked_out());
     }
 
     public function test_verifies_valid_token() {
@@ -419,6 +482,9 @@ class WursorApiTest extends WP_UnitTestCase {
         $this->assertArrayHasKey('plugins', $response);
         $this->assertArrayHasKey('wordpress_version', $response);
         $this->assertArrayHasKey('php_version', $response);
+        $this->assertArrayHasKey('builder', $response);
+        $this->assertArrayHasKey('capabilities', $response);
+        $this->assertArrayHasKey('preflight', $response);
     }
 
     public function test_requires_auth() {
@@ -472,19 +538,21 @@ describe('SiteConnector', () => {
 **Step 2 — Implement**
 
 - **`plugin/wursor.php`** — Plugin header, activation hook, bootstrap
-- **`plugin/src/class-auth.php`** — Token generation, verification, pairing code
-- **`plugin/src/class-api.php`** — REST API endpoints (site-info, files, DB, WP-CLI)
-- **`plugin/src/class-site-info.php`** — Site info provider (theme, plugins, WP version, PHP version)
+- **`plugin/src/class-auth.php`** — 8+ char pairing (5-min TTL, 5-attempt lockout), hashed scoped tokens (read vs deploy), HMAC request signing (R9)
+- **`plugin/src/class-api.php`** — REST API endpoints (site-info, files, DB, WP-CLI); HMAC verified
+- **`plugin/src/class-site-info.php`** — Theme, plugins, WP/PHP version, `builder`, capability tiers, pre-flight probe (disk, `DISALLOW_FILE_MODS`, cache flush, REST alive)
 - **`plugin/src/class-admin.php`** — Admin settings page (pairing code display)
-- **`api/src/services/plugin-client.ts`** — HTTP client for the plugin API
-- **`api/src/routes/sites.ts`** — Site connection flow, pairing
+- **`api/src/services/plugin-client.ts`** — HTTP client for the plugin API (signs requests)
+- **`api/src/routes/sites.ts`** — Site connection flow, pairing, capability-tier response
 - **`web/src/components/SiteConnector.tsx`** — Pairing UI (show code, wait for connection)
-- **`web/src/pages/ConnectSite.tsx`** — Connection page
+- **`web/src/pages/ConnectSite.tsx`** — Connection page; tiered copy (“I can change text today…”) + concierge host-ticket email when PHP/WP is below the full-playbook matrix
 
 #### Deliverables
 
 - WordPress plugin with pairing and site-info API
-- Plugin client in the API server
+- Pairing is 8+ chars, TTL + lockout tested; tokens scoped and HMAC-signed
+- `builder` + `capabilities` + `preflight` on site-info
+- Content-only tier for WP 5.8–6.0 / PHP 7.4; full playbooks for WP 6.1+ / PHP 8.0+
 - Connection flow: user installs plugin → gets code → enters in Wursor → connected
 - `plugin/__tests__/test-auth.php` and `test-api.php` passing
 - `api/__tests__/services/plugin-client.test.ts` passing
@@ -501,16 +569,21 @@ describe('SiteConnector', () => {
 **Step 1 — Write the tests**
 
 ```typescript
-// api/__tests__/agents/grok-client.test.ts
-describe('GrokClient', () => {
-  it('sends a message and returns a response', async () => {
-    const client = new GrokClient({ apiKey: 'test-key' });
+// api/__tests__/agents/llm-client.test.ts
+describe('LlmClient', () => {
+  it('sends a message and returns a response via the Grok adapter', async () => {
+    const client = new LlmClient({ provider: 'grok', apiKey: 'test-key' });
     const response = await client.send('Change the homepage heading to "Hello"');
     expect(response.type).toBe('tool_call');
   });
 
+  it('switches provider with an env/config change, not a rewrite', async () => {
+    const client = new LlmClient({ provider: 'fallback', apiKey: 'test-key' });
+    expect(client.provider).toBe('fallback');
+  });
+
   it('handles API errors with a clear message', async () => {
-    const client = new GrokClient({ apiKey: 'invalid-key' });
+    const client = new LlmClient({ provider: 'grok', apiKey: 'invalid-key' });
     await expect(client.send('hello')).rejects.toThrow('API error');
   });
 
@@ -540,11 +613,32 @@ describe('PromptBuilder', () => {
 
 // api/__tests__/agents/tool-schemas.test.ts
 describe('ToolSchemas', () => {
-  it('generates tool schemas for the Grok API', () => {
+  it('generates tool schemas for the LLM provider', () => {
     const schemas = generateToolSchemas();
     expect(schemas.length).toBeGreaterThan(0);
     expect(schemas[0].name).toBe('wp_cli');
     expect(schemas[0].parameters).toBeDefined();
+  });
+
+  it('does not expose eval, config, db DROP, rm, or arbitrary plugin URLs', () => {
+    const names = generateToolSchemas().flatMap((s) => [s.name, ...(s.parameters?.enum ?? [])]);
+    expect(names.join(' ')).not.toMatch(/wp eval|wp config|DROP TABLE|wp plugin install http/);
+  });
+});
+
+// api/__tests__/agents/circuit-breaker.test.ts
+describe('CircuitBreaker', () => {
+  it('stops the agent after two consecutive verify failures', async () => {
+    const breaker = new CircuitBreaker({ maxConsecutiveFailures: 2 });
+    await breaker.recordFailure();
+    await breaker.recordFailure();
+    expect(breaker.shouldHalt()).toBe(true);
+  });
+
+  it('halts when the per-task token budget is exhausted', async () => {
+    const breaker = new CircuitBreaker({ maxToolRounds: 12, maxUsd: 0.5 });
+    breaker.recordUsage({ rounds: 12, usd: 0.1 });
+    expect(breaker.shouldHalt()).toBe(true);
   });
 });
 
@@ -594,12 +688,14 @@ describe('ChatPanel', () => {
 
 **Step 2 — Implement**
 
-- **`api/src/agents/grok-client.ts`** — Grok API client (messages API, tool use, streaming)
-- **`api/src/agents/prompt-builder.ts`** — Build system prompt per session
-- **`api/src/agents/tool-schemas.ts`** — Tool schemas → Grok format
-- **`api/src/agents/fallback.ts`** — Error handling, retry
-- **`api/src/services/agent-orchestrator.ts`** — Route requests, dispatch tools, stream results
-- **`api/src/services/playbook-runner.ts`** — Execute playbook steps in sandbox
+- **`api/src/agents/llm-client.ts`** — Provider-agnostic client; Grok is the default adapter
+- **`api/src/agents/grok-adapter.ts`** — Grok messages API, tool use, streaming
+- **`api/src/agents/prompt-builder.ts`** — Playbook-sliced system prompt (do not dump the whole site-info blob)
+- **`api/src/agents/tool-schemas.ts`** — Allowlisted tools only (R2, R7)
+- **`api/src/agents/circuit-breaker.ts`** — Two verify failures or budget cap → halt (R1, R8)
+- **`api/src/agents/fallback.ts`** — Per-playbook fallback provider + retry
+- **`api/src/services/agent-orchestrator.ts`** — Route requests, dispatch tools, stream results, enforce budget
+- **`api/src/services/playbook-runner.ts`** — Execute playbook steps in sandbox; checkpoint after each success
 - **`api/src/playbooks/registry.ts`** — Playbook registry
 - **`api/src/routes/chat.ts`** — Chat message endpoint, SSE stream
 - **`web/src/components/ChatPanel.tsx`** — Chat UI with message list, input, typing indicator
@@ -608,7 +704,9 @@ describe('ChatPanel', () => {
 #### Deliverables
 
 - Agent orchestrator routing requests to playbooks
-- Grok API client with tool-calling
+- Provider-agnostic LLM client with Grok adapter and per-playbook fallback
+- Tool allowlist: no `wp eval`, `wp config`, DROP, `rm`, or `wp plugin install <url>`
+- Circuit breaker + per-task token/round budget
 - Chat panel streaming agent responses
 - All unit tests passing
 
@@ -670,8 +768,15 @@ describe('ContentPlaybook', () => {
     expect(result.success).toBe(true);
   });
 
-  it('reverts changes on failure', async () => {
-    // If the change fails, the sandbox should be reset to the mirror state
+  it('rewinds the last checkpoint when a change fails verify, instead of nuking the sandbox', async () => {
+    const playbook = new ContentPlaybook({ sandboxId: 'sb-123' });
+    await playbook.editText({ page: 'homepage', target: 'Hello', replacement: 'World' });
+    const checkpoint = await playbook.lastCheckpoint();
+    await playbook.editText({ page: 'homepage', target: 'World', replacement: '<broken' });
+    expect(await playbook.verify()).toMatchObject({ ok: false });
+    await playbook.rewind();
+    expect(await playbook.currentCheckpoint()).toBe(checkpoint);
+    expect(await playbook.getPageContent('homepage')).toContain('World');
   });
 });
 ```
@@ -679,11 +784,12 @@ describe('ContentPlaybook', () => {
 **Step 2 — Implement**
 
 - **`api/src/playbooks/content.ts`** — Content playbook with tool calls
-  - `editText`: search DB for content → wp-cli `wp post update` or direct DB update
-  - `editHeading`: find heading in page HTML → update via WP-CLI or file edit
-  - `replaceImage`: upload new image → replace in content → verify
-  - `addSection`: create new content block → add to page → verify
-- Each method uses the plugin client to execute WP-CLI commands or file operations in the sandbox
+  - `editText`: search DB for content → `wp post update` or REST. **No theme PHP edits for copy changes (R1).**
+  - `editHeading`: find heading via builder adapter (Gutenberg / Elementor / Classic) → update via REST or that builder's store
+  - `replaceImage`: upload new image → replace in content → verify (this is the one case that copies a media file into the sandbox)
+  - `addSection`: create new content block via the detected builder adapter → add to page → verify
+- Each successful step writes a copy-on-write checkpoint
+- Verify (health contract) runs after every step; failure rewinds one checkpoint
 - After each change, the playbook triggers a preview refresh
 
 #### Deliverables
@@ -749,10 +855,11 @@ describe('DesignPlaybook', () => {
 
 - **`api/src/playbooks/design.ts`** — Design playbook
   - `changeTheme`: install theme via WP-CLI → activate → verify
-  - `changeLayout`: modify theme templates or page builder content → verify
+  - `changeLayout`: modify theme templates **or the detected builder adapter** (Elementor JSON / Gutenberg blocks / Classic HTML) → verify. Editing the wrong store is a failed test (R6, R13).
   - `updateColors`: update theme.json → regenerate CSS → verify
   - `updateTypography`: update theme.json → verify
   - `fixMobileLayout`: identify responsive CSS issues → fix → verify
+  - Deploy lints any written PHP against the live site's declared PHP version
 
 #### Deliverables
 
@@ -817,8 +924,26 @@ describe('Pusher', () => {
     expect(result.success).toBe(true);
   });
 
-  it('handles partial failures', async () => {
-    // If some files fail but others succeed, what happens? Roll back the batch.
+  it('prepare-fails without touching the live site', async () => {
+    const pusher = new Pusher({ siteUrl: 'https://example.com', token: 'valid-token' });
+    pusher.failNextPrepare();
+    const result = await pusher.push({ files: [{ path: '/wp-content/themes/twentytwentyfour/style.css', content: '...' }] });
+    expect(result.success).toBe(false);
+    expect(result.liveTouched).toBe(false);
+  });
+
+  it('rolls back the journal when commit is partial', async () => {
+    const pusher = new Pusher({ siteUrl: 'https://example.com', token: 'valid-token' });
+    pusher.failOnJournalEntry(2);
+    const result = await pusher.push({
+      files: [
+        { path: '/wp-content/themes/twentytwentyfour/style.css', content: 'a' },
+        { path: '/wp-content/themes/twentytwentyfour/theme.json', content: 'b' },
+      ],
+    });
+    expect(result.success).toBe(false);
+    expect(result.rolledBack).toBe(true);
+    expect(await pusher.liveFile('/wp-content/themes/twentytwentyfour/style.css')).not.toBe('a');
   });
 });
 
@@ -840,6 +965,39 @@ describe('Verifier', () => {
     const verifier = new Verifier({ siteUrl: 'https://example.com' });
     const result = await verifier.checkAdmin();
     expect(result.status).toBe(200);
+  });
+
+  it('fails when siteurl/home drifted from intent', async () => {
+    const verifier = new Verifier({ siteUrl: 'https://example.com', intent: { home: 'https://example.com' } });
+    await verifier.injectOption('home', 'https://evil.example');
+    const result = await verifier.checkIntent();
+    expect(result.ok).toBe(false);
+  });
+
+  it('fails a 200 homepage whose screenshot diverges from the sandbox', async () => {
+    const verifier = new Verifier({ siteUrl: 'https://example.com', sandboxUrl: 'http://sb-123.wursor.dev' });
+    const result = await verifier.checkScreenshotSsim();
+    expect(result.ssim).toBeGreaterThan(0.9);
+  });
+});
+
+// api/__tests__/deploy/drift.test.ts
+describe('Drift', () => {
+  it('asks before deploy when the live site changed since the preview', async () => {
+    const drift = new DriftChecker({ siteUrl: 'https://example.com', token: 'valid-token' });
+    const verdict = await drift.compare(changesetTakenAtPreview);
+    expect(verdict.drifted).toBe(true);
+    expect(verdict.action).toBe('confirm');
+  });
+});
+
+// api/__tests__/deploy/no-surprise.test.ts
+describe('NoSurprise', () => {
+  it('blocks slug, blog_public, payment, and role changes without an explicit confirm bullet', async () => {
+    const gate = new NoSurpriseGate();
+    const blocked = gate.review({ changedOptions: ['permalink_structure'], confirmed: [] });
+    expect(blocked.ok).toBe(false);
+    expect(blocked.bullets).toContain('permalink_structure');
   });
 });
 
@@ -906,22 +1064,28 @@ describe('ApproveBar', () => {
 
 **Step 2 — Implement**
 
-- **`plugin/src/class-deploy.php`** — Deploy receiver (file write, DB write, WP-CLI exec, snapshot)
-- **`plugin/src/class-rollback.php`** — Snapshot-based rollback (files + DB)
+- **`plugin/src/class-deploy.php`** — Two-phase prepare/commit, journaled file/DB/WP-CLI, maintenance mode for the commit window
+- **`plugin/src/class-rollback.php`** — Journal walk-back + snapshot restore
 - **`api/src/deploy/diff-engine.ts`** — Compare sandbox → live site
-- **`api/src/deploy/pusher.ts`** — Push changes via plugin API
-- **`api/src/deploy/verifier.ts`** — Verify live site after deploy
-- **`api/src/deploy/rollback.ts`** — Snapshot-based rollback
-- **`api/src/routes/deploy.ts`** — Approve, deploy, rollback endpoints
-- **`web/src/components/ApproveBar.tsx`** — Approve/reject buttons, confirmation dialog
+- **`api/src/deploy/pusher.ts`** — Prepare then commit; never leave a partial live site
+- **`api/src/deploy/verifier.ts`** — Health contract on sandbox *and* live (R1, R3)
+- **`api/src/deploy/drift.ts`** — Re-hash live site at approve time (R11)
+- **`api/src/deploy/no-surprise.ts`** — Block slug / `blog_public` / payment / role without confirm (R12)
+- **`api/src/deploy/rollback.ts`** — Journal + last-3 cloud snapshots (Undo works if the site is down)
+- **`api/src/routes/deploy.ts`** — Approve, deploy, rollback; first-N-deploys “watched” path (R14)
+- **`web/src/components/ApproveBar.tsx`** — Approve/reject, confirmation, no-surprise bullets, drift prompt
 - **`web/src/components/DeployTimeline.tsx`** — Deploy history with one-click undo
 - **`web/src/hooks/useDeploy.ts`** — Deploy state, polling
 
 #### Deliverables
 
-- Deploy + rollback for files, DB, and plugins
+- Two-phase deploy + journaled rollback for files, DB, and plugins
+- Cloud copies of the last 3 snapshots
+- Drift check and no-surprise gate on approve
+- Health contract richer than HTTP 200
 - Approve/reject UI with confirmation dialog
 - Deploy history timeline with one-click undo
+- `handles partial failures` is a real test, not a comment
 - All unit tests passing
 
 ---
@@ -948,7 +1112,7 @@ test('new user connects site, makes a content change, previews, approves in ≤5
 
   // 2. Connect site (simulated plugin)
   await expect(page.locator('.wursor-connect-site')).toBeVisible();
-  await page.locator('.wursor-pairing-code-input').fill('ABC123');
+  await page.locator('.wursor-pairing-code-input').fill('ABCD1234');
   await page.locator('.wursor-connect-button').click();
   await expect(page.locator('.wursor-connected')).toBeVisible({ timeout: 10000 });
 
@@ -984,39 +1148,47 @@ test('new user connects site, makes a content change, previews, approves in ≤5
 #### Tasks
 
 - **Error states** — Wire each state from §8.5 into the UI
+- **Intent chips (R5)** — Empty state: “Change wording” / “New look” / “Add a form” / “Something’s broken”
+- **Site-aware starters (R5)** — After connect, offer three specific sentences from the site scan (default H1, missing favicon, no contact page)
+- **Structured reject (R5)** — Chips: “Wrong color” / “Too busy” / “Keep my logo” / “Undo only the last thing”
+- **Point-and-talk spike** — Click in the preview → selector attached to the next chat turn
 - **Mobile responsive** — Chat collapses to full-screen on mobile, preview opens in new tab
 - **Email auth** — Magic link or password reset flow
 - **Plugin auto-update** — Plugin checks for updates from Wursor
 - **Telemetry** — Minimal events (sign-up, connect, task start, task approve, task reject, deploy) with consent dialog
+- **Watched first deploys (R14)** — First N deploys of a new account use the stricter health contract
 - **Documentation** — `README.md` with install instructions and quickstart
-- **Bug bash** — Internal team runs through the full flow
+- **Bug bash** — Internal team runs through the full flow on a sacrificial WordPress site before any stranger’s
 
 #### Deliverables
 
 - Web app deployed to staging
 - Plugin packaged for WordPress plugin repo
 - Error states all wired
+- Intent chips, starters, and structured reject live
 - Minimal telemetry with consent
 - `README.md` updated for alpha users
 
 ---
 
-## 5. Phase 2 — Intelligence (Weeks 9–16)
+## 6. Phase 2 — Intelligence (Weeks 9–16)
 
 | Sprint | Focus | Files |
 |--------|-------|-------|
-| 9 | Plugin playbook (install, configure, fix conflicts) | `api/src/playbooks/plugin.ts` |
+| 9 | Plugin playbook (catalog only, reputation gate, egress watch, configure, fix conflicts) | `api/src/playbooks/plugin.ts`, `api/src/playbooks/catalog.ts` |
 | 10 | Site build playbook (from scratch, limited) | `api/src/playbooks/site-build.ts` |
 | 11 | Mobile-responsive preview | `web/src/components/Preview.tsx` |
 | 12 | Agent clarifying questions | `api/src/services/agent-orchestrator.ts` |
-| 13 | Visual design picker (theme gallery) | `api/src/playbooks/design.ts`, `web/src/components/DesignPicker.tsx` |
+| 13 | Visual design picker (theme gallery); pull fork-and-pick forward if Sprint 8 reject rate is high | `api/src/playbooks/design.ts`, `web/src/components/DesignPicker.tsx` |
 | 14 | Multi-step workflows (queue changes) | `api/src/services/playbook-runner.ts` |
-| 15 | Closed alpha with 10–20 users | Telemetry review, baselines |
+| 15 | Closed alpha with 10–20 users — must include ≥1 Elementor site and ≥1 managed host (R13). Standby replica spike if mirror p95 missed the 5-min exit. | Telemetry review, baselines |
 | 16 | Alpha feedback → Phase 2 exit review | All §11 baselines collected |
+
+Sprint 9 acceptance (R2): agent can install only from the ~40-slug catalog; reputation gate fails closed; unexpected sandbox egress aborts the install; deploy re-checks reputation even after approve. `wp plugin install <url>` remains absent from the tool schema.
 
 ---
 
-## 6. TDD Rules
+## 7. TDD Rules
 
 1. **Write the test first.** No implementation code is written without a failing test.
 2. **One assertion per test.** Each test verifies exactly one behavior.
@@ -1028,7 +1200,7 @@ test('new user connects site, makes a content change, previews, approves in ≤5
 
 ---
 
-## 7. CI/CD Pipeline
+## 8. CI/CD Pipeline
 
 ```yaml
 # .github/workflows/ci.yml — runs on every PR
@@ -1090,7 +1262,7 @@ jobs:
 
 ---
 
-## 8. Glossary
+## 9. Glossary
 
 | Term | Definition |
 |------|------------|
@@ -1099,7 +1271,11 @@ jobs:
 | **Plugin connector** | The WordPress plugin that connects the user's site to Wursor |
 | **Mirror** | The process of copying a site's theme, plugins, content, and settings into a sandbox |
 | **Deploy** | The process of applying sandbox changes to the live site |
-| **Warm pool** | Pre-booted WordPress containers ready to accept a mirror |
+| **Warm pool** | Paused WordPress images plus a small number of hot spares, ready to accept a task-scoped mirror |
+| **Media proxy** | Sandbox nginx rewrite of `/wp-content/uploads/*` to the live origin |
+| **Capability tier** | content-safe / design-safe / install-safe, computed at connect |
+| **Changeset journal** | Numbered deploy operations; rollback walks them backwards |
+| **No-surprise gate** | Blocks slug / visibility / payment / role deploys without an explicit confirm |
 | **SSE** | Server-Sent Events — the protocol used to stream agent responses to the frontend |
 
 ---

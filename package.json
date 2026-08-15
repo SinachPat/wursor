@@ -1,0 +1,15 @@
+{
+  "name": "wursor",
+  "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "pnpm -r --if-present test",
+    "test:api": "pnpm --filter @wursor/api test",
+    "test:web": "pnpm --filter @wursor/web test",
+    "test:e2e": "pnpm --filter @wursor/e2e test",
+    "lint": "pnpm -r --if-present lint"
+  }
+}
