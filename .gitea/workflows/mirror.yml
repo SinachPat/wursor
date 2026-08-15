@@ -1,0 +1,22 @@
+name: Mirror to GitHub
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: mirror
+  cancel-in-progress: true
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Reconcile with GitHub
+        run: bash scripts/mirror.sh
+        env:
+          MIRROR_URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/SinachPat/wursor.git
