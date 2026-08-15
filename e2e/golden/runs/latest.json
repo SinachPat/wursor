@@ -2,8 +2,8 @@
   "fixturePassed": 20,
   "fixtureTotal": 20,
   "grokLive": {
-    "skipped": true,
-    "reason": "XAI_API_KEY not set"
+    "id": "gb-01",
+    "passed": true
   },
   "scores": [
     {

@@ -1,21 +1,47 @@
 import type { GrokResponse } from './types.ts';
 
-const url = 'https://api.x.ai/v1/chat/completions';
+export type LlmProvider = 'grok' | 'openrouter';
 
-export async function callGrok(input: {
+export type LlmConfig = {
+  baseUrl: string;
+  model: string;
+};
+
+const PROVIDERS: Record<LlmProvider, LlmConfig> = {
+  grok: { baseUrl: 'https://api.x.ai/v1', model: 'grok-3' },
+  openrouter: { baseUrl: 'https://openrouter.ai/api/v1', model: 'x-ai/grok-4.6' },
+};
+
+export function resolveProvider(provider: LlmProvider, model?: string): LlmConfig {
+  const config = PROVIDERS[provider];
+  return { baseUrl: config.baseUrl, model: model ?? config.model };
+}
+
+export async function callLlm(input: {
+  provider: LlmProvider;
   apiKey: string;
+  model?: string;
   prompt: string;
   siteId: string;
   builder: string;
+  pages?: string[];
 }): Promise<GrokResponse> {
-  const response = await fetch(url, {
+  const { baseUrl, model } = resolveProvider(input.provider, input.model);
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${input.apiKey}`,
+    'Content-Type': 'application/json',
+  };
+  if (input.provider === 'openrouter') {
+    headers['HTTP-Referer'] = 'https://wursor.dev';
+    headers['X-Title'] = 'Wursor golden harness';
+  }
+
+  const response = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${input.apiKey}`,
-      'Content-Type': 'application/json',
-    },
+    headers,
     body: JSON.stringify({
-      model: 'grok-3',
+      model,
       messages: [
         {
           role: 'system',
@@ -24,7 +50,7 @@ export async function callGrok(input: {
         },
         {
           role: 'user',
-          content: `site=${input.siteId} builder=${input.builder}\n${input.prompt}`,
+          content: `site=${input.siteId} builder=${input.builder}${input.pages ? ` pages=${input.pages.join(',')}` : ''}\n${input.prompt}`,
         },
       ],
       tools: [
@@ -71,7 +97,7 @@ export async function callGrok(input: {
   });
 
   if (!response.ok) {
-    throw new Error(`Grok HTTP ${response.status}`);
+    throw new Error(`LLM HTTP ${response.status}`);
   }
   return (await response.json()) as GrokResponse;
 }

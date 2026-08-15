@@ -23,6 +23,7 @@ Each ADR is a single file following the [Nygard format](https://cognitect.com/bl
 | [0007](0007-media-proxy-not-copy.md) | Sandboxes proxy uploads; never copy the media library | Accepted |
 | [0008](0008-empty-packages-not-stubs.md) | Workspace ships empty packages, not placeholder source | Accepted |
 | [0009](0009-repo-rename.md) | Repository renamed originmain → wursor | Accepted |
+| [0010](0010-openrouter-live-golden.md) | Golden harness scores live runs through a provider-agnostic LLM client (OpenRouter first) | Accepted |
 
 ## How to add one
 

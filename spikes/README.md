@@ -6,7 +6,7 @@ Throwaway fixtures and scripts are allowed. Product UI is not.
 
 | Spike | File | Status |
 |---|---|---|
-| Golden-task harness (R7) | [golden-task.md](./golden-task.md) | partial — live Grok pending key |
+| Golden-task harness (R7) | [golden-task.md](./golden-task.md) | done — live run scored via OpenRouter |
 | Builder detect (R6 / R13) | [builder-detect.md](./builder-detect.md) | done |
 | Pairing threat model (R9) | [pairing-threat-model.md](./pairing-threat-model.md) | done |
 | Large-site mirror timing (R4) | [mirror-timing.md](./mirror-timing.md) | done — synthetic 2GB |

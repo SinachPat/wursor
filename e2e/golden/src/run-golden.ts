@@ -3,15 +3,19 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { detectBuilder } from './builder-detect.ts';
 import { asGrokResponse, expectedCalls } from './expected-calls.ts';
-import { callGrok } from './grok-client.ts';
+import { callLlm, type LlmProvider } from './llm-client.ts';
 import { loadPrompts } from './load-prompts.ts';
 import { loadSite } from './load-site.ts';
 import { scoreGrokResponse } from './score.ts';
 
 const goldenRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
+function provider(): LlmProvider {
+  return process.env.LLM_PROVIDER === 'openrouter' ? 'openrouter' : 'grok';
+}
+
 function key(): string | undefined {
-  const value = process.env.XAI_API_KEY;
+  const value = provider() === 'openrouter' ? process.env.OPENROUTER_API_KEY : process.env.XAI_API_KEY;
   return value !== undefined && value !== '' ? value : undefined;
 }
 
@@ -39,11 +43,14 @@ if (apiKey !== undefined) {
   }
   const site = loadSite(prompt.site);
   try {
-    const grok = await callGrok({
+    const grok = await callLlm({
+      provider: provider(),
       apiKey,
+      model: provider() === 'openrouter' ? process.env.OPENROUTER_MODEL : undefined,
       prompt: prompt.prompt,
       siteId: site.id,
       builder: detectBuilder(site),
+      pages: site.posts.map((post) => post.slug),
     });
     grokLive = {
       id: prompt.id,
@@ -57,7 +64,10 @@ if (apiKey !== undefined) {
 const report = {
   fixturePassed: fixtureScores.filter((row) => row.passed).length,
   fixtureTotal: fixtureScores.length,
-  grokLive: grokLive ?? { skipped: true, reason: 'XAI_API_KEY not set' },
+  grokLive: grokLive ?? {
+    skipped: true,
+    reason: provider() === 'openrouter' ? 'OPENROUTER_API_KEY not set' : 'XAI_API_KEY not set',
+  },
   scores: fixtureScores,
 };
 
