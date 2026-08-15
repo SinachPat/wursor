@@ -15,8 +15,10 @@ plugin/            WordPress plugin (PHP) — empty until Phase 0 gate
 infrastructure/    Docker images, warm pool, GC, deploy scripts
 e2e/               Playwright + e2e/golden/ harness
 spikes/            Phase 0 written results — gate before product code
+docs/decisions/    Architecture Decision Records (0001–…)
 PRD.md             Product requirements (v2.0 — non-technical-first)
 IMPLEMENTATION.md  TDD build guide with 8-sprint Phase 1 plan
+CHANGELOG.md       Keep-a-Changelog log of changes
 ```
 
 ## Skill routing — use the precheck first

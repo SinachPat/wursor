@@ -11,6 +11,8 @@ Just describe what you want. Wursor does the rest.
 - Full product spec: [PRD.md](./PRD.md)
 - Build guide (TDD, sprints, CI): [IMPLEMENTATION.md](./IMPLEMENTATION.md)
 - Phase 0 gate: [spikes/README.md](./spikes/README.md)
+- Decisions: [docs/decisions/](./docs/decisions/)
+- Changelog: [CHANGELOG.md](./CHANGELOG.md)
 
 ## What it does
 
