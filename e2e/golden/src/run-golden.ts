@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { loadEnvFile } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { detectBuilder } from './builder-detect.ts';
 import { asGrokResponse, expectedCalls } from './expected-calls.ts';
@@ -9,6 +10,13 @@ import { loadSite } from './load-site.ts';
 import { scoreGrokResponse } from './score.ts';
 
 const goldenRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
+const repoRoot = join(goldenRoot, '..', '..');
+
+try {
+  loadEnvFile(join(repoRoot, '.env'));
+} catch {
+  // no .env at repo root — live run will skip
+}
 
 function provider(): LlmProvider {
   return process.env.LLM_PROVIDER === 'openrouter' ? 'openrouter' : 'grok';
