@@ -19,4 +19,4 @@ jobs:
       - name: Reconcile with Gitea
         run: bash scripts/mirror.sh
         env:
-          MIRROR_URL: https://x-access-token:${{ secrets.GITEA_TOKEN }}@git.weown.tools/Wursor/s004.git
+          MIRROR_URL: https://x-access-token:${{ secrets.GITEA_TOKEN }}@git.weown.tools/pat/wursor.git
